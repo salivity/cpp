@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Literal Types and Compile-Time Constraints - cpp</title>
+    <meta name="description" content="In modern C++, literal types form the foundational category of data types that can be created, manipulated, and evaluated at compile time. This article breaks down what defines a literal type under the C++ standard, examines the structural requirements fo">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-literal-types-and-compile-time-constraints">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Literal Types and Compile-Time Constraints - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-literal-types-and-compile-time-constraints" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, literal types form the foundational category of data types that can be created, manipulated, and evaluated at compile time. This article breaks down what defines a literal type under the C++ standard, examines the structural requirements fo" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-literal-types-and-compile-time-constraints">C++ Literal Types
+and Compile-Time Constraints</h1>
+<p>In modern C++, literal types form the foundational category of data
+types that can be created, manipulated, and evaluated at compile time.
+This article breaks down what defines a literal type under the C++
+standard, examines the structural requirements for classes to qualify as
+literal types, and explores the operational constraints they face during
+constant evaluation in <code>constexpr</code> and <code>consteval</code>
+contexts.</p>
+<h3 id="what-is-a-literal-type">What Is a Literal Type?</h3>
+<p>A literal type is any type whose layout and state can be fully
+determined and handled by the compiler during translation. Literal types
+are the only types that can be used to declare <code>constexpr</code>
+variables, serve as non-type template parameters (NTTPs), or be passed
+to and returned from <code>constexpr</code> functions evaluated at
+compile time.</p>
+<p>According to the C++ standard, a type is a literal type if it belongs
+to one of the following categories:</p>
+<ul>
+<li><strong>Scalar types:</strong> Arithmetic types (integers,
+floating-point numbers), enumerations, pointer types, pointer-to-member
+types, and <code>std::nullptr_t</code>.</li>
+<li><strong>Reference types:</strong> Any lvalue or rvalue reference to
+a literal type.</li>
+<li><strong>Array types:</strong> An array whose element type is a
+literal type.</li>
+<li><strong>Literal class types:</strong> Classes, structs, or unions
+that satisfy specific structural constraints.</li>
+<li><strong><code>void</code>:</strong> (in certain contexts such as
+return types of <code>constexpr</code> functions).</li>
+</ul>
+<h3 id="structural-requirements-for-literal-classes">Structural
+Requirements for Literal Classes</h3>
+<p>For a user-defined class, struct, or union to be recognized as a
+literal type, it must meet several strict structural prerequisites:</p>
+<ol type="1">
+<li><strong>Destructor:</strong> It must have a trivial destructor, or,
+since C++20, a <code>constexpr</code> destructor.</li>
+<li><strong>Constructors:</strong> It must be an aggregate type, or it
+must possess at least one <code>constexpr</code> constructor that is not
+a copy or move constructor.</li>
+<li><strong>Members and Base Classes:</strong> All non-static data
+members and base classes must be non-volatile literal types.</li>
+<li><strong>Union Membership:</strong> If it is a union, it must have at
+least one non-static data member of non-volatile literal type. If it is
+a non-union class containing an anonymous union, that union's members
+must also be non-volatile literal types.</li>
+</ol>
+<h3 id="compile-time-constraints">Compile-Time Constraints</h3>
+<p>While literal types enable powerful compile-time computations, their
+use within constant expressions (<code>constexpr</code>,
+<code>consteval</code>, and NTTPs) is strictly bounded by language
+constraints to ensure deterministic, reproducible builds without side
+effects on the host compiler.</p>
+<h4 id="1-absence-of-undefined-behavior">1. Absence of Undefined
+Behavior</h4>
+<p>Any operation that would cause undefined behavior (UB) at runtime
+immediately halts compilation with an error. This includes:</p>
+<ul>
+<li>Accessing uninitialized memory or out-of-bounds array indices.</li>
+<li>Signed integer overflow.</li>
+<li>Null pointer dereferences.</li>
+<li>Division by zero.</li>
+</ul>
+<h4 id="2-restrictions-on-type-casting">2. Restrictions on Type
+Casting</h4>
+<p>Type punning and non-type-safe conversions are prohibited during
+compile-time evaluation. <code>reinterpret_cast</code> is strictly
+forbidden. C-style casts that resolve to a <code>reinterpret_cast</code>
+are also illegal. Downcasting via <code>static_cast</code> or
+<code>dynamic_cast</code> is limited to valid polymorphic hierarchies
+(supported since C++20) where the complete dynamic type is known.</p>
+<h4 id="3-transient-dynamic-allocation">3. Transient Dynamic
+Allocation</h4>
+<p>Since C++20, dynamic memory allocation (<code>new</code> and
+<code>delete</code>, along with containers like <code>std::vector</code>
+and <code>std::string</code>) is permitted in compile-time contexts.
+However, all allocated memory must be deallocated before the constant
+expression finishes evaluation. Memory cannot leak into the runtime
+binary; non-transient allocations cause a compilation failure.</p>
+<h4 id="4-io-and-external-state">4. I/O and External State</h4>
+<p>Compile-time execution cannot interact with the operating system or
+host environment. File input/output, network sockets, system calls,
+inline assembly, and volatile memory access are strictly prohibited
+within literal evaluations.</p>
+<h4 id="5-concurrency-and-synchronization">5. Concurrency and
+Synchronization</h4>
+<p>Literal evaluation is single-threaded from the perspective of the
+language semantics. Spawning threads, using synchronization primitives
+(<code>std::mutex</code>, <code>std::atomic</code>), or invoking
+thread-local variables that are not initialized at compile time are
+disallowed.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

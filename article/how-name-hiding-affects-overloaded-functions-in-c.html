@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Name Hiding Affects Overloaded Functions in C++ - cpp</title>
+    <meta name="description" content="In C++, declaring a member function in a derived class hides all functions with the identical name in the base class, regardless of their parameter types, return types, or const-qualification. This article explains how C++ name lookup rules cause base cla">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-name-hiding-affects-overloaded-functions-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Name Hiding Affects Overloaded Functions in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-name-hiding-affects-overloaded-functions-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, declaring a member function in a derived class hides all functions with the identical name in the base class, regardless of their parameter types, return types, or const-qualification. This article explains how C++ name lookup rules cause base cla" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-name-hiding-affects-overloaded-functions-in-c">How Name
+Hiding Affects Overloaded Functions in C++</h1>
+<p>In C++, declaring a member function in a derived class hides all
+functions with the identical name in the base class, regardless of their
+parameter types, return types, or const-qualification. This article
+explains how C++ name lookup rules cause base class overloads to
+disappear from candidate sets during compilation, the errors this
+behavior produces, and the standard techniques used to restore base
+class overloads into derived scope.</p>
+<h2 id="the-mechanism-name-lookup-precedes-overload-resolution">The
+Mechanism: Name Lookup Precedes Overload Resolution</h2>
+<p>To understand name hiding, it is necessary to examine how the C++
+compiler processes a function call. The compilation process separates
+name lookup from overload resolution:</p>
+<ol type="1">
+<li><strong>Name Lookup:</strong> The compiler searches scopes starting
+from the local scope and moves outward. When resolving a member function
+on a derived class instance, it first inspects the derived class's
+scope.</li>
+<li><strong>Scope Termination:</strong> As soon as the compiler finds at
+least one declaration matching the requested function name in the
+current scope, the lookup stops immediately. It does not continue
+searching enclosing scopes, such as base classes.</li>
+<li><strong>Overload Resolution:</strong> Overload resolution occurs
+<em>only</em> among the functions found during the name lookup
+phase.</li>
+</ol>
+<p>Because the search halts at the derived class boundary, any function
+with the same name declared in a base class is omitted from the overload
+candidate set.</p>
+<h2 id="demonstrating-name-hiding">Demonstrating Name Hiding</h2>
+<p>Consider the following scenario where a base class provides multiple
+overloads for handling different data types:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Base <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> display<span class="op">(</span><span class="dt">int</span> value<span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> display<span class="op">(</span><span class="dt">double</span> value<span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base <span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> display<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> text<span class="op">);</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>When invoking <code>display</code> through an instance of
+<code>Derived</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Derived d<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>d<span class="op">.</span>display<span class="op">(</span><span class="st">&quot;Hello&quot;</span><span class="op">);</span> <span class="co">// Compiles successfully: Derived::display(const std::string&amp;)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>d<span class="op">.</span>display<span class="op">(</span><span class="dv">42</span><span class="op">);</span>      <span class="co">// Compilation error: No matching function for call to &#39;Derived::display(int)&#39;</span></span></code></pre></div>
+<p>The call <code>d.display(42)</code> fails to compile. The compiler
+does not fall back to <code>Base::display(int)</code> because name
+lookup finds <code>Derived::display(const std::string&amp;)</code> and
+stops. Overload resolution then attempts to match the integer argument
+<code>42</code> against the single candidate
+<code>display(const std::string&amp;)</code>, which cannot accept an
+integer without a valid conversion.</p>
+<h2 id="impact-on-virtual-functions">Impact on Virtual Functions</h2>
+<p>Name hiding also affects virtual functions. If a base class contains
+several overloads of a virtual function and a derived class overrides
+only one of them, the non-overridden overloads become hidden from the
+derived class interface.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Base <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> process<span class="op">();</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> process<span class="op">(</span><span class="dt">int</span> x<span class="op">);</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> process<span class="op">()</span> <span class="kw">override</span><span class="op">;</span> <span class="co">// Hides Base::process(int)</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Calling <code>d.process(10)</code> on a <code>Derived</code> instance
+will fail to compile for the same reason:
+<code>Base::process(int)</code> is hidden by
+<code>Derived::process()</code>.</p>
+<h2 id="solutions-to-name-hiding">Solutions to Name Hiding</h2>
+<p>There are two primary ways to resolve name hiding depending on the
+context:</p>
+<h3 id="1-the-using-declaration">1. The <code>using</code>
+Declaration</h3>
+<p>The standard way to unhide base class functions is to introduce them
+into the derived class scope using the <code>using</code> keyword. This
+makes all overloads from the base class available for overload
+resolution alongside the derived class's own declarations.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> Base<span class="op">::</span>display<span class="op">;</span> <span class="co">// Brings Base::display(int) and Base::display(double) into scope</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> display<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> text<span class="op">);</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>With this declaration, <code>d.display(42)</code> compiles without
+issue because the compiler treats all three overloads as members of
+<code>Derived</code> during overload resolution.</p>
+<h3 id="2-explicit-scope-resolution">2. Explicit Scope Resolution</h3>
+<p>If modifying the derived class definition is not possible or desired,
+the caller can bypass derived class name lookup by qualifying the
+function call with the base class name:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Derived d<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>d<span class="op">.</span>Base<span class="op">::</span>display<span class="op">(</span><span class="dv">42</span><span class="op">);</span> <span class="co">// Explicitly calls Base::display(int)</span></span></code></pre></div>
+<p>This syntax disables dynamic dispatch if used on virtual functions,
+but it directly directs the compiler to look in <code>Base</code> for
+the identifier, resolving the hidden overload issue at the call
+site.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

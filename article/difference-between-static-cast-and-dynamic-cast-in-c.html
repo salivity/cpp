@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Difference Between static_cast and dynamic_cast in C++ - cpp</title>
+    <meta name="description" content="In C++, staticcast and dynamiccast are type-casting operators designed to handle conversions between different data types, but they operate under fundamentally different mechanisms and safety guarantees. The core functional difference lies in when the cas">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/difference-between-static-cast-and-dynamic-cast-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Difference Between static_cast and dynamic_cast in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/difference-between-static-cast-and-dynamic-cast-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, staticcast and dynamiccast are type-casting operators designed to handle conversions between different data types, but they operate under fundamentally different mechanisms and safety guarantees. The core functional difference lies in when the cas" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="difference-between-static_cast-and-dynamic_cast-in-c">Difference
+Between static_cast and dynamic_cast in C++</h1>
+<p>In C++, <code>static_cast</code> and <code>dynamic_cast</code> are
+type-casting operators designed to handle conversions between different
+data types, but they operate under fundamentally different mechanisms
+and safety guarantees. The core functional difference lies in when the
+cast is evaluated: <code>static_cast</code> resolves conversions at
+compile time without runtime safety checks, whereas
+<code>dynamic_cast</code> relies on Run-Time Type Information (RTTI) to
+verify conversions during program execution, specifically within
+polymorphic inheritance hierarchies.</p>
+<h3 id="evaluation-time-and-overhead">Evaluation Time and Overhead</h3>
+<ul>
+<li><strong><code>static_cast</code>:</strong> Executes entirely at
+compile time. It generates direct conversion logic with zero runtime
+performance cost. Because the compiler enforces the validity of the cast
+based purely on static type rules, it cannot verify the actual
+underlying object being pointed to at runtime.</li>
+<li><strong><code>dynamic_cast</code>:</strong> Executes primarily at
+runtime. It inspects the object’s runtime metadata via RTTI to verify
+whether the target type is valid. This process involves traversing the
+class hierarchy, introducing a minor runtime performance overhead.</li>
+</ul>
+<h3 id="safety-and-downcasting">Safety and Downcasting</h3>
+<p>Downcasting refers to casting a pointer or reference of a base class
+to a derived class.</p>
+<ul>
+<li><strong><code>static_cast</code>:</strong> Permits downcasting, but
+it is inherently unsafe. If a base pointer does not actually point to an
+instance of the derived class, <code>static_cast</code> still succeeds,
+yielding a dangling or invalid pointer. Calling derived-class methods on
+this pointer results in undefined behavior.</li>
+<li><strong><code>dynamic_cast</code>:</strong> Guarantees safe
+downcasting. It checks whether the underlying object matches the target
+type:
+<ul>
+<li>When casting <strong>pointers</strong>, it returns
+<code>nullptr</code> if the cast fails.</li>
+<li>When casting <strong>references</strong>, it throws a
+<code>std::bad_cast</code> exception if the cast fails (since null
+references cannot exist in C++).</li>
+</ul></li>
+</ul>
+<h3 id="requirement-for-polymorphism">Requirement for Polymorphism</h3>
+<ul>
+<li><strong><code>static_cast</code>:</strong> Does not require
+polymorphism. It can convert between non-polymorphic classes, numeric
+types (e.g., <code>double</code> to <code>int</code>),
+<code>void*</code> to concrete pointers, and non-virtual class
+hierarchies.</li>
+<li><strong><code>dynamic_cast</code>:</strong> Requires the base class
+to be polymorphic (i.e., contain at least one <code>virtual</code>
+function) when downcasting or cross-casting. If you attempt to use
+<code>dynamic_cast</code> to downcast a non-polymorphic base class, the
+compiler generates an error.</li>
+</ul>
+<h3 id="cross-casting-and-multiple-inheritance">Cross-Casting and
+Multiple Inheritance</h3>
+<p>In complex class hierarchies involving multiple inheritance or
+diamond inheritance, <code>dynamic_cast</code> can perform
+cross-casting—navigating horizontally across the inheritance tree from
+one sibling base class to another. <code>static_cast</code> cannot
+resolve cross-casts because compile-time checks lack the layout
+information provided by the runtime vtable.</p>
+<h3 id="summary-of-use-cases">Summary of Use Cases</h3>
+<ul>
+<li>Use <strong><code>static_cast</code></strong> for standard
+conversions (such as basic data types, <code>void*</code> conversions,
+or upcasting) and for downcasting only when you are absolutely certain
+of the dynamic type and performance is critical.</li>
+<li>Use <strong><code>dynamic_cast</code></strong> whenever downcasting
+or cross-casting within polymorphic class hierarchies where the actual
+runtime type of the object is uncertain.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

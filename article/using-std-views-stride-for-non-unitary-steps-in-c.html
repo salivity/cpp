@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using std::views::stride for Non-Unitary Steps in C++ - cpp</title>
+    <meta name="description" content="Introduced in C++23, std::views::stride is a range adaptor designed to traverse a collection by stepping forward in fixed intervals greater than one. This article explores the purpose of std::views::stride, explaining how it facilitates non-unitary increm">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/using-std-views-stride-for-non-unitary-steps-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using std::views::stride for Non-Unitary Steps in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/using-std-views-stride-for-non-unitary-steps-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++23, std::views::stride is a range adaptor designed to traverse a collection by stepping forward in fixed intervals greater than one. This article explores the purpose of std::views::stride, explaining how it facilitates non-unitary increm" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-stdviewsstride-for-non-unitary-steps-in-c">Using
+std::views::stride for Non-Unitary Steps in C++</h1>
+<p>Introduced in C++23, <code>std::views::stride</code> is a range
+adaptor designed to traverse a collection by stepping forward in fixed
+intervals greater than one. This article explores the purpose of
+<code>std::views::stride</code>, explaining how it facilitates
+non-unitary increments across ranges, eliminates the need for manual
+index arithmetic, and integrates cleanly into modern range-based
+pipelines while preserving performance through lazy evaluation.</p>
+<h3 id="the-purpose-of-stdviewsstride">The Purpose of
+<code>std::views::stride</code></h3>
+<p>Prior to C++23, advancing through a collection with a step size other
+than one (a non-unitary increment) required index-based <code>for</code>
+loops or manual iterator advancement using functions like
+<code>std::advance</code>. These approaches are prone to off-by-one
+errors, bounds overruns, and verbosity, while also breaking
+compatibility with idiomatic range-based <code>for</code> loops and
+range pipelines.</p>
+<p><code>std::views::stride</code> solves this problem by producing a
+view that yields every <span class="math inline">\(n\)</span>-th element
+of an underlying sequence, starting from the first element. It abstracts
+the step logic away from the iteration body, allowing developers to
+write declarative, clean, and safe code.</p>
+<h3 id="syntax-and-basic-usage">Syntax and Basic Usage</h3>
+<p>The adaptor takes a single argument—the stride size <span
+class="math inline">\(n\)</span>—which must be greater than zero. It can
+be applied using the call operator or the range pipeline syntax
+(<code>|</code>):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;ranges&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> numbers <span class="op">=</span> <span class="op">{</span><span class="dv">0</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">4</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">6</span><span class="op">,</span> <span class="dv">7</span><span class="op">,</span> <span class="dv">8</span><span class="op">,</span> <span class="dv">9</span><span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Stride by 3: selects elements at index 0, 3, 6, 9</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> every_third <span class="op">=</span> numbers <span class="op">|</span> <span class="bu">std::</span>views::stride<span class="op">(</span><span class="dv">3</span><span class="op">);</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> n <span class="op">:</span> every_third<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> n <span class="op">&lt;&lt;</span> <span class="ch">&#39; &#39;</span><span class="op">;</span> <span class="co">// Output: 0 3 6 9</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="core-characteristics-and-behavior">Core Characteristics and
+Behavior</h3>
+<ol type="1">
+<li><strong>Lazy Evaluation:</strong> <code>std::views::stride</code>
+does not copy elements or allocate intermediate memory. Elements are
+accessed on-demand as the range is consumed, ensuring minimal
+computational overhead.</li>
+<li><strong>Iterator Concept Preservation:</strong> The resulting view
+preserves the traversal capabilities of the underlying range up to
+<code>std::random_access_range</code>. If the source is a random-access
+range, calculating jumps takes constant time <span
+class="math inline">\(O(1)\)</span>. If the underlying range is forward
+or bidirectional, advancing the iterator advances the underlying
+iterator <span class="math inline">\(n\)</span> times
+consecutively.</li>
+<li><strong>Safety and Bounds Handling:</strong> The view handles
+terminal conditions automatically. If the remaining number of elements
+is smaller than the stride step, the iterator securely stops at the
+sentinel without overflowing past the end of the container.</li>
+<li><strong>Composability:</strong> Because it models a standard range
+view, <code>std::views::stride</code> can be composed with other
+adaptors, such as <code>std::views::filter</code>,
+<code>std::views::transform</code>, or <code>std::views::reverse</code>,
+enabling complex data transformation pipelines in a single
+expression.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

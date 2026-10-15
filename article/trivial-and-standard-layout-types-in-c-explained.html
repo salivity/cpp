@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trivial and Standard-Layout Types in C++ Explained - cpp</title>
+    <meta name="description" content="In C++, low-level memory operations and inter-language compatibility rely on specific guarantees about object construction, destruction, and memory arrangement. This article provides a direct overview of trivial types, which can be safely copied using raw">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/trivial-and-standard-layout-types-in-c-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Trivial and Standard-Layout Types in C++ Explained - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/trivial-and-standard-layout-types-in-c-explained" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, low-level memory operations and inter-language compatibility rely on specific guarantees about object construction, destruction, and memory arrangement. This article provides a direct overview of trivial types, which can be safely copied using raw" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="trivial-and-standard-layout-types-in-c-explained">Trivial and
+Standard-Layout Types in C++ Explained</h1>
+<p>In C++, low-level memory operations and inter-language compatibility
+rely on specific guarantees about object construction, destruction, and
+memory arrangement. This article provides a direct overview of trivial
+types, which can be safely copied using raw byte operations without
+custom lifecycle logic, and standard-layout types, which guarantee a
+predictable memory organization compatible with the C programming
+language. Understanding these two concepts clarifies how modern C++
+categorizes data structures and replaces the legacy concept of Plain Old
+Data (POD).</p>
+<h2 id="what-is-a-trivial-type">What Is a Trivial Type?</h2>
+<p>A trivial type in C++ is a type whose fundamental lifecycle
+operations—such as creation, copying, moving, and destruction—involve no
+custom user logic and can be handled via direct memory operations like
+<code>std::memcpy</code>.</p>
+<p>A class, struct, or union is considered trivial if it meets the
+following criteria:</p>
+<ul>
+<li><strong>Trivial default constructor:</strong> It has either an
+implicitly generated default constructor or one explicitly defined with
+<code>= default</code>.</li>
+<li><strong>Trivial copy and move operations:</strong> Its copy
+constructors, move constructors, copy assignment operators, and move
+assignment operators are all trivial or deleted.</li>
+<li><strong>Trivial destructor:</strong> Its destructor is not
+user-defined and is not virtual.</li>
+<li><strong>Trivial members and bases:</strong> All base classes and
+non-static data members must also be trivial types.</li>
+<li><strong>No virtual features:</strong> It contains no virtual
+functions and inherits from no virtual base classes.</li>
+</ul>
+<p>Scalar types (such as <code>int</code>, <code>double</code>,
+pointers, and enumerations) and arrays of trivial types are inherently
+trivial.</p>
+<p>The primary benefit of a trivial type is performance. The compiler
+can bypass constructor and destructor function calls entirely,
+allocating and freeing memory instantaneously. You can query whether a
+type satisfies this property at compile time using the type trait
+<code>std::is_trivial&lt;T&gt;::value</code> (or
+<code>std::is_trivially_copyable&lt;T&gt;::value</code>).</p>
+<h2 id="what-is-a-standard-layout-type">What Is a Standard-Layout
+Type?</h2>
+<p>A standard-layout type governs the physical arrangement of an
+object's members in memory. It guarantees that the memory alignment and
+member offsets are completely predictable, making the type
+binary-compatible with the C language.</p>
+<p>Unlike triviality, standard-layout has nothing to do with whether
+constructors or destructors contain custom code. Instead, it enforces
+strict structural rules:</p>
+<ul>
+<li><strong>Uniform access control:</strong> All non-static data members
+must have the same access specifier (<code>public</code>,
+<code>protected</code>, or <code>private</code>). Mixing access levels
+is not allowed because compilers are permitted to order members with
+different access levels arbitrarily.</li>
+<li><strong>No virtual features:</strong> It has no virtual functions
+and no virtual base classes.</li>
+<li><strong>Member hierarchy rules:</strong> Either the most-derived
+class has non-static data members and no base class with non-static data
+members, or all non-static data members are located in a single base
+class.</li>
+<li><strong>No identical base types as first member:</strong> The first
+non-static data member cannot be of the same type as any base class,
+preventing layout conflicts under the Empty Base Optimization
+(EBO).</li>
+<li><strong>Standard-layout members and bases:</strong> All non-static
+data members and base classes must themselves be standard-layout
+types.</li>
+</ul>
+<p>Standard-layout types allow developers to use the
+<code>offsetof</code> macro safely to inspect member offsets and
+guarantee safe data exchange with foreign function interfaces (FFIs),
+such as C or hardware registers. This property can be checked using
+<code>std::is_standard_layout&lt;T&gt;::value</code>.</p>
+<h2 id="key-differences-and-modern-pod">Key Differences and Modern
+POD</h2>
+<p>While triviality and standard-layout often overlap, they address two
+orthogonal concerns:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Trivial Type</th>
+<th style="text-align: left;">Standard-Layout Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Primary Focus</strong></td>
+<td style="text-align: left;">Object lifecycle (construction, copying,
+destruction)</td>
+<td style="text-align: left;">Physical memory arrangement</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Virtual Functions
+Allowed?</strong></td>
+<td style="text-align: left;">No</td>
+<td style="text-align: left;">No</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Custom Constructors
+Allowed?</strong></td>
+<td style="text-align: left;">No</td>
+<td style="text-align: left;">Yes</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Mixed Access Specifiers
+Allowed?</strong></td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">No</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Safe for
+<code>std::memcpy</code>?</strong></td>
+<td style="text-align: left;">Yes</td>
+<td style="text-align: left;">Only if trivially copyable</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Safe for C
+Compatibility?</strong></td>
+<td style="text-align: left;">Not guaranteed</td>
+<td style="text-align: left;">Yes</td>
+</tr>
+</tbody>
+</table>
+<p>Historically, C++ defined a "Plain Old Data" (POD) type as a type
+that was both trivial and standard-layout. However, C++20 formally
+deprecated <code>std::is_pod</code> because bundling both concepts into
+a single term caused unnecessary confusion. Modern C++ encourages
+developers to query <code>std::is_trivially_copyable</code> when
+optimizing copies or serialization, and
+<code>std::is_standard_layout</code> when ensuring ABI and memory-layout
+compatibility.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

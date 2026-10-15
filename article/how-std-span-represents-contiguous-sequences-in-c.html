@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::span Represents Contiguous Sequences in C++ - cpp</title>
+    <meta name="description" content="This article explores how std::span, introduced in C++20, acts as a lightweight, non-owning view over contiguous sequences of objects. It details the internal mechanics of std::span, including its pointer-and-size composition, compile-time versus runtime">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-span-represents-contiguous-sequences-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::span Represents Contiguous Sequences in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-span-represents-contiguous-sequences-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how std::span, introduced in C++20, acts as a lightweight, non-owning view over contiguous sequences of objects. It details the internal mechanics of std::span, including its pointer-and-size composition, compile-time versus runtime" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdspan-represents-contiguous-sequences-in-c">How std::span
+Represents Contiguous Sequences in C++</h1>
+<p>This article explores how <code>std::span</code>, introduced in
+C++20, acts as a lightweight, non-owning view over contiguous sequences
+of objects. It details the internal mechanics of <code>std::span</code>,
+including its pointer-and-size composition, compile-time versus runtime
+extents, and how it safely unifies disparate contiguous storage
+types—such as raw arrays, <code>std::vector</code>, and
+<code>std::array</code>—under a single, efficient interface without
+transferring ownership or incurring allocation costs.</p>
+<h3 id="core-architecture-and-mechanics">Core Architecture and
+Mechanics</h3>
+<p>At its fundamental level, <code>std::span&lt;T&gt;</code> represents
+a contiguous sequence of elements of type <code>T</code> using a simple
+structure: a pointer to the first element and a length count. Unlike
+containers such as <code>std::vector</code> or <code>std::array</code>,
+<code>std::span</code> does not own the memory it references. It acts as
+an unmanaged view, requiring no memory allocations, deallocations, or
+data copying when created or passed around.</p>
+<p>Because it relies strictly on contiguous memory layout, every element
+in the sequence is guaranteed to reside adjacent to the next in physical
+memory, matching the layout invariants required by standard pointer
+arithmetic:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="op">*(</span>ptr <span class="op">+</span> i<span class="op">)</span> <span class="op">==</span> ptr<span class="op">[</span>i<span class="op">]</span></span></code></pre></div>
+<h3 id="dynamic-extent-vs-static-extent">Dynamic Extent vs. Static
+Extent</h3>
+<p><code>std::span</code> handles sequence lengths in two distinct ways
+via its second template parameter:</p>
+<ol type="1">
+<li><p><strong>Dynamic Extent
+(<code>std::dynamic_extent</code>):</strong> When the size is unknown at
+compile time, <code>std::span&lt;T&gt;</code> stores both a pointer to
+the data and a runtime size (<code>std::size_t</code>). This layout
+mirrors a standard pointer-length pair:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="bu">std::</span>span<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> data<span class="op">);</span> <span class="co">// Stores: int* ptr, size_t count</span></span></code></pre></div></li>
+<li><p><strong>Static Extent:</strong> When the size is fixed at compile
+time, the size is embedded directly into the type:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="bu">std::</span>span<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="dv">4</span><span class="op">&gt;</span> data<span class="op">);</span> <span class="co">// Stores: only int* ptr</span></span></code></pre></div>
+<p>In this scenario, <code>std::span</code> eliminates the runtime size
+member entirely. Its size overhead matches that of a raw pointer
+(<code>sizeof(void*)</code>), while still exposing member functions like
+<code>.size()</code> which return a compile-time constant.</p></li>
+</ol>
+<h3 id="unifying-contiguous-data-sources">Unifying Contiguous Data
+Sources</h3>
+<p><code>std::span</code> provides implicit constructors that accept any
+contiguous data structure implementing <code>.data()</code> and
+<code>.size()</code>, as well as standard C-style arrays:</p>
+<ul>
+<li><strong>Raw arrays:</strong>
+<code>int arr[10]; std::span s = arr;</code></li>
+<li><strong>Dynamic containers:</strong>
+<code>std::vector&lt;int&gt; vec{1, 2, 3}; std::span s = vec;</code></li>
+<li><strong>Static containers:</strong>
+<code>std::array&lt;int, 4&gt; arr{1, 2, 3, 4}; std::span s = arr;</code></li>
+<li><strong>Direct pointer and size:</strong>
+<code>std::span s(ptr, count);</code></li>
+</ul>
+<p>This implicit conversion standardizes API design. Instead of
+overloading functions for different container types or accepting
+error-prone <code>(T* data, size_t size)</code> combinations, a single
+<code>std::span&lt;T&gt;</code> parameter safely accepts all contiguous
+data structures.</p>
+<h3 id="subsequences-and-element-access">Subsequences and Element
+Access</h3>
+<p><code>std::span</code> enables safe and expressive operations over
+contiguous ranges without copying memory:</p>
+<ul>
+<li><strong>Indexing:</strong> Access elements using
+<code>operator[]</code> without pointer arithmetic syntax.</li>
+<li><strong>Iterators:</strong> Exposes <code>begin()</code>,
+<code>end()</code>, <code>rbegin()</code>, and <code>rend()</code> for
+seamless compatibility with standard library algorithms and range-based
+<code>for</code> loops.</li>
+<li><strong>Subviews:</strong> Provides
+<code>.subspan(offset, count)</code>, <code>.first(count)</code>, and
+<code>.last(count)</code> member functions. These operations simply
+compute a new starting pointer and length, returning a new
+<code>std::span</code> in constant time (<span
+class="math inline">\(O(1)\)</span>).</li>
+</ul>
+<h3 id="lifetime-responsibilities">Lifetime Responsibilities</h3>
+<p>Because <code>std::span</code> does not own the elements it
+references, it is subject to dangling references. If the underlying
+container is resized, cleared, or goes out of scope (such as a local
+<code>std::vector</code> whose capacity reallocates or an array
+destroyed at block exit), the <code>std::span</code> becomes invalid.
+Developers must ensure the lifetime of the underlying data exceeds the
+lifetime of the span viewing it.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

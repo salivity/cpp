@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Filesystem: Standard Path and File Manipulation - cpp</title>
+    <meta name="description" content="This article explores how the std::filesystem library, introduced in C++17, standardizes path and file manipulation across different operating systems. Prior to this addition, C++ developers relied on platform-specific APIs or external dependencies like B">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-filesystem-standard-path-and-file-manipulation">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Filesystem: Standard Path and File Manipulation - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-filesystem-standard-path-and-file-manipulation" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the std::filesystem library, introduced in C++17, standardizes path and file manipulation across different operating systems. Prior to this addition, C++ developers relied on platform-specific APIs or external dependencies like B" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-filesystem-standard-path-and-file-manipulation">C++
+Filesystem: Standard Path and File Manipulation</h1>
+<p>This article explores how the <code>std::filesystem</code> library,
+introduced in C++17, standardizes path and file manipulation across
+different operating systems. Prior to this addition, C++ developers
+relied on platform-specific APIs or external dependencies like Boost to
+interact with the file system. By introducing a unified, cross-platform
+abstraction for paths, directories, file statuses, and basic I/O
+operations, modern C++ eliminates OS-dependent code branches and
+provides a robust, portable standard library interface.</p>
+<h2 id="the-core-abstraction-stdfilesystempath">The Core Abstraction:
+<code>std::filesystem::path</code></h2>
+<p>At the center of the library's standardization is the
+<code>std::filesystem::path</code> class. Different operating systems
+handle file system conventions differently—most notably Windows using
+backslashes (<code>\</code>) and drive letters, while POSIX systems
+(Linux, macOS) use forward slashes (<code>/</code>).</p>
+<p>The <code>path</code> class abstracts these differences:</p>
+<ul>
+<li><strong>Native Syntax Handling:</strong> It accepts both native and
+generic formats, automatically converting separators to match the target
+environment.</li>
+<li><strong>Path Appending (<code>/</code> Operator):</strong> The
+overloaded division operators (<code>/</code> and <code>/=</code>) allow
+developers to append path components intuitively without manually
+tracking slash types.</li>
+<li><strong>Decomposition Methods:</strong> Functions such as
+<code>.parent_path()</code>, <code>.filename()</code>,
+<code>.stem()</code>, and <code>.extension()</code> extract individual
+path components consistently, regardless of the underlying OS
+conventions.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;filesystem&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> fs <span class="op">=</span> <span class="bu">std::</span>filesystem<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>fs<span class="op">::</span>path p <span class="op">=</span> <span class="st">&quot;data&quot;</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>p <span class="op">/=</span> <span class="st">&quot;logs&quot;</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>p <span class="op">/=</span> <span class="st">&quot;output.txt&quot;</span><span class="op">;</span> <span class="co">// Resolves correctly on both Windows and POSIX</span></span></code></pre></div>
+<h2 id="unified-file-and-directory-operations">Unified File and
+Directory Operations</h2>
+<p>Before <code>std::filesystem</code>, creating or deleting a directory
+required OS-dependent system calls, such as <code>mkdir()</code> and
+<code>unlink()</code> on POSIX, versus <code>CreateDirectory()</code>
+and <code>DeleteFile()</code> on Windows.</p>
+<p>The library standardizes these common actions through free
+functions:</p>
+<ul>
+<li><strong>Creation:</strong> <code>fs::create_directory()</code> and
+<code>fs::create_directories()</code> (which creates missing parent
+directories recursively).</li>
+<li><strong>Removal:</strong> <code>fs::remove()</code> deletes single
+files or empty directories, while <code>fs::remove_all()</code> deletes
+directories and their contents recursively.</li>
+<li><strong>Copying:</strong> <code>fs::copy()</code> and
+<code>fs::copy_file()</code> support configurable copy options via
+<code>fs::copy_options</code> (such as overwriting or recursive
+copying).</li>
+</ul>
+<h2 id="consistent-directory-traversal">Consistent Directory
+Traversal</h2>
+<p>Iterating through directory contents is standardized through input
+iterators compatible with range-based <code>for</code> loops:</p>
+<ul>
+<li><strong><code>fs::directory_iterator</code>:</strong> Iterates
+through immediate items within a directory.</li>
+<li><strong><code>fs::recursive_directory_iterator</code>:</strong>
+Recursively traverses an entire directory tree, providing entry points
+for filtering based on recursion depth or symbolic link behavior.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="at">const</span> <span class="kw">auto</span><span class="op">&amp;</span> entry <span class="op">:</span> fs<span class="op">::</span>recursive_directory_iterator<span class="op">(</span><span class="st">&quot;my_directory&quot;</span><span class="op">))</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Process directory entries portably</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Each entry in the iteration is a <code>fs::directory_entry</code>,
+which caches file attributes to avoid redundant, expensive system
+calls.</p>
+<h2 id="standardized-status-and-metadata-queries">Standardized Status
+and Metadata Queries</h2>
+<p>Inspecting file metadata previously required parsing
+platform-specific structures, such as POSIX <code>struct stat</code>.
+Modern C++ provides direct functions to query file properties:</p>
+<ul>
+<li><strong>File Types:</strong> <code>fs::is_regular_file()</code>,
+<code>fs::is_directory()</code>, <code>fs::is_symlink()</code>, and
+<code>fs::exists()</code>.</li>
+<li><strong>File Metrics:</strong> <code>fs::file_size()</code> returns
+the size in bytes as an unsigned 64-bit integer
+(<code>std::uintmax_t</code>).</li>
+<li><strong>Permissions and Timestamps:</strong>
+<code>fs::status()</code> returns a <code>fs::perms</code> bitmask
+representing permissions, and <code>fs::last_write_time()</code>
+retrieves or updates modification timestamps via standard chrono
+clocks.</li>
+</ul>
+<h2 id="dual-error-handling-models">Dual Error-Handling Models</h2>
+<p>To accommodate both exception-based architectures and
+performance-critical or embedded environments where exceptions are
+disabled, almost every function in <code>std::filesystem</code> provides
+two overloads:</p>
+<ol type="1">
+<li><strong>Throwing Overload:</strong> Throws
+<code>std::filesystem::filesystem_error</code> on failure, containing
+both the OS error code and the involved paths.</li>
+<li><strong>Non-Throwing Overload:</strong> Accepts an
+<code>std::error_code&amp;</code> reference as an out-parameter, setting
+it to the appropriate system error without interrupting execution
+flow.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

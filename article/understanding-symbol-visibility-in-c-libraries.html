@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Symbol Visibility in C++ Libraries - cpp</title>
+    <meta name="description" content="Symbol visibility in C++ controls which functions, classes, and variables are exposed in a shared library&#39;s dynamic symbol table versus which remain internal to the binary. By utilizing attributes like default and hidden, developers establish explicit App">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/understanding-symbol-visibility-in-c-libraries">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Symbol Visibility in C++ Libraries - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/understanding-symbol-visibility-in-c-libraries" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Symbol visibility in C++ controls which functions, classes, and variables are exposed in a shared library&#39;s dynamic symbol table versus which remain internal to the binary. By utilizing attributes like default and hidden, developers establish explicit App" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-symbol-visibility-in-c-libraries">Understanding
+Symbol Visibility in C++ Libraries</h1>
+<p>Symbol visibility in C++ controls which functions, classes, and
+variables are exposed in a shared library's dynamic symbol table versus
+which remain internal to the binary. By utilizing attributes like
+<code>default</code> and <code>hidden</code>, developers establish
+explicit Application Binary Interface (ABI) boundaries, preventing
+internal implementation details from leaking into consumer code. This
+article explains how visibility mechanisms work, why hidden symbols
+improve performance and safety, and how to configure visibility across
+modern C++ projects.</p>
+<h3 id="the-role-of-symbol-visibility">The Role of Symbol
+Visibility</h3>
+<p>When compiling code into dynamic shared libraries (<code>.so</code>
+on Linux or <code>.dylib</code> on macOS), the linker builds a dynamic
+symbol table (<code>.dynsym</code>). This table acts as the public
+interface, allowing external executables and libraries to resolve and
+bind references at runtime.</p>
+<p>By default, Unix-like toolchains (GCC and Clang) export every
+non-static symbol. This behavior differs from Windows dynamic-link
+libraries (DLLs), which hide everything unless explicitly exported using
+<code>__declspec(dllexport)</code>. Unrestricted export leads to symbol
+table bloat, slower load times, and potential name collisions across
+different libraries.</p>
+<h3 id="default-vs-hidden-attributes"><code>default</code> vs.
+<code>hidden</code> Attributes</h3>
+<p>In GCC and Clang, visibility is controlled using the
+<code>__attribute__((visibility("...")))</code> syntax:</p>
+<ul>
+<li><strong><code>default</code> Visibility:</strong> The symbol is
+exported to the dynamic symbol table. External binaries can link against
+and call it at runtime. It can also be interposed (overridden) by other
+dynamic libraries unless protected or compiled with specific linker
+flags.</li>
+<li><strong><code>hidden</code> Visibility:</strong> The symbol is
+omitted from the dynamic symbol table. It cannot be directly referenced
+or invoked by external modules. Within the shared object itself, the
+symbol remains accessible across translation units.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Exported to the public interface</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">__attribute__((visibility(</span><span class="st">&quot;default&quot;</span><span class="ex">)))</span> <span class="dt">void</span> public_api_function<span class="op">();</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Kept internal to the shared library</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ex">__attribute__((visibility(</span><span class="st">&quot;hidden&quot;</span><span class="ex">)))</span> <span class="dt">void</span> internal_helper_function<span class="op">();</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Hiding an entire class implementation</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="ex">__attribute__((visibility(</span><span class="st">&quot;hidden&quot;</span><span class="ex">)))</span> InternalEngine <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> process<span class="op">();</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="inverting-defaults-with-compiler-flags">Inverting Defaults with
+Compiler Flags</h3>
+<p>Relying on explicit decoration to hide symbols is error-prone because
+developers must remember to tag every private implementation. Best
+practice dictates inverting the compiler's default behavior:</p>
+<ol type="1">
+<li><strong><code>-fvisibility=hidden</code></strong>: Treats all
+symbols as <code>hidden</code> unless explicitly marked with
+<code>default</code> visibility. This aligns GCC/Clang behavior with
+MSVC on Windows.</li>
+<li><strong><code>-fvisibility-inlines-hidden</code></strong>:
+Automatically hides all inline class member functions, ensuring that
+out-of-line copies generated across translation units do not pollute the
+export table.</li>
+</ol>
+<h3 id="establishing-the-interface-boundary">Establishing the Interface
+Boundary</h3>
+<p>Once <code>-fvisibility=hidden</code> is active, the public interface
+must be explicitly exported using preprocessor macros. This pattern
+ensures portable ABI boundaries across platforms:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#if defined(_WIN32) || defined(__CYGWIN__)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="pp">#if defined(MYLIB_BUILDING_DLL)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#define MYLIB_API </span><span class="ex">__declspec(dllexport)</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="pp">#else</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#define MYLIB_API </span><span class="ex">__declspec(dllimport)</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="pp">#endif</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="pp">#else</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="pp">#if defined(</span><span class="ot">__GNUC__</span><span class="pp">) &amp;&amp; </span><span class="ot">__GNUC__</span><span class="pp"> &gt;= 4</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#define MYLIB_API </span><span class="ex">__attribute__((visibility(</span><span class="st">&quot;default&quot;</span><span class="ex">)))</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="pp">#else</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#define MYLIB_API</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  <span class="pp">#endif</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co">// Only explicitly decorated entities form the public boundary</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> MYLIB_API PublicService <span class="op">{</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> execute<span class="op">();</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> internalWork<span class="op">();</span> <span class="co">// Hidden automatically if the class is not fully exported</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="benefits-of-hiding-symbols">Benefits of Hiding Symbols</h3>
+<p>Hiding symbols behind an explicit boundary yields substantial
+architectural and performance benefits:</p>
+<ul>
+<li><strong>ABI Stability and Encapsulation:</strong> Implementation
+details remain private. You can refactor, rename, or delete hidden
+functions across library versions without breaking backward
+compatibility for external consumers.</li>
+<li><strong>Faster Execution:</strong> Calls to <code>default</code>
+symbols often require indirect lookups through the Procedure Linkage
+Table (PLT) and Global Offset Table (GOT) to accommodate runtime symbol
+interposition. Calls to <code>hidden</code> symbols can be resolved
+locally by the linker into direct PC-relative branch instructions,
+eliminating indirection overhead and enabling link-time inlining.</li>
+<li><strong>Reduced Binary Size and Startup Time:</strong> Omitting
+thousands of private functions, templates, and mangled names drastically
+shrinks <code>.dynsym</code> and <code>.dynstr</code> sections. At
+application launch, the dynamic loader (<code>ld.so</code>) processes
+far fewer relocations, resulting in faster load times.</li>
+<li><strong>Eliminating Symbol Collisions:</strong> If two loaded shared
+libraries statically link different versions of a third-party dependency
+with default visibility, the dynamic loader resolves both to the first
+loaded version, leading to undefined behavior or crashes. Marking
+dependencies as <code>hidden</code> keeps them isolated within their
+respective binaries.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

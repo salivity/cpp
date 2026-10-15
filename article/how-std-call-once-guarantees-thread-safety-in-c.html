@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::call_once Guarantees Thread Safety in C++ - cpp</title>
+    <meta name="description" content="This article explains how the C++ standard library mechanism std::callonce provides thread-safe, single-execution guarantees across concurrent environments. In conjunction with std::onceflag, std::callonce prevents race conditions during initialization by">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-call-once-guarantees-thread-safety-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::call_once Guarantees Thread Safety in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-call-once-guarantees-thread-safety-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the C++ standard library mechanism std::callonce provides thread-safe, single-execution guarantees across concurrent environments. In conjunction with std::onceflag, std::callonce prevents race conditions during initialization by" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdcall_once-guarantees-thread-safety-in-c">How
+std::call_once Guarantees Thread Safety in C++</h1>
+<p>This article explains how the C++ standard library mechanism
+<code>std::call_once</code> provides thread-safe, single-execution
+guarantees across concurrent environments. In conjunction with
+<code>std::once_flag</code>, <code>std::call_once</code> prevents race
+conditions during initialization by synchronizing calling threads,
+managing internal state flags, handling exceptions properly, and
+enforcing strict memory visibility rules without requiring developers to
+manually configure mutexes.</p>
+<h3 id="the-role-of-stdonce_flag">The Role of
+<code>std::once_flag</code></h3>
+<p>The guarantee of single execution relies on a shared state maintained
+inside an instance of <code>std::once_flag</code>. The
+<code>std::once_flag</code> object acts as a state machine rather than a
+simple boolean flag. Internally, it tracks three distinct states:</p>
+<ol type="1">
+<li><strong>Uninitialized:</strong> The function has never run.</li>
+<li><strong>In Progress:</strong> A thread is currently executing the
+specified function.</li>
+<li><strong>Completed:</strong> The function has executed successfully
+and returned.</li>
+</ol>
+<p>Every invocation of <code>std::call_once</code> takes a reference to
+this flag, reading and updating the internal state atomically.</p>
+<h3 id="synchronization-and-thread-blocking">Synchronization and Thread
+Blocking</h3>
+<p>When multiple threads concurrently invoke <code>std::call_once</code>
+with the same <code>std::once_flag</code>:</p>
+<ol type="1">
+<li><strong>Election of the Active Thread:</strong> The first thread to
+query the flag transitions its state from "uninitialized" to "in
+progress" using an atomic operation. This thread is selected to execute
+the callable target.</li>
+<li><strong>Blocking Competing Threads:</strong> Any other thread
+reaching <code>std::call_once</code> while the state is "in progress"
+does not execute the function. Instead, these threads are blocked
+(typically suspended using OS-level synchronization primitives like
+futexes on Linux or wait addresses on Windows) until the active thread
+finishes.</li>
+<li><strong>Early Exit for Subsequent Callers:</strong> If a thread
+arrives after the state has reached "completed",
+<code>std::call_once</code> performs an acquire-load on the flag and
+returns immediately without running the function or acquiring
+locks.</li>
+</ol>
+<h3 id="memory-ordering-guarantees">Memory Ordering Guarantees</h3>
+<p><code>std::call_once</code> establishes a strict
+<em>synchronizes-with</em> relationship between the thread performing
+the initialization and all threads that subsequently observe the
+completion.</p>
+<ul>
+<li>The completing thread executes a release operation upon finishing
+the callable.</li>
+<li>All threads returning from <code>std::call_once</code> perform an
+acquire operation.</li>
+</ul>
+<p>This memory barrier guarantees that all memory writes, object
+constructions, or resource allocations performed inside the callable are
+fully visible to every thread after <code>std::call_once</code>
+returns.</p>
+<h3 id="exception-safety-and-retries">Exception Safety and Retries</h3>
+<p>The execution is only marked as "completed" if the callable returns
+normally. If an uncaught exception escapes the callable:</p>
+<ul>
+<li>The exception is propagated to the calling thread.</li>
+<li>The state within <code>std::once_flag</code> is reset from "in
+progress" back to "uninitialized".</li>
+<li>The next thread waiting in the queue is unblocked and promoted to
+execute the callable again.</li>
+</ul>
+<p>Execution continues to be attempted until one invocation successfully
+completes without throwing an exception.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::vector Optimizes push_back with noexcept - cpp</title>
+    <meta name="description" content="This article explores how std::vector achieves significant reallocation performance gains during a pushback operation using noexcept move constructors. It examines the conflict between performance and the C++ strong exception safety guarantee, explains ho">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-vector-optimizes-push-back-with-noexcept">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::vector Optimizes push_back with noexcept - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-vector-optimizes-push-back-with-noexcept" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how std::vector achieves significant reallocation performance gains during a pushback operation using noexcept move constructors. It examines the conflict between performance and the C++ strong exception safety guarantee, explains ho" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdvector-optimizes-push_back-with-noexcept">How std::vector
+Optimizes push_back with noexcept</h1>
+<p>This article explores how <code>std::vector</code> achieves
+significant reallocation performance gains during a
+<code>push_back</code> operation using <code>noexcept</code> move
+constructors. It examines the conflict between performance and the C++
+strong exception safety guarantee, explains how
+<code>std::move_if_noexcept</code> resolves this dilemma, and details
+why marking move operations as <code>noexcept</code> is critical for
+high-performance C++ code.</p>
+<h3 id="the-dynamic-reallocation-mechanism">The Dynamic Reallocation
+Mechanism</h3>
+<p>A <code>std::vector</code> manages elements in a single contiguous
+block of memory. When <code>push_back</code> is called and the existing
+capacity is exhausted, the vector must grow. This reallocation process
+involves:</p>
+<ol type="1">
+<li>Allocating a new, larger memory block (typically doubling the
+capacity).</li>
+<li>Transferring all existing elements from the old memory block to the
+new memory block.</li>
+<li>Constructing the newly appended element in the remaining space.</li>
+<li>Destroying the elements in the old block and deallocating that
+storage.</li>
+</ol>
+<p>Step 2 is where performance hangs in the balance. For types managing
+dynamic resources (such as <code>std::string</code> or nested
+containers), copying involves deep allocation and duplication, whereas
+moving requires only pointer adjustments.</p>
+<h3 id="the-conflict-performance-vs-exception-safety">The Conflict:
+Performance vs. Exception Safety</h3>
+<p>The C++ standard requires <code>std::vector::push_back</code> to
+provide the <strong>strong exception guarantee</strong>: if an operation
+fails due to an exception, the state of the vector must remain exactly
+as it was before the function call, with no memory leaks or corrupted
+data.</p>
+<p>When copying elements to the new buffer, this guarantee is
+straightforward. If a copy constructor throws an exception on element
+<span class="math inline">\(k\)</span>:</p>
+<ul>
+<li>The partially constructed elements in the new block (<span
+class="math inline">\(0\)</span> to <span
+class="math inline">\(k-1\)</span>) are destroyed.</li>
+<li>The newly allocated block is deallocated.</li>
+<li>The old buffer remains completely untouched and intact.</li>
+<li>The exception propagates, leaving the vector in its original, valid
+state.</li>
+</ul>
+<p>Move semantics present a major issue. If an element's move
+constructor throws an exception halfway through the reallocation
+process, the source elements in the old buffer have already been
+modified or placed into an indeterminate state. Reversing the moves
+could also throw exceptions, making it impossible to restore the
+original state. Consequently, if a move can throw, using it during
+reallocation breaks the strong exception safety guarantee.</p>
+<h3 id="the-solution-stdmove_if_noexcept">The Solution:
+<code>std::move_if_noexcept</code></h3>
+<p>To honor the strong exception guarantee without sacrificing
+performance unnecessarily, <code>std::vector</code> inspects the move
+constructor of the element type using standard type traits. Under the
+hood, implementations conditionally move elements via
+<code>std::move_if_noexcept</code>.</p>
+<ul>
+<li>If the element's move constructor is declared
+<strong><code>noexcept</code></strong> (or is determined to never
+throw), <code>std::vector</code> moves each element from the old buffer
+to the new buffer. Because the move cannot fail, the reallocation cannot
+be aborted halfway through, preserving safety while enabling optimal
+transfer speeds.</li>
+<li>If the move constructor is <strong>not</strong> declared
+<code>noexcept</code> and the type is copyable, <code>std::vector</code>
+silently falls back to invoking the copy constructor for every existing
+element.</li>
+</ul>
+<p>If a type is move-only (such as <code>std::unique_ptr</code>) and its
+move constructor is not marked <code>noexcept</code>,
+<code>std::vector</code> will still use the move constructor because
+copying is not an option, but the strong exception guarantee is degraded
+to the basic guarantee.</p>
+<h3 id="practical-performance-impact">Practical Performance Impact</h3>
+<p>Failing to mark a move constructor as <code>noexcept</code> causes
+<code>std::vector</code> to execute expensive deep copies during every
+vector expansion:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> HeavyResource <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Fallback to copy occurs during vector reallocation</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    HeavyResource<span class="op">(</span>HeavyResource<span class="op">&amp;&amp;</span> other<span class="op">);</span> </span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Enables zero-copy pointer transfers during reallocation</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    HeavyResource<span class="op">(</span>HeavyResource<span class="op">&amp;&amp;</span> other<span class="op">)</span> <span class="kw">noexcept</span><span class="op">;</span> </span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>When <code>noexcept</code> is omitted on types with heap allocations,
+an operation that could be as cheap as moving a few internal pointers
+becomes an operation that invokes system allocators, copies memory
+buffers, and wastes CPU cycles. Explicitly qualifying move constructors
+and move assignment operators with <code>noexcept</code> ensures that
+<code>std::vector::push_back</code> operates at peak efficiency while
+maintaining strict exception safety.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

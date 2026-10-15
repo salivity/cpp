@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Recursive Mutex Is Discouraged in C++ - cpp</title>
+    <meta name="description" content="A recursive mutex is a synchronization primitive that allows the thread currently holding the lock to acquire it multiple times without causing a deadlock. While modern C++ provides std::recursivemutex in the standard library to support this behavior, its">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/why-recursive-mutex-is-discouraged-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Recursive Mutex Is Discouraged in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/why-recursive-mutex-is-discouraged-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A recursive mutex is a synchronization primitive that allows the thread currently holding the lock to acquire it multiple times without causing a deadlock. While modern C++ provides std::recursivemutex in the standard library to support this behavior, its" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-recursive-mutex-is-discouraged-in-c">Why Recursive Mutex Is
+Discouraged in C++</h1>
+<p>A recursive mutex is a synchronization primitive that allows the
+thread currently holding the lock to acquire it multiple times without
+causing a deadlock. While modern C++ provides
+<code>std::recursive_mutex</code> in the standard library to support
+this behavior, its use is widely discouraged by systems programmers and
+concurrency experts. This article explains how a recursive mutex works,
+why it is generally considered a design anti-pattern, and what idioms
+you should use instead to maintain clean, thread-safe code.</p>
+<h3 id="what-is-a-recursive-mutex">What Is a Recursive Mutex?</h3>
+<p>In standard C++, attempting to lock a standard
+<code>std::mutex</code> twice on the same thread results in undefined
+behavior or an immediate deadlock. A <code>std::recursive_mutex</code>,
+by contrast, tracks which thread currently owns the lock along with an
+acquisition count.</p>
+<p>If the owning thread requests the lock again, the acquisition
+succeeds immediately, and the internal counter increments. To fully
+release the mutex so other threads can acquire it, the owning thread
+must call <code>unlock()</code> the exact same number of times it called
+<code>lock()</code>.</p>
+<h3 id="why-recursive-mutexes-are-discouraged">Why Recursive Mutexes Are
+Discouraged</h3>
+<p>Although recursive mutexes may initially seem convenient, they
+introduce several major architectural and synchronization problems.</p>
+<h4 id="1-invalidation-of-class-invariants">1. Invalidation of Class
+Invariants</h4>
+<p>The primary purpose of a mutex is not just to prevent concurrent
+access, but to protect data invariants. When a function acquires a lock,
+it assumes that the protected data is in a valid, consistent state.
+While executing, it may temporarily break these invariants before
+restoring them prior to unlocking.</p>
+<p>If a method re-enters a critical section via a recursive mutex, it
+may execute in an environment where the object’s internal state is only
+partially updated and fundamentally invalid. Because the recursive mutex
+silently succeeds rather than halting execution, subtle data corruption
+bugs are introduced that are notoriously difficult to reproduce and
+trace.</p>
+<h4 id="2-symptom-of-poor-architectural-design">2. Symptom of Poor
+Architectural Design</h4>
+<p>The need for a recursive mutex usually indicates a design flaw: the
+code does not have clear boundaries between public APIs and internal
+operations.</p>
+<p>Developers often reach for <code>std::recursive_mutex</code> as a
+quick fix when a public synchronized method needs to call another public
+synchronized method on the same object. Relying on re-entrant locking to
+solve this problem obscures the flow of synchronization, making it
+unclear which functions actually establish and protect critical
+sections.</p>
+<h4 id="3-incompatibility-with-condition-variables">3. Incompatibility
+with Condition Variables</h4>
+<p>Recursive mutexes cannot be safely used with standard condition
+variables (<code>std::condition_variable</code>). A condition variable
+must atomically release the lock and put the calling thread to
+sleep.</p>
+<p>If a thread has acquired a recursive mutex three times, a condition
+variable cannot simply release it with a single operation; the mutex
+would remain partially locked, blocking other threads from signaling the
+condition. While <code>std::condition_variable_any</code> can
+technically work with custom wrappers, doing so introduces significant
+performance penalties and operational complexity.</p>
+<h4 id="4-performance-overhead">4. Performance Overhead</h4>
+<p>A <code>std::recursive_mutex</code> is heavier and slower than a
+standard <code>std::mutex</code>. It must allocate additional memory to
+track thread ownership and the recursion depth counter. Every lock and
+unlock operation requires extra branching and thread-identification
+checks, which degrade performance on hot execution paths.</p>
+<h4 id="5-obscured-lock-ownership-and-deadlock-risks">5. Obscured Lock
+Ownership and Deadlock Risks</h4>
+<p>While a recursive mutex prevents a single thread from deadlocking
+with itself, it makes reasoning about multi-threaded deadlocks
+significantly harder. It masks the true duration of critical sections,
+increasing lock contention across threads and making it difficult to
+verify locking order across complex systems.</p>
+<h3 id="the-recommended-alternative-separation-of-concerns">The
+Recommended Alternative: Separation of Concerns</h3>
+<p>Instead of relying on recursive locks, the standard idiomatic
+solution in C++ is to separate interface from implementation:</p>
+<ol type="1">
+<li><strong>Public Methods (Interface):</strong> Acquire a standard
+<code>std::mutex</code> via <code>std::lock_guard</code> or
+<code>std::unique_lock</code>, establish invariants, and delegate work
+to private helper functions.</li>
+<li><strong>Private Methods (Implementation):</strong> Assume that the
+lock is already held by the caller and perform the necessary work
+without handling synchronization directly.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Account <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> deposit<span class="op">(</span><span class="dt">double</span> amount<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>lock_guard<span class="op">&lt;</span><span class="bu">std::</span>mutex<span class="op">&gt;</span> lock<span class="op">(</span><span class="va">mutex_</span><span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        deposit_internal<span class="op">(</span>amount<span class="op">);</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> transfer<span class="op">(</span>Account<span class="op">&amp;</span> target<span class="op">,</span> <span class="dt">double</span> amount<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>unique_lock<span class="op">&lt;</span><span class="bu">std::</span>mutex<span class="op">&gt;</span> lockA<span class="op">(</span><span class="va">mutex_</span><span class="op">,</span> <span class="bu">std::</span>defer_lock<span class="op">);</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>unique_lock<span class="op">&lt;</span><span class="bu">std::</span>mutex<span class="op">&gt;</span> lockB<span class="op">(</span>target<span class="op">.</span><span class="va">mutex_</span><span class="op">,</span> <span class="bu">std::</span>defer_lock<span class="op">);</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>lock<span class="op">(</span>lockA<span class="op">,</span> lockB<span class="op">);</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        withdraw_internal<span class="op">(</span>amount<span class="op">);</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        target<span class="op">.</span>deposit_internal<span class="op">(</span>amount<span class="op">);</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> deposit_internal<span class="op">(</span><span class="dt">double</span> amount<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Assumes mutex_ is already locked</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="va">balance_</span> <span class="op">+=</span> amount<span class="op">;</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> withdraw_internal<span class="op">(</span><span class="dt">double</span> amount<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Assumes mutex_ is already locked</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>        <span class="va">balance_</span> <span class="op">-=</span> amount<span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>mutex <span class="va">mutex_</span><span class="op">;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> <span class="va">balance_</span> <span class="op">=</span> <span class="fl">0.0</span><span class="op">;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>By decoupling synchronization from core business logic, you preserve
+class invariants, reduce runtime overhead, and eliminate the
+architectural confusion associated with recursive mutexes.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

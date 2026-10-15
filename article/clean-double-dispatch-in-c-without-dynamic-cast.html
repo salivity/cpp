@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clean Double Dispatch in C++ Without dynamic_cast - cpp</title>
+    <meta name="description" content="Double dispatch allows a program to select a function implementation dynamically based on the runtime types of two interacting objects. While standard C++ virtual methods only provide single dispatch based on the object receiving the call, developers ofte">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/clean-double-dispatch-in-c-without-dynamic-cast">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Clean Double Dispatch in C++ Without dynamic_cast - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/clean-double-dispatch-in-c-without-dynamic-cast" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Double dispatch allows a program to select a function implementation dynamically based on the runtime types of two interacting objects. While standard C++ virtual methods only provide single dispatch based on the object receiving the call, developers ofte" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="clean-double-dispatch-in-c-without-dynamic_cast">Clean Double
+Dispatch in C++ Without dynamic_cast</h1>
+<p>Double dispatch allows a program to select a function implementation
+dynamically based on the runtime types of two interacting objects. While
+standard C++ virtual methods only provide single dispatch based on the
+object receiving the call, developers often fall back on inefficient and
+brittle <code>dynamic_cast</code> chains to inspect the second object's
+type. This article demonstrates how to implement clean, high-performance
+double dispatch in C++ using the Visitor design pattern, relying
+entirely on virtual method resolution rather than runtime type
+inspection.</p>
+<h2 id="the-problem-with-single-dispatch">The Problem with Single
+Dispatch</h2>
+<p>In C++, virtual functions resolve calls dynamically based solely on
+the object on which the method is invoked (the receiver). Consider an
+interaction between geometric shapes:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>shapeA<span class="op">-&gt;</span>collideWith<span class="op">(</span>shapeB<span class="op">);</span></span></code></pre></div>
+<p>While the dynamic type of <code>shapeA</code> is resolved via its
+vtable, <code>shapeB</code> is passed as a reference to the base class
+<code>Shape</code>. Inside <code>shapeA</code>'s implementation, the
+dynamic type of <code>shapeB</code> remains unknown.</p>
+<p>Using <code>dynamic_cast</code> to probe for each derived type of
+<code>shapeB</code> introduces runtime overhead and creates fragile,
+hard-to-maintain <code>if-else</code> blocks. Missing a type results in
+runtime errors rather than compile-time checks.</p>
+<h2 id="the-visitor-pattern-architecture">The Visitor Pattern
+Architecture</h2>
+<p>The Visitor pattern solves this problem by chaining two virtual
+calls.</p>
+<ol type="1">
+<li><strong>First Dispatch:</strong> The first object receives a method
+call and invokes an <code>accept</code> method on the second object,
+passing itself as an argument.</li>
+<li><strong>Second Dispatch:</strong> The second object’s
+<code>accept</code> implementation calls a typed <code>visit</code>
+method back on the caller (or visitor). Because the call happens inside
+the concrete class, the compiler statically resolves the second object's
+dynamic type as <code>*this</code>.</li>
+</ol>
+<p>This completely eliminates runtime casting and relies entirely on two
+consecutive, highly optimized vtable lookups.</p>
+<h2 id="implementation-example">Implementation Example</h2>
+<p>Below is a complete implementation of double dispatch for handling
+collisions between different shapes.</p>
+<h3 id="1-forward-declarations-and-interfaces">1. Forward Declarations
+and Interfaces</h3>
+<p>Define the elements and the visitor contract.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Circle<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Rectangle<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Visitor Interface defining overloads for each concrete type</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ShapeVisitor <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="op">~</span>ShapeVisitor<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> visit<span class="op">(</span>Circle<span class="op">&amp;</span> circle<span class="op">)</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> visit<span class="op">(</span>Rectangle<span class="op">&amp;</span> rectangle<span class="op">)</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Base Element Interface</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Shape <span class="op">{</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="op">~</span>Shape<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> accept<span class="op">(</span>ShapeVisitor<span class="op">&amp;</span> visitor<span class="op">)</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> collideWith<span class="op">(</span>Shape<span class="op">&amp;</span> other<span class="op">)</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="2-concrete-shapes">2. Concrete Shapes</h3>
+<p>Each shape implements <code>accept</code> by forwarding
+<code>*this</code> to the visitor, preserving its concrete type.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Circle <span class="op">:</span> <span class="kw">public</span> Shape <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> accept<span class="op">(</span>ShapeVisitor<span class="op">&amp;</span> visitor<span class="op">)</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        visitor<span class="op">.</span>visit<span class="op">(*</span><span class="kw">this</span><span class="op">);</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> collideWith<span class="op">(</span>Shape<span class="op">&amp;</span> other<span class="op">)</span> <span class="kw">override</span><span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Rectangle <span class="op">:</span> <span class="kw">public</span> Shape <span class="op">{</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> accept<span class="op">(</span>ShapeVisitor<span class="op">&amp;</span> visitor<span class="op">)</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        visitor<span class="op">.</span>visit<span class="op">(*</span><span class="kw">this</span><span class="op">);</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> collideWith<span class="op">(</span>Shape<span class="op">&amp;</span> other<span class="op">)</span> <span class="kw">override</span><span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="3-concrete-visitors-for-handling-interactions">3. Concrete
+Visitors for Handling Interactions</h3>
+<p>Create a visitor for each concrete shape to resolve the interaction
+with the second shape:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> CircleCollider <span class="op">:</span> <span class="kw">public</span> ShapeVisitor <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    Circle<span class="op">&amp;</span> circle<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">explicit</span> CircleCollider<span class="op">(</span>Circle<span class="op">&amp;</span> c<span class="op">)</span> <span class="op">:</span> circle<span class="op">(</span>c<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> visit<span class="op">(</span>Circle<span class="op">&amp;</span> other<span class="op">)</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Handling Circle-Circle collision.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> visit<span class="op">(</span>Rectangle<span class="op">&amp;</span> other<span class="op">)</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Handling Circle-Rectangle collision.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> RectangleCollider <span class="op">:</span> <span class="kw">public</span> ShapeVisitor <span class="op">{</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    Rectangle<span class="op">&amp;</span> rectangle<span class="op">;</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">explicit</span> RectangleCollider<span class="op">(</span>Rectangle<span class="op">&amp;</span> r<span class="op">)</span> <span class="op">:</span> rectangle<span class="op">(</span>r<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> visit<span class="op">(</span>Circle<span class="op">&amp;</span> other<span class="op">)</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Handling Rectangle-Circle collision.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> visit<span class="op">(</span>Rectangle<span class="op">&amp;</span> other<span class="op">)</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Handling Rectangle-Rectangle collision.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="4-completing-the-double-dispatch">4. Completing the Double
+Dispatch</h3>
+<p>Implement <code>collideWith</code> by instantiating the appropriate
+visitor and passing it to the other object:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> Circle<span class="op">::</span>collideWith<span class="op">(</span>Shape<span class="op">&amp;</span> other<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    CircleCollider collider<span class="op">(*</span><span class="kw">this</span><span class="op">);</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    other<span class="op">.</span>accept<span class="op">(</span>collider<span class="op">);</span> <span class="co">// Second dispatch happens here</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> Rectangle<span class="op">::</span>collideWith<span class="op">(</span>Shape<span class="op">&amp;</span> other<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    RectangleCollider collider<span class="op">(*</span><span class="kw">this</span><span class="op">);</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    other<span class="op">.</span>accept<span class="op">(</span>collider<span class="op">);</span> <span class="co">// Second dispatch happens here</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="5-execution">5. Execution</h3>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    Circle c<span class="op">;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    Rectangle r<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    Shape<span class="op">*</span> shape1 <span class="op">=</span> <span class="op">&amp;</span>c<span class="op">;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    Shape<span class="op">*</span> shape2 <span class="op">=</span> <span class="op">&amp;</span>r<span class="op">;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Resolves to Circle::collideWith, then Rectangle::accept</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    shape1<span class="op">-&gt;</span>collideWith<span class="op">(*</span>shape2<span class="op">);</span> </span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Resolves to Rectangle::collideWith, then Circle::accept</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    shape2<span class="op">-&gt;</span>collideWith<span class="op">(*</span>shape1<span class="op">);</span> </span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="benefits-of-the-approach">Benefits of the Approach</h2>
+<ul>
+<li><strong>Performance:</strong> Executes two constant-time vtable
+pointer dereferences rather than traversing inheritance hierarchies with
+<code>dynamic_cast</code>.</li>
+<li><strong>Compile-Time Safety:</strong> Adding a new concrete
+<code>Shape</code> requires updating the <code>ShapeVisitor</code>
+interface, which immediately forces all visitors to handle the new type
+at compile time.</li>
+<li><strong>Separation of Concerns:</strong> Interaction algorithms stay
+organized within visitor classes rather than cluttering core domain
+classes with branching logic.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

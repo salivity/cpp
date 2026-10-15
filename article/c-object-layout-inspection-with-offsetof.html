@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Object Layout Inspection with offsetof - cpp</title>
+    <meta name="description" content="The offsetof macro in C++ provides a compile-time mechanism to determine the byte offset of a specific data member from the beginning of its enclosing class or structure. Inherited from the C standard library via the &lt;cstddef&gt; header, offsetof allows deve">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-object-layout-inspection-with-offsetof">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Object Layout Inspection with offsetof - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-object-layout-inspection-with-offsetof" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The offsetof macro in C++ provides a compile-time mechanism to determine the byte offset of a specific data member from the beginning of its enclosing class or structure. Inherited from the C standard library via the &lt;cstddef&gt; header, offsetof allows deve" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-object-layout-inspection-with-offsetof">C++ Object Layout
+Inspection with offsetof</h1>
+<p>The <code>offsetof</code> macro in C++ provides a compile-time
+mechanism to determine the byte offset of a specific data member from
+the beginning of its enclosing class or structure. Inherited from the C
+standard library via the <code>&lt;cstddef&gt;</code> header,
+<code>offsetof</code> allows developers to inspect memory layout,
+diagnose structure padding, and interface safely with low-level systems.
+This article examines how the <code>offsetof</code> macro operates, the
+strict type constraints modern C++ imposes on its use, and how it can be
+combined with other language features to analyze memory
+representation.</p>
+<h3 id="syntax-and-core-mechanics">Syntax and Core Mechanics</h3>
+<p>The macro is defined in <code>&lt;cstddef&gt;</code> and takes two
+arguments:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstddef&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>offsetof<span class="op">(</span>type<span class="op">,</span> member<span class="op">-</span>designator<span class="op">)</span></span></code></pre></div>
+<p>It expands to an integral constant expression of type
+<code>std::size_t</code>. The returned value represents the number of
+bytes between the start of the object of type <code>type</code> and the
+initial byte of the specified <code>member-designator</code>.</p>
+<p>Historically in C, this was often implemented via pointer arithmetic
+on a null pointer (e.g.,
+<code>(size_t)&amp;(((type*)0)-&gt;member)</code>). In modern C++,
+invoking member access on a null pointer is undefined behavior.
+Consequently, modern C++ compilers implement <code>offsetof</code>
+through compiler intrinsics—such as GCC and Clang's
+<code>__builtin_offsetof</code>—to compute offsets safely at compile
+time without runtime execution or invalid dereferences.</p>
+<h3 id="requirements-standard-layout-types">Requirements:
+Standard-Layout Types</h3>
+<p>C++ imposes strict constraints on the types compatible with
+<code>offsetof</code>. While C allows <code>offsetof</code> on any
+<code>struct</code> or <code>union</code>, C++ restricts its
+standard-compliant use to <strong>standard-layout types</strong>.</p>
+<p>A class or struct qualifies as a standard-layout type if it satisfies
+the following conditions:</p>
+<ul>
+<li>It has no virtual functions and no virtual base classes.</li>
+<li>It has the same access control (<code>public</code>,
+<code>protected</code>, or <code>private</code>) for all non-static data
+members.</li>
+<li>All non-static data members and base classes are themselves
+standard-layout types.</li>
+<li>It has either no base classes with non-static data members, or has
+no non-static data members in the most derived class and at most one
+base class with non-static data members.</li>
+<li>It has no base classes of the same type as the first non-static data
+member.</li>
+</ul>
+<p>You can verify standard-layout compliance at compile time using the
+type trait <code>std::is_standard_layout_v&lt;T&gt;</code> from
+<code>&lt;type_traits&gt;</code>.</p>
+<p>Using <code>offsetof</code> on a non-standard-layout class (such as a
+class with virtual member functions or mixed <code>public</code> and
+<code>private</code> fields) results in undefined behavior, though some
+compilers support it as an implementation-defined extension.</p>
+<h3 id="practical-layout-inspection">Practical Layout Inspection</h3>
+<p><code>offsetof</code> is commonly used alongside <code>sizeof</code>
+and <code>alignof</code> to determine how a compiler pads fields to
+satisfy CPU alignment constraints.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstddef&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;type_traits&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> PacketHeader <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> protocol_id<span class="op">;</span>   <span class="co">// 1 byte</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3 bytes padding (assuming 4-byte alignment for int)</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> sequence_num<span class="op">;</span>   <span class="co">// 4 bytes</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> flags<span class="op">;</span>         <span class="co">// 1 byte</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 7 bytes padding (assuming 8-byte alignment for double)</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> timestamp<span class="op">;</span>   <span class="co">// 8 bytes</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="kw">static_assert</span><span class="op">(</span><span class="bu">std::</span>is_standard_layout_v<span class="op">&lt;</span>PacketHeader<span class="op">&gt;,</span> </span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>              <span class="st">&quot;PacketHeader must be standard-layout to use offsetof&quot;</span><span class="op">);</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;protocol_id:  &quot;</span> <span class="op">&lt;&lt;</span> offsetof<span class="op">(</span>PacketHeader<span class="op">,</span> protocol_id<span class="op">)</span>  <span class="op">&lt;&lt;</span> <span class="st">&quot; bytes</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;sequence_num: &quot;</span> <span class="op">&lt;&lt;</span> offsetof<span class="op">(</span>PacketHeader<span class="op">,</span> sequence_num<span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="st">&quot; bytes</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;flags:        &quot;</span> <span class="op">&lt;&lt;</span> offsetof<span class="op">(</span>PacketHeader<span class="op">,</span> flags<span class="op">)</span>        <span class="op">&lt;&lt;</span> <span class="st">&quot; bytes</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;timestamp:    &quot;</span> <span class="op">&lt;&lt;</span> offsetof<span class="op">(</span>PacketHeader<span class="op">,</span> timestamp<span class="op">)</span>    <span class="op">&lt;&lt;</span> <span class="st">&quot; bytes</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Total size:   &quot;</span> <span class="op">&lt;&lt;</span> <span class="kw">sizeof</span><span class="op">(</span>PacketHeader<span class="op">)</span>                 <span class="op">&lt;&lt;</span> <span class="st">&quot; bytes</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this example, the output reveals the exact byte offsets, showing
+the gaps introduced by alignment requirements. Because the expressions
+are compile-time constants, they can also be used in
+<code>static_assert</code> declarations to enforce binary protocol
+layouts or serialization invariants across different compilation
+targets.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

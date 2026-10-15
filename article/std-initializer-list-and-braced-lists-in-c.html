@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::initializer_list and Braced Lists in C++ - cpp</title>
+    <meta name="description" content="In modern C++, braced initialization ({...}) provides a uniform syntax for initializing variables, aggregates, and containers. The std::initializerlist&lt;T&gt; class template serves as the critical bridge that allows user-defined classes to accept arbitrary-le">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-initializer-list-and-braced-lists-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::initializer_list and Braced Lists in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-initializer-list-and-braced-lists-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, braced initialization ({...}) provides a uniform syntax for initializing variables, aggregates, and containers. The std::initializerlist&lt;T&gt; class template serves as the critical bridge that allows user-defined classes to accept arbitrary-le" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stdinitializer_list-and-braced-lists-in-c">std::initializer_list
+and Braced Lists in C++</h1>
+<p>In modern C++, braced initialization (<code>{...}</code>) provides a
+uniform syntax for initializing variables, aggregates, and containers.
+The <code>std::initializer_list&lt;T&gt;</code> class template serves as
+the critical bridge that allows user-defined classes to accept
+arbitrary-length, comma-separated lists of elements within these braced
+constructs. This article explains the underlying compiler mechanics of
+braced-init-lists, how the compiler maps them to
+<code>std::initializer_list</code>, how constructor overload resolution
+handles them, and the memory and lifetime rules that govern their
+use.</p>
+<h3 id="the-compiler-mechanism-behind-braced-lists">The Compiler
+Mechanism Behind Braced Lists</h3>
+<p>When the C++ compiler encounters a braced-init-list
+<code>{e1, e2, ..., eN}</code> being passed to an object whose
+constructor accepts a <code>std::initializer_list&lt;T&gt;</code>, it
+performs a sequence of internal steps:</p>
+<ol type="1">
+<li><p><strong>Type Deduction and Validation:</strong> The compiler
+evaluates all elements within the braces to deduce a common type
+<code>T</code>. Every element must either match type <code>T</code> or
+be implicitly convertible to it.</p></li>
+<li><p><strong>Backing Array Creation:</strong> The compiler
+automatically creates a hidden, temporary array of <code>const T</code>
+in memory (typically on the stack, or in static storage if the context
+is <code>constexpr</code>):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> T __hidden_array<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span> e1<span class="op">,</span> e2<span class="op">,</span> <span class="op">...,</span> eN <span class="op">};</span></span></code></pre></div></li>
+<li><p><strong>Proxy Instantiation:</strong> The compiler constructs a
+<code>std::initializer_list&lt;T&gt;</code> object referencing this
+hidden array.</p></li>
+</ol>
+<h3 id="the-internal-structure-of-stdinitializer_list">The Internal
+Structure of std::initializer_list</h3>
+<p>The <code>std::initializer_list&lt;T&gt;</code> class is essentially
+a lightweight proxy. Internally, most implementations represent it as a
+pair of pointers (or a pointer and an integer size):</p>
+<ul>
+<li>A pointer to the first element of the temporary array
+(<code>begin()</code>).</li>
+<li>A pointer past the last element of the temporary array
+(<code>end()</code>), or an unsigned integer representing the count
+(<code>size()</code>).</li>
+</ul>
+<p>Because it is so small, copying a <code>std::initializer_list</code>
+is extremely cheap—it merely copies the pointers, not the underlying
+array elements.</p>
+<h3 id="implementing-an-initializer-list-constructor">Implementing an
+Initializer-List Constructor</h3>
+<p>To allow a class to consume braced lists, you define a constructor
+that accepts <code>std::initializer_list&lt;T&gt;</code> by value (or by
+<code>const</code> reference, though value is idiomatic due to its
+trivial size).</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;initializer_list&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> NumberContainer <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> data<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    NumberContainer<span class="op">(</span><span class="bu">std::</span>initializer_list<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> list<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        data<span class="op">.</span>reserve<span class="op">(</span>list<span class="op">.</span>size<span class="op">());</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> value <span class="op">:</span> list<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>            data<span class="op">.</span>push_back<span class="op">(</span>value<span class="op">);</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> print<span class="op">()</span> <span class="at">const</span> <span class="op">{</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> n <span class="op">:</span> data<span class="op">)</span> <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> n <span class="op">&lt;&lt;</span> <span class="st">&quot; &quot;</span><span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Invokes NumberContainer(std::initializer_list&lt;int&gt;)</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    NumberContainer numbers <span class="op">=</span> <span class="op">{</span><span class="dv">10</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">30</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">50</span><span class="op">};</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    numbers<span class="op">.</span>print<span class="op">();</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="overload-resolution-precedence">Overload Resolution
+Precedence</h3>
+<p>Constructors taking <code>std::initializer_list</code> hold a
+uniquely high priority during C++ overload resolution. If braced syntax
+is used and a viable <code>std::initializer_list</code> constructor
+exists, the compiler strongly favors it over alternative
+constructors.</p>
+<p>A classic example occurs with
+<code>std::vector&lt;int&gt;</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> a<span class="op">(</span><span class="dv">5</span><span class="op">,</span> <span class="dv">2</span><span class="op">);</span> <span class="co">// Calls (size_type, value) -&gt; 5 elements, all 2: [2, 2, 2, 2, 2]</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> b<span class="op">{</span><span class="dv">5</span><span class="op">,</span> <span class="dv">2</span><span class="op">};</span> <span class="co">// Calls std::initializer_list&lt;int&gt; -&gt; 2 elements: [5, 2]</span></span></code></pre></div>
+<p>If an empty braced list <code>{}</code> is passed, default
+construction takes precedence over an empty
+<code>std::initializer_list</code>, unless no default constructor
+exists.</p>
+<h3 id="constness-and-object-lifetime">Constness and Object
+Lifetime</h3>
+<p>Two crucial constraints govern
+<code>std::initializer_list</code>:</p>
+<ol type="1">
+<li><strong>Elements are Immutable:</strong> The underlying elements are
+always <code>const T</code>. You cannot modify them directly within the
+list, nor can you move (<code>std::move</code>) resources out of them
+without casting away <code>const</code> (which causes undefined
+behavior). Elements must be copied into their final destination.</li>
+<li><strong>Temporary Lifetime:</strong> The temporary backing array
+exists only as long as the expression that created it, matching standard
+temporary object rules. Storing a <code>std::initializer_list</code>
+instance as a member variable for later access is dangerous, as the
+underlying array will be destroyed at the end of the full expression,
+leaving the stored pointers dangling.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

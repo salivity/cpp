@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::invoke_result Deduces Return Types in C++ - cpp</title>
+    <meta name="description" content="Introduced in C++17 to replace std::resultof, std::invokeresult is a type trait that deduces the return type of any callable entity when invoked with a specific set of arguments at compile time. This article explains the internal mechanics of std::invoker">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-invoke-result-deduces-return-types-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::invoke_result Deduces Return Types in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-invoke-result-deduces-return-types-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++17 to replace std::resultof, std::invokeresult is a type trait that deduces the return type of any callable entity when invoked with a specific set of arguments at compile time. This article explains the internal mechanics of std::invoker" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdinvoke_result-deduces-return-types-in-c">How
+std::invoke_result Deduces Return Types in C++</h1>
+<p>Introduced in C++17 to replace <code>std::result_of</code>,
+<code>std::invoke_result</code> is a type trait that deduces the return
+type of any callable entity when invoked with a specific set of
+arguments at compile time. This article explains the internal mechanics
+of <code>std::invoke_result</code>, detailing how it leverages the
+standardized <code>INVOKE</code> concept, unevaluated contexts,
+<code>std::declval</code>, and <code>decltype</code> to compute return
+types without generating runtime overhead or requiring callable objects
+to be instantiated.</p>
+<h2 id="the-foundation-the-invoke-concept">The Foundation: The INVOKE
+Concept</h2>
+<p>In C++, "callables" are diverse. They include:</p>
+<ul>
+<li>Free functions and function pointers</li>
+<li>Functors (classes with an <code>operator()</code>)</li>
+<li>Lambdas</li>
+<li>Member function pointers</li>
+<li>Member data pointers</li>
+</ul>
+<p>Before C++17, determining the return type of arbitrary callables was
+inconsistent because member pointers require an object instance
+(<code>(obj.*ptr)()</code> or <code>(ptrObj-&gt;*ptr)()</code>), whereas
+regular functions use the standard call syntax
+(<code>func()</code>).</p>
+<p><code>std::invoke_result</code> addresses this by relying on the
+standard <code>INVOKE&lt;R&gt;(f, args...)</code> rules defined by the
+C++ specification. The standard library provides
+<code>std::invoke</code> as the direct implementation of these rules,
+unifying call syntax across all callable types.</p>
+<h2 id="compile-time-deduction-via-unevaluated-contexts">Compile-Time
+Deduction via Unevaluated Contexts</h2>
+<p>At the core of <code>std::invoke_result</code> is the unevaluated
+operand. An unevaluated operand is an expression that the compiler
+analyzes solely for its type and value category, without compiling it
+into machine instructions or executing it.</p>
+<p><code>std::invoke_result</code> uses two primary compile-time
+utilities inside this unevaluated context:</p>
+<ol type="1">
+<li><strong><code>std::declval&lt;T&gt;()</code></strong>: Generates a
+pseudo-value of type <code>T</code> at compile time without constructing
+an actual object. This allows deduction on types that lack default
+constructors or are abstract.</li>
+<li><strong><code>decltype(...)</code></strong>: Inspects the declared
+type of the resulting expression.</li>
+</ol>
+<p>A conceptual implementation of <code>std::invoke_result</code> looks
+like this:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> F<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> invoke_result <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> type <span class="op">=</span> <span class="kw">decltype</span><span class="op">(</span><span class="bu">std::</span>invoke<span class="op">(</span><span class="bu">std::</span>declval<span class="op">&lt;</span>F<span class="op">&gt;(),</span> <span class="bu">std::</span>declval<span class="op">&lt;</span>Args<span class="op">&gt;()...));</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> F<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> <span class="dt">invoke_result_t</span> <span class="op">=</span> <span class="kw">typename</span> invoke_result<span class="op">&lt;</span>F<span class="op">,</span> Args<span class="op">...&gt;::</span>type<span class="op">;</span></span></code></pre></div>
+<p>When you pass types to
+<code>std::invoke_result&lt;F, Args...&gt;</code>, the compiler
+simulates calling <code>std::invoke</code> using fictional instances
+created by <code>std::declval</code>. The <code>decltype</code>
+specifier queries the exact type produced by this simulated call.</p>
+<h2 id="handling-incompatible-arguments-with-sfinae">Handling
+Incompatible Arguments with SFINAE</h2>
+<p>A critical requirement for modern type traits is that invalid
+combinations of callable objects and arguments must not trigger hard
+compiler errors. Instead, they must result in a substitution failure
+(SFINAE - Substitution Failure Is Not An Error).</p>
+<p>Standard library implementations achieve this by specializing a base
+template:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Primary template: inactive / invalid call</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> AlwaysVoid<span class="op">,</span> <span class="kw">typename</span> F<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> invoke_result_impl <span class="op">{};</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Partial specialization: enabled only if std::invoke is valid</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> F<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> invoke_result_impl<span class="op">&lt;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>void_t<span class="op">&lt;</span><span class="kw">decltype</span><span class="op">(</span><span class="bu">std::</span>invoke<span class="op">(</span><span class="bu">std::</span>declval<span class="op">&lt;</span>F<span class="op">&gt;(),</span> <span class="bu">std::</span>declval<span class="op">&lt;</span>Args<span class="op">&gt;()...))&gt;,</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    F<span class="op">,</span> Args<span class="op">...</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> type <span class="op">=</span> <span class="kw">decltype</span><span class="op">(</span><span class="bu">std::</span>invoke<span class="op">(</span><span class="bu">std::</span>declval<span class="op">&lt;</span>F<span class="op">&gt;(),</span> <span class="bu">std::</span>declval<span class="op">&lt;</span>Args<span class="op">&gt;()...));</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> F<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> invoke_result <span class="op">:</span> invoke_result_impl<span class="op">&lt;</span><span class="dt">void</span><span class="op">,</span> F<span class="op">,</span> Args<span class="op">...&gt;</span> <span class="op">{};</span></span></code></pre></div>
+<ul>
+<li>If
+<code>std::invoke(std::declval&lt;F&gt;(), std::declval&lt;Args&gt;()...)</code>
+is well-formed, the specialization matches, and member alias
+<code>type</code> is defined.</li>
+<li>If the call is invalid (e.g., mismatched argument count or
+incompatible types), the specialization is discarded due to SFINAE,
+leaving <code>invoke_result</code> without a <code>type</code>
+member.</li>
+</ul>
+<p>This failure mechanism enables boolean detection traits such as
+<code>std::is_invocable</code> and <code>std::is_invocable_r</code>,
+which simply check whether
+<code>std::invoke_result&lt;F, Args...&gt;::type</code> exists.</p>
+<h2 id="member-pointers-and-references">Member Pointers and
+References</h2>
+<p><code>std::invoke_result</code> also correctly deduces value
+categories and references:</p>
+<ul>
+<li><strong>Lvalue references</strong>: If a function returns an lvalue
+reference (e.g., <code>int&amp;</code>), <code>std::invoke_result</code>
+evaluates to <code>int&amp;</code>.</li>
+<li><strong>Rvalue references</strong>: Functions returning
+<code>T&amp;&amp;</code> evaluate to <code>T&amp;&amp;</code>.</li>
+<li><strong>Member object pointers</strong>: Accessing a member variable
+<code>int MyClass::*</code> on an object <code>MyClass</code> returns a
+reference to that member type (<code>int&amp;</code> or
+<code>const int&amp;</code> depending on the object's constness).</li>
+</ul>
+<p>Because it routes through the <code>INVOKE</code> rules rather than
+treating callables strictly as function invocations,
+<code>std::invoke_result</code> consistently resolves the precise return
+type across all callable entities in modern C++.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

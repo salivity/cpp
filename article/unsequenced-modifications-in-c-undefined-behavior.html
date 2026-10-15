@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unsequenced Modifications in C++ Undefined Behavior - cpp</title>
+    <meta name="description" content="This article provides a comprehensive overview of undefined behavior resulting from multiple unsequenced modifications to the same variable in C++. It explains the concepts of sequencing and evaluation order, analyzes why the C++ standard designates these">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/unsequenced-modifications-in-c-undefined-behavior">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Unsequenced Modifications in C++ Undefined Behavior - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/unsequenced-modifications-in-c-undefined-behavior" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of undefined behavior resulting from multiple unsequenced modifications to the same variable in C++. It explains the concepts of sequencing and evaluation order, analyzes why the C++ standard designates these" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="unsequenced-modifications-in-c-undefined-behavior">Unsequenced
+Modifications in C++ Undefined Behavior</h1>
+<p>This article provides a comprehensive overview of undefined behavior
+resulting from multiple unsequenced modifications to the same variable
+in C++. It explains the concepts of sequencing and evaluation order,
+analyzes why the C++ standard designates these operations as undefined
+behavior, highlights classic code patterns that trigger the issue, and
+details how modern C++ standards regulate expression evaluation to
+prevent subtle runtime bugs.</p>
+<h3 id="sequencing-and-evaluation-order-in-c">Sequencing and Evaluation
+Order in C++</h3>
+<p>In C++, the execution of an expression involves both value
+computations (determining the result of an expression) and side effects
+(modifications to the state of an object, such as writing to memory).
+Prior to C++11, the language relied on the concept of "sequence points"
+to define boundaries where all previous side effects were guaranteed to
+be complete. Starting with C++11, the standard formalized this into a
+partial ordering model called the <strong>sequenced-before</strong>
+relationship.</p>
+<p>An evaluation can be:</p>
+<ul>
+<li><strong>Sequenced before</strong> another evaluation: The first
+completes before the second begins.</li>
+<li><strong>Sequenced after</strong> another evaluation: The reverse of
+sequenced before.</li>
+<li><strong>Unsequenced</strong> relative to another: The evaluations
+can occur in any order, can overlap, or can be interleaved.</li>
+<li><strong>Indeterminately sequenced</strong>: One happens before the
+other, but the compiler chooses which one runs first; they cannot
+overlap.</li>
+</ul>
+<h3 id="the-undefined-behavior-rule">The Undefined Behavior Rule</h3>
+<p>The C++ standard specifies that:</p>
+<ol type="1">
+<li>If a side effect on a scalar object is unsequenced relative to
+another side effect on the same scalar object, the behavior is
+undefined.</li>
+<li>If a side effect on a scalar object is unsequenced relative to a
+value computation that uses the value of the same scalar object, the
+behavior is undefined.</li>
+</ol>
+<p>When behavior is undefined (UB), the compiler is not obligated to
+generate predictable machine instructions, issue a warning, or fail to
+compile. The resulting program may produce erratic output, crash
+unpredictably, or behave differently across different optimization
+levels and compiler versions.</p>
+<h3 id="common-examples-of-unsequenced-modifications">Common Examples of
+Unsequenced Modifications</h3>
+<p>A classic demonstration of this violation occurs when applying
+increment or decrement operators multiple times to a scalar variable
+within a single expression:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>i <span class="op">=</span> <span class="op">++</span>i<span class="op">;</span> <span class="co">// Undefined behavior prior to C++17</span></span></code></pre></div>
+<p>In the assignment <code>i = ++i</code>, <code>++i</code> modifies
+<code>i</code>, and the assignment itself attempts to write a new value
+to <code>i</code>. Without an explicit sequencing rule between the
+assignment's side effect and the pre-increment's side effect, the order
+of writes is unresolved.</p>
+<p>Another prevalent scenario involves function arguments:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> execute<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">);</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> x <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>execute<span class="op">(++</span>x<span class="op">,</span> <span class="op">++</span>x<span class="op">);</span> <span class="co">// Undefined behavior</span></span></code></pre></div>
+<p>In C++, function arguments are unsequenced (or indeterminately
+sequenced since C++17) relative to one another. Because both
+subexpressions modify <code>x</code> without an intervening sequence
+point or sequenced-before relationship, modifying <code>x</code> twice
+leads directly to undefined behavior.</p>
+<p>A related violation involves reading and modifying the same
+variable:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> arr<span class="op">[</span><span class="dv">5</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span><span class="dv">0</span><span class="op">};</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> index <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>arr<span class="op">[</span>index<span class="op">]</span> <span class="op">=</span> index<span class="op">++;</span> <span class="co">// Undefined behavior prior to C++17</span></span></code></pre></div>
+<p>Here, <code>index</code> is being read for the array subscript while
+simultaneously undergoing a side effect via <code>index++</code>.</p>
+<h3 id="the-impact-of-c17">The Impact of C++17</h3>
+<p>C++17 refined the rules governing expression evaluation to eliminate
+some of the ambiguities that historically caused accidental undefined
+behavior:</p>
+<ul>
+<li><strong>Assignment expressions (<code>=</code>, <code>+=</code>,
+etc.):</strong> The right-hand side operand is sequenced before the
+left-hand side operand.</li>
+<li><strong>Subscript expressions (<code>E1[E2]</code>):</strong> The
+expression <code>E1</code> is sequenced before <code>E2</code>.</li>
+<li><strong>Shift operators (<code>&lt;&lt;</code>,
+<code>&gt;&gt;</code>):</strong> The left operand is sequenced before
+the right operand.</li>
+</ul>
+<p>Because of these revisions, an expression like
+<code>arr[i] = i++</code> or <code>i = ++i</code> has well-defined
+sequencing in C++17 and later. However, expressions like
+<code>execute(++x, ++x)</code> remain non-deterministic or problematic,
+and multiple unsequenced writes inside subexpressions where no order is
+mandated remain strictly undefined.</p>
+<h3 id="why-compilers-treat-this-as-undefined">Why Compilers Treat This
+as Undefined</h3>
+<p>Modern compilers heavily optimize code using pipelining, instruction
+reordering, and register allocation. If the standard mandated an
+arbitrary evaluation order for subexpressions, compilers would be forced
+to emit redundant store and reload instructions, severely degrading
+performance. By classifying unsequenced modifications as undefined
+behavior, the language allows the optimizer to assume that such
+conflicting operations never occur in a well-formed program.</p>
+<h3 id="how-to-prevent-unsequenced-modifications">How to Prevent
+Unsequenced Modifications</h3>
+<p>To avoid undefined behavior from unsequenced modifications:</p>
+<ul>
+<li>Avoid modifying a variable more than once within the same full
+expression.</li>
+<li>Do not read and modify the same variable in different operands of an
+operator unless a strict sequencing guarantee applies.</li>
+<li>Separate complex, side-effect-heavy expressions into multiple
+distinct statements.</li>
+<li>Enable comprehensive compiler warnings (such as <code>-Wall</code>
+and <code>-Wextra</code> in GCC and Clang), which routinely detect and
+flag unsequenced operations.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

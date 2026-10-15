@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ nodiscard Attribute: Prevent Ignored Returns - cpp</title>
+    <meta name="description" content="In modern C++, silently discarding the return value of a function can introduce severe bugs, ranging from unhandled error codes and resource leaks to dead code that fails to perform intended mutations. Introduced in C++17 and expanded in C++20, the standa">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-nodiscard-attribute-prevent-ignored-returns">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ nodiscard Attribute: Prevent Ignored Returns - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-nodiscard-attribute-prevent-ignored-returns" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, silently discarding the return value of a function can introduce severe bugs, ranging from unhandled error codes and resource leaks to dead code that fails to perform intended mutations. Introduced in C++17 and expanded in C++20, the standa" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-nodiscard-attribute-prevent-ignored-returns">C++ nodiscard
+Attribute: Prevent Ignored Returns</h1>
+<p>In modern C++, silently discarding the return value of a function can
+introduce severe bugs, ranging from unhandled error codes and resource
+leaks to dead code that fails to perform intended mutations. Introduced
+in C++17 and expanded in C++20, the standard attribute
+<code>[[nodiscard]]</code> directly addresses this issue by turning
+silent oversights into compile-time diagnostics. This article explains
+how <code>[[nodiscard]]</code> works, where it can be applied, how the
+compiler enforces it, and how developers can handle cases where a return
+value is intentionally ignored.</p>
+<h3 id="the-problem-of-ignored-return-values">The Problem of Ignored
+Return Values</h3>
+<p>In standard C++, discarding a function's return value is valid
+syntax:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>allocate_memory<span class="op">();</span> <span class="co">// Return value (pointer or handle) is dropped silently</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> v<span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">};</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>v<span class="op">.</span>empty<span class="op">();</span>         <span class="co">// Common bug: developer intended v.clear()</span></span></code></pre></div>
+<p>When functions return error codes, status objects, or freshly
+allocated resources, dropping the return value leads to silent failures.
+Compilers historically had no standardized mechanism to distinguish
+between a function whose return value is optional and one whose return
+value is critical to program correctness.</p>
+<h3 id="how-nodiscard-works">How <code>[[nodiscard]]</code> Works</h3>
+<p>The <code>[[nodiscard]]</code> attribute instructs the compiler to
+issue a warning if the return value of a function call is evaluated in a
+discarded-value expression.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="op">[[</span><span class="at">nodiscard</span><span class="op">]]</span> <span class="dt">bool</span> connect_to_database<span class="op">();</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> setup<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    connect_to_database<span class="op">();</span> <span class="co">// Compiler warning: ignoring return value of function declared with &#39;nodiscard&#39; attribute</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By producing a warning at the call site, the compiler ensures that
+the caller either stores, inspects, or explicitly acknowledges the
+result.</p>
+<h3 id="applying-nodiscard-to-types">Applying <code>[[nodiscard]]</code>
+to Types</h3>
+<p>In addition to individual functions, <code>[[nodiscard]]</code> can
+be applied directly to type definitions, such as classes, structs, or
+enums. When a type is marked <code>[[nodiscard]]</code>, any function
+that returns that type by value automatically inherits the nodiscard
+behavior:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="op">[[</span><span class="at">nodiscard</span><span class="op">]]</span> Status <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> error_code<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="dt">char</span><span class="op">*</span> message<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>Status perform_transaction<span class="op">();</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> run<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    perform_transaction<span class="op">();</span> <span class="co">// Triggers a compiler warning because &#39;Status&#39; is [[nodiscard]]</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This pattern is especially valuable for error handling libraries and
+types such as <code>std::expected</code> or custom <code>Result</code>
+types, ensuring that failure states are never silently bypassed anywhere
+in the codebase.</p>
+<h3 id="message-strings-in-c20">Message Strings in C++20</h3>
+<p>C++20 enhanced the attribute by allowing an optional string literal
+explanation: <code>[[nodiscard("reason")]]</code>. This allows authors
+to document precisely why the return value must be checked directly
+within compiler error and warning outputs:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="op">[[</span><span class="at">nodiscard</span><span class="op">(</span><span class="st">&quot;Ignoring this handle will cause a resource leak.&quot;</span><span class="op">)]]</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>ResourceHandle acquire_resource<span class="op">();</span></span></code></pre></div>
+<p>When a developer calls <code>acquire_resource()</code> without
+capturing the result, modern compilers display the custom message
+alongside the warning.</p>
+<h3 id="legitimate-discards">Legitimate Discards</h3>
+<p>If a developer consciously chooses to ignore a
+<code>[[nodiscard]]</code> return value, they can suppress the warning
+explicitly by casting the result to <code>void</code> or assigning it to
+<code>std::ignore</code>:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="dt">void</span><span class="op">)</span>connect_to_database<span class="op">();</span> </span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">// or</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>ignore <span class="op">=</span> connect_to_database<span class="op">();</span></span></code></pre></div>
+<p>This requirement forces deliberate intent, preventing accidental
+omissions while retaining flexibility when a return value is genuinely
+not needed.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

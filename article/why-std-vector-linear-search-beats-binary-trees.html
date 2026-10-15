@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why std::vector Linear Search Beats Binary Trees - cpp</title>
+    <meta name="description" content="In theoretical computer science, a binary search tree&#39;s $O(\log n)$ lookup complexity easily outperforms an array&#39;s $O(n)$ linear scan. However, in modern C++ systems programming, a linear search through a contiguous std::vector routinely outperforms a no">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/why-std-vector-linear-search-beats-binary-trees">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why std::vector Linear Search Beats Binary Trees - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/why-std-vector-linear-search-beats-binary-trees" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In theoretical computer science, a binary search tree&#39;s $O(\log n)$ lookup complexity easily outperforms an array&#39;s $O(n)$ linear scan. However, in modern C++ systems programming, a linear search through a contiguous std::vector routinely outperforms a no" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-stdvector-linear-search-beats-binary-trees">Why std::vector
+Linear Search Beats Binary Trees</h1>
+<p>In theoretical computer science, a binary search tree's <span
+class="math inline">\(O(\log n)\)</span> lookup complexity easily
+outperforms an array's <span class="math inline">\(O(n)\)</span> linear
+scan. However, in modern C++ systems programming, a linear search
+through a contiguous <code>std::vector</code> routinely outperforms a
+node-based binary search tree (such as <code>std::set</code> or
+<code>std::map</code>) for small to medium-sized datasets. This article
+breaks down why modern hardware architecture—specifically cache
+locality, hardware prefetching, and memory overhead—causes real-world
+hardware realities to invert theoretical algorithmic expectations.</p>
+<h3 id="cache-locality-and-memory-architecture">Cache Locality and
+Memory Architecture</h3>
+<p>Modern CPU performance is heavily constrained by memory latency.
+While a CPU core can process instructions in fractions of a nanosecond,
+fetching data from main memory (DRAM) requires tens to hundreds of
+nanoseconds. To mitigate this discrepancy, modern processors rely on
+multi-tier cache systems (L1, L2, and L3).</p>
+<p>When a CPU reads an address from memory, it does not fetch a single
+byte or element; it retrieves an entire <strong>cache line</strong>,
+which is typically 64 bytes wide.</p>
+<ul>
+<li><strong><code>std::vector</code>:</strong> Elements are stored
+contiguously in memory. Loading the first element automatically pulls
+neighboring elements into the L1 cache. If you are searching through an
+array of 4-byte integers, a single 64-byte cache line fetch loads 16
+consecutive integers at once. Subsequent comparisons occur almost
+instantly against the L1 cache.</li>
+<li><strong>Binary Search Tree (e.g., <code>std::set</code>):</strong>
+Trees are node-based data structures. Each element is individually
+allocated on the heap, accompanied by child and parent pointers. These
+nodes are scattered across non-contiguous addresses in memory. Every
+step down a branch typically results in a cache miss, forcing the CPU to
+stall while waiting for main memory to retrieve the next node.</li>
+</ul>
+<h3 id="hardware-prefetching-vs-pointer-chasing">Hardware Prefetching
+vs. Pointer Chasing</h3>
+<p>Modern processors incorporate hardware prefetchers that analyze
+memory access patterns. When the CPU detects a linear scan through
+memory, it proactively fetches upcoming cache lines from DRAM into the
+cache before the execution thread even requests them. A linear search
+over a <code>std::vector</code> creates a completely predictable access
+pattern, allowing the CPU to read elements with near-zero memory-stall
+cycles.</p>
+<p>In contrast, navigating a tree requires <strong>pointer
+chasing</strong>. The address of the next node is unknown until the
+current node's pointer is read and evaluated. Because the hardware
+prefetcher cannot predict where the next node resides in physical
+memory, it cannot prefetch the data. The CPU must repeatedly stall on
+every traversal level.</p>
+<h3 id="memory-overhead-and-cache-efficiency">Memory Overhead and Cache
+Efficiency</h3>
+<p>A binary search tree introduces significant memory bloat compared to
+a vector. In a standard 64-bit implementation of a Red-Black tree (such
+as <code>std::set</code>):</p>
+<ul>
+<li>Three 64-bit pointers (parent, left child, right child) = 24
+bytes.</li>
+<li>Node color/metadata and padding = 8 bytes.</li>
+<li>The actual data payload = <span class="math inline">\(M\)</span>
+bytes.</li>
+</ul>
+<p>A single 4-byte integer in a <code>std::set</code> can consume 32 to
+48 bytes of memory due to allocator alignment and pointer overhead.
+Because the data density is so low, CPU caches fill up primarily with
+tree navigation metadata rather than payload data. A
+<code>std::vector</code> has zero per-element memory overhead,
+maximizing the amount of actual payload stored in the processor's
+fastest cache levels.</p>
+<h3 id="instruction-pipelining-and-branch-prediction">Instruction
+Pipelining and Branch Prediction</h3>
+<p>A linear search over contiguous data consists of tight, repetitive
+loops. Modern processors unroll and vectorize (via SIMD instructions)
+these operations, comparing multiple elements in a single CPU cycle.</p>
+<p>Binary search tree lookups involve unpredictable branch directions
+(<code>left</code> vs. <code>right</code>) depending on the key
+compared. If the CPU's branch predictor guesses incorrectly, the
+instruction pipeline is flushed, resulting in a penalty of 10 to 20
+clock cycles per misprediction.</p>
+<h3 id="where-the-crossover-occurs">Where the Crossover Occurs</h3>
+<p>Theoretical Big-O notation measures operations as <span
+class="math inline">\(N\)</span> approaches infinity, completely
+omitting hardware-dependent constant factors. Because the constant
+factor for an in-cache linear scan is orders of magnitude smaller than a
+main-memory pointer dereference, a linear scan through
+<code>std::vector</code> is typically faster than a tree lookup for
+collections containing tens, hundreds, or even thousands of elements,
+depending on the payload size.</p>
+<p>For sorted data where lookup performance is critical, a sorted
+<code>std::vector</code> queried using <code>std::binary_search</code>
+or <code>std::lower_bound</code> combines the algorithmic efficiency of
+<span class="math inline">\(O(\log n)\)</span> with the contiguous
+memory benefits of arrays, outperforming both linear scans and
+traditional node-based binary trees.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

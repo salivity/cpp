@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compiler Fence in C++: Preventing Instruction Reordering - cpp</title>
+    <meta name="description" content="A compiler fence, also known as a compiler barrier, is a compile-time directive that prevents the compiler from reordering read and write memory operations across a specific point in the code during optimization. In C++, modern compilers aggressively resc">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/compiler-fence-in-c-preventing-instruction-reordering">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Compiler Fence in C++: Preventing Instruction Reordering - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/compiler-fence-in-c-preventing-instruction-reordering" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A compiler fence, also known as a compiler barrier, is a compile-time directive that prevents the compiler from reordering read and write memory operations across a specific point in the code during optimization. In C++, modern compilers aggressively resc" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="compiler-fence-in-c-preventing-instruction-reordering">Compiler
+Fence in C++: Preventing Instruction Reordering</h1>
+<p>A compiler fence, also known as a compiler barrier, is a compile-time
+directive that prevents the compiler from reordering read and write
+memory operations across a specific point in the code during
+optimization. In C++, modern compilers aggressively reschedule
+instructions to maximize CPU instruction-level parallelism, hide memory
+latencies, and eliminate redundancies. While this preserves
+single-threaded program correctness under the "as-if" rule, it can lead
+to subtle bugs in multi-threaded environments, signal handlers, and
+embedded software interfacing with hardware registers. This article
+explains how instruction reordering happens, what a compiler fence is,
+how it stops reordering during optimization, and how it is implemented
+in C++.</p>
+<h3 id="why-compilers-reorder-instructions">Why Compilers Reorder
+Instructions</h3>
+<p>During the optimization phase, compilers such as GCC, Clang, and MSVC
+analyze code to eliminate bottlenecks. If two memory operations do not
+have an explicit data dependency (for instance, reading variable
+<code>A</code> and writing variable <code>B</code>), the compiler's
+optimizer is free to swap their execution order if it determines that
+doing so will utilize CPU registers or execution pipelines more
+effectively.</p>
+<p>In single-threaded execution, this optimization is completely
+invisible because the final observable state remains the same. However,
+when code communicates with:</p>
+<ul>
+<li>Asynchronous signal handlers on the same thread,</li>
+<li>Memory-mapped Input/Output (MMIO) hardware registers, or</li>
+<li>Other threads sharing memory,</li>
+</ul>
+<p>instruction reordering can result in inconsistent state and race
+conditions where operations appear out of sequence.</p>
+<h3 id="what-is-a-compiler-fence">What Is a Compiler Fence?</h3>
+<p>A compiler fence is an instruction targeted purely at the compiler's
+optimizer. It instructs the optimizer: <em>"Do not move any memory reads
+or writes that appear before this point after it, and do not move any
+memory operations that appear after this point before it."</em></p>
+<p>Crucially, a compiler fence is strictly a <strong>compile-time
+construct</strong>. Unlike a hardware memory fence (CPU barrier), a
+compiler fence does not generate any machine code instructions (such as
+<code>mfence</code> on x86 or <code>dmb</code> on ARM) to synchronize
+CPU caches or prevent out-of-order execution at runtime. It simply
+enforces order in the generated assembly output.</p>
+<h3 id="how-a-compiler-fence-works">How a Compiler Fence Works</h3>
+<p>Under normal circumstances, the compiler tracks which memory
+locations have been modified and caches frequently used values in
+processor registers. When the compiler encounters a fence, its optimizer
+must assume that:</p>
+<ol type="1">
+<li><strong>All memory may be read:</strong> The optimizer cannot assume
+values currently cached in registers remain valid after the fence; it
+must reload values from memory when accessed after the barrier.</li>
+<li><strong>All memory may be written:</strong> Any pending values held
+in registers that are meant for memory must be written out before the
+barrier is crossed.</li>
+<li><strong>No code movement is allowed across the boundary:</strong>
+Instruction scheduling algorithms treat the fence as an impermeable
+barrier for memory access operations.</li>
+</ol>
+<h3 id="implementing-compiler-fences-in-c">Implementing Compiler Fences
+in C++</h3>
+<p>C++ provides both standard library mechanisms and compiler-specific
+primitives to establish compiler fences.</p>
+<h4 id="1-standard-c-stdatomic_signal_fence">1. Standard C++:
+<code>std::atomic_signal_fence</code></h4>
+<p>Since C++11, the standard library includes
+<code>std::atomic_signal_fence</code>, which specifically serves as a
+pure compiler fence. It synchronizes memory operations between a thread
+and a signal handler executed on the same thread:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;atomic&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> data <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">bool</span> ready <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> send_signal<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    data <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Prevents compiler from reordering &#39;data&#39; and &#39;ready&#39; stores</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>atomic_signal_fence<span class="op">(</span><span class="bu">std::</span>memory_order_release<span class="op">);</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    ready <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Because <code>std::atomic_signal_fence</code> only affects the
+compiler, it incurs zero runtime overhead and emits no CPU
+synchronization instructions.</p>
+<h4 id="2-gcc-and-clang-inline-assembly-barrier">2. GCC and Clang Inline
+Assembly Barrier</h4>
+<p>In GCC and Clang, a compiler fence has traditionally been implemented
+using an empty inline assembly statement with a memory clobber:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">asm</span> <span class="at">volatile</span><span class="op">(</span><span class="st">&quot;&quot;</span> <span class="op">:::</span> <span class="st">&quot;memory&quot;</span><span class="op">);</span></span></code></pre></div>
+<ul>
+<li><code>volatile</code> prevents the compiler from deleting the
+assembly statement as dead code.</li>
+<li><code>""</code> indicates that no actual assembly instructions are
+to be emitted.</li>
+<li><code>::: "memory"</code> (the clobber list) informs the compiler
+that assembly code might read or write to arbitrary memory locations.
+Consequently, the optimizer flushes registers and freezes memory
+instruction reordering across this point.</li>
+</ul>
+<h4 id="3-msvc-intrinsics">3. MSVC Intrinsics</h4>
+<p>In the Microsoft Visual C++ (MSVC) compiler, compiler-only ordering
+was traditionally handled using:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;intrin.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>_ReadWriteBarrier<span class="op">();</span></span></code></pre></div>
+<p>While <code>_ReadWriteBarrier()</code> is deprecated in newer
+versions of MSVC in favor of standard atomic primitives
+(<code>std::atomic_signal_fence</code>), it serves the identical purpose
+of restricting compile-time memory reordering.</p>
+<h3 id="compiler-fence-vs-hardware-memory-fence">Compiler Fence vs.
+Hardware Memory Fence</h3>
+<p>It is critical to distinguish between compiler fences and hardware
+fences:</p>
+<ul>
+<li><strong><code>std::atomic_signal_fence</code> (Compiler
+Fence):</strong> Constrains only the compiler. It prevents compile-time
+instruction scheduling across the fence, but the underlying CPU may
+still reorder the instructions during runtime execution.</li>
+<li><strong><code>std::atomic_thread_fence</code> (Hardware
+Fence):</strong> Constrains both the compiler and the CPU. It prevents
+compile-time reordering and generates architecture-specific CPU
+instructions to enforce memory ordering guarantees across multiple
+hardware threads.</li>
+</ul>
+<p>For single-thread scenarios interacting with interrupts or signals, a
+compiler fence is sufficient and avoids the execution performance
+penalty of a hardware barrier.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

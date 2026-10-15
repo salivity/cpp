@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding std::bind_back Argument Ordering in C++ - cpp</title>
+    <meta name="description" content="This article provides an overview of std::bindback, introduced in C++23, focusing on how it alters callable invocation by fixing trailing parameters. You will learn the exact mechanics of argument ordering in std::bindback, how it contrasts with std::bind">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/understanding-std-bind-back-argument-ordering-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding std::bind_back Argument Ordering in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/understanding-std-bind-back-argument-ordering-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of std::bindback, introduced in C++23, focusing on how it alters callable invocation by fixing trailing parameters. You will learn the exact mechanics of argument ordering in std::bindback, how it contrasts with std::bind" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-stdbind_back-argument-ordering-in-c">Understanding
+std::bind_back Argument Ordering in C++</h1>
+<p>This article provides an overview of <code>std::bind_back</code>,
+introduced in C++23, focusing on how it alters callable invocation by
+fixing trailing parameters. You will learn the exact mechanics of
+argument ordering in <code>std::bind_back</code>, how it contrasts with
+<code>std::bind_front</code>, and why this specific ordering is valuable
+when writing modern, functional-style C++ code.</p>
+<h3 id="the-mechanics-of-stdbind_back">The Mechanics of
+<code>std::bind_back</code></h3>
+<p><code>std::bind_back</code> generates a call wrapper that binds one
+or more arguments to the <em>end</em> of a callable's parameter list.
+When the resulting wrapper is invoked, any arguments passed at the call
+site are placed <em>first</em>, followed immediately by the bound
+arguments in the order they were provided to
+<code>std::bind_back</code>.</p>
+<p>Mathematically and syntactically, if you create a bound object:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> g <span class="op">=</span> <span class="bu">std::</span>bind_back<span class="op">(</span>f<span class="op">,</span> b1<span class="op">,</span> b2<span class="op">,</span> <span class="op">...,</span> bN<span class="op">);</span></span></code></pre></div>
+<p>Invoking <code>g</code> with call-site arguments
+<code>a1, a2, ..., aM</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>g<span class="op">(</span>a1<span class="op">,</span> a2<span class="op">,</span> <span class="op">...,</span> aM<span class="op">);</span></span></code></pre></div>
+<p>Results in an invocation equivalent to:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>f<span class="op">(</span>a1<span class="op">,</span> a2<span class="op">,</span> <span class="op">...,</span> aM<span class="op">,</span> b1<span class="op">,</span> b2<span class="op">,</span> <span class="op">...,</span> bN<span class="op">);</span></span></code></pre></div>
+<h3 id="argument-ordering-compared-to-stdbind_front">Argument Ordering
+Compared to <code>std::bind_front</code></h3>
+<p>The key distinction between <code>std::bind_front</code> (introduced
+in C++20) and <code>std::bind_back</code> (C++23) is where the bound
+arguments are placed relative to the caller-supplied arguments:</p>
+<ul>
+<li><strong><code>std::bind_front(f, bound...)</code></strong>: Places
+<code>bound...</code> at the beginning. Invocation becomes
+<code>f(bound..., call_args...)</code>.</li>
+<li><strong><code>std::bind_back(f, bound...)</code></strong>: Places
+<code>bound...</code> at the end. Invocation becomes
+<code>f(call_args..., bound...)</code>.</li>
+</ul>
+<p>Both utilities preserve the relative order of the bound arguments
+among themselves. If you bind arguments <code>X</code> and
+<code>Y</code> with <code>std::bind_back(f, X, Y)</code>, they will
+always appear at the end as <code>..., X, Y</code>.</p>
+<h3 id="code-example">Code Example</h3>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;functional&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> print_division<span class="op">(</span><span class="dt">double</span> numerator<span class="op">,</span> <span class="dt">double</span> denominator<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> numerator <span class="op">/</span> denominator <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Binds the second argument (the denominator)</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> divide_by_two <span class="op">=</span> <span class="bu">std::</span>bind_back<span class="op">(</span>print_division<span class="op">,</span> <span class="fl">2.0</span><span class="op">);</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Call-site argument (10.0) becomes the first parameter</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Effectively executes: print_division(10.0, 2.0)</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    divide_by_two<span class="op">(</span><span class="fl">10.0</span><span class="op">);</span> <span class="co">// Output: 5</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Contrast with std::bind_front:</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> two_divided_by <span class="op">=</span> <span class="bu">std::</span>bind_front<span class="op">(</span>print_division<span class="op">,</span> <span class="fl">2.0</span><span class="op">);</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Effectively executes: print_division(2.0, 10.0)</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    two_divided_by<span class="op">(</span><span class="fl">10.0</span><span class="op">);</span> <span class="co">// Output: 0.2</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="why-trailing-argument-ordering-matters">Why Trailing Argument
+Ordering Matters</h3>
+<p>Trailing argument binding is essential in several standard
+programming patterns:</p>
+<ol type="1">
+<li><strong>Algorithms and Higher-Order Functions</strong>: Standard
+library algorithms, such as <code>std::ranges::transform</code> or
+<code>std::ranges::find_if</code>, pass the current element of a range
+as the <em>first</em> argument to a predicate or projection.
+<code>std::bind_back</code> allows functions expecting
+<code>(element, context)</code> to easily adapt to these algorithms by
+binding <code>context</code> to the back.</li>
+<li><strong>Binary Operations and Comparisons</strong>: For asymmetric
+operations (like division, subtraction, or non-commutative comparisons
+like <code>&lt;</code>), argument position dictates correctness.
+<code>std::bind_back</code> allows you to construct partial functions
+like <code>is_greater_than_five</code> via
+<code>std::bind_back(std::greater{}, 5)</code>.</li>
+<li><strong>Cleaner Alternative to Lambdas and
+<code>std::bind</code></strong>: While a generic lambda can achieve the
+same result, <code>std::bind_back</code> is more concise and avoids the
+placeholder overhead, type deduction complexities, and compiler
+performance penalties associated with the legacy
+<code>std::bind</code>.</li>
+</ol>
+<h3 id="forwarding-and-value-categories">Forwarding and Value
+Categories</h3>
+<p><code>std::bind_back</code> uses perfect forwarding when capturing
+arguments and when passing call-site arguments to the target callable.
+The bound arguments are stored inside the returned wrapper object. When
+the wrapper is invoked as an lvalue or rvalue, the stored arguments are
+forwarded with the corresponding value category, ensuring optimal
+performance without unintended copies.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

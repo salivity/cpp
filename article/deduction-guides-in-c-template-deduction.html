@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deduction Guides in C++ Template Deduction - cpp</title>
+    <meta name="description" content="Class Template Argument Deduction (CTAD), introduced in C++17, allows the compiler to deduce class template arguments automatically from constructor arguments. While implicit deduction works well for simple constructors, deduction guides provide explicit">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/deduction-guides-in-c-template-deduction">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Deduction Guides in C++ Template Deduction - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/deduction-guides-in-c-template-deduction" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Class Template Argument Deduction (CTAD), introduced in C++17, allows the compiler to deduce class template arguments automatically from constructor arguments. While implicit deduction works well for simple constructors, deduction guides provide explicit" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="deduction-guides-in-c-template-deduction">Deduction Guides in
+C++ Template Deduction</h1>
+<p>Class Template Argument Deduction (CTAD), introduced in C++17, allows
+the compiler to deduce class template arguments automatically from
+constructor arguments. While implicit deduction works well for simple
+constructors, deduction guides provide explicit instructions telling the
+compiler how to map constructor parameter types to class template
+arguments. This article explores how deduction guides work, why they are
+essential for complex template types, and how to implement them
+effectively.</p>
+<h2 id="the-role-of-ctad-in-modern-c">The Role of CTAD in Modern
+C++</h2>
+<p>Prior to C++17, instantiating a class template required explicitly
+specifying the template arguments, even when they were obvious:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>pair<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="dt">double</span><span class="op">&gt;</span> p<span class="op">(</span><span class="dv">42</span><span class="op">,</span> <span class="fl">3.14</span><span class="op">);</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> v <span class="op">=</span> <span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">};</span></span></code></pre></div>
+<p>To reduce boilerplate, developers commonly relied on helper factory
+functions like <code>std::make_pair</code> or
+<code>std::make_tuple</code>. CTAD eliminated this requirement by
+enabling direct deduction:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>pair p<span class="op">(</span><span class="dv">42</span><span class="op">,</span> <span class="fl">3.14</span><span class="op">);</span> <span class="co">// Deduced as std::pair&lt;int, double&gt;</span></span></code></pre></div>
+<p>When a constructor is called, the compiler generates implicit
+deduction guides corresponding to each constructor in the class
+template. However, implicit deduction is limited by what the constructor
+signatures directly reveal.</p>
+<h2 id="when-implicit-deduction-fails">When Implicit Deduction
+Fails</h2>
+<p>Implicit deduction guides only look at the exact types passed to the
+constructors. In many real-world scenarios, the relationship between
+constructor arguments and template parameters is not a 1-to-1 match.</p>
+<p>Consider an iterator-range constructor for a container:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> CustomBuffer <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Iter<span class="op">&gt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    CustomBuffer<span class="op">(</span>Iter begin<span class="op">,</span> Iter end<span class="op">);</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>If you call <code>CustomBuffer(it1, it2)</code>, the compiler sees
+two arguments of type <code>Iter</code>. It cannot infer what
+<code>T</code> should be because <code>T</code> does not appear anywhere
+in the constructor's parameter list. Without additional instructions,
+CTAD fails to compile.</p>
+<h2 id="how-deduction-guides-bridge-the-gap">How Deduction Guides Bridge
+the Gap</h2>
+<p>A deduction guide is an explicit, compile-time rule that informs
+overload resolution how to derive template parameters from specific
+arguments. It looks like a trailing-return-type function declaration,
+placed in the same namespace and scope as the template.</p>
+<p>The general syntax is:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> TemplateArgs<span class="op">...&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>ClassName<span class="op">(</span>ParameterTypes<span class="op">...)</span> <span class="op">-&gt;</span> ClassName<span class="op">&lt;</span>DeducedArgs<span class="op">...&gt;;</span></span></code></pre></div>
+<h3 id="example-iterator-value-extraction">Example: Iterator Value
+Extraction</h3>
+<p>To resolve the iterator issue in <code>CustomBuffer</code>, a
+user-defined deduction guide extracts the underlying element type from
+the iterator:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Iter<span class="op">&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>CustomBuffer<span class="op">(</span>Iter<span class="op">,</span> Iter<span class="op">)</span> <span class="op">-&gt;</span> CustomBuffer<span class="op">&lt;</span><span class="kw">typename</span> <span class="bu">std::</span>iterator_traits<span class="op">&lt;</span>Iter<span class="op">&gt;::</span><span class="dt">value_type</span><span class="op">&gt;;</span></span></code></pre></div>
+<p>Now, calling <code>CustomBuffer(vec.begin(), vec.end())</code>
+evaluates the guide, deduces the container type as
+<code>CustomBuffer&lt;int&gt;</code> (if <code>vec</code> contains
+integers), and completes instantiation without explicit type tags.</p>
+<h3 id="example-transforming-parameter-types">Example: Transforming
+Parameter Types</h3>
+<p>Deduction guides can also intercept types to prevent undesirable
+instantiations, such as transforming raw C-strings into
+<code>std::string</code> or handling array-to-pointer decay:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Holder <span class="op">{</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    T value<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    Holder<span class="op">(</span>T val<span class="op">)</span> <span class="op">:</span> value<span class="op">(</span>val<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Deduction guide: map string literals (const char*) to std::string</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>Holder<span class="op">(</span><span class="at">const</span> <span class="dt">char</span><span class="op">*)</span> <span class="op">-&gt;</span> Holder<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">&gt;;</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Usage:</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>Holder h<span class="op">(</span><span class="st">&quot;Hello&quot;</span><span class="op">);</span> <span class="co">// Deduced as Holder&lt;std::string&gt;, not Holder&lt;const char*&gt;</span></span></code></pre></div>
+<h2 id="key-characteristics-of-deduction-guides">Key Characteristics of
+Deduction Guides</h2>
+<ul>
+<li><strong>Overload Resolution Participation:</strong> Deduction guides
+are treated as candidate functions during template argument deduction.
+If multiple guides match, normal overload resolution rules determine the
+best candidate.</li>
+<li><strong>No Runtime Overhead:</strong> Deduction guides do not
+generate code or function definitions. They exist solely to guide the
+compiler's type deduction phase.</li>
+<li><strong>Scope Placement:</strong> A deduction guide must be declared
+in the same scope and namespace as the template it guides, and it must
+appear after the class template definition.</li>
+<li><strong>Explicit Specifier:</strong> Deduction guides can be marked
+<code>explicit</code>. An explicit deduction guide will only apply
+during direct-initialization syntax (<code>Holder h(...)</code>),
+preventing implicit copy-list-initialization conversions.</li>
+</ul>
+<p>By providing explicit rules for complex type mappings, deduction
+guides make class templates significantly more expressive, prevent type
+ambiguity, and ensure seamless usage of CTAD across standard and
+user-defined libraries.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

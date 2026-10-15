@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::vector vs std::deque Memory Layout in C++ - cpp</title>
+    <meta name="description" content="This article examines the core architectural differences in memory layout between std::vector and std::deque in the C++ standard library. While both sequence containers offer dynamic sizing and constant-time random access, their underlying storage models">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-vector-vs-std-deque-memory-layout-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::vector vs std::deque Memory Layout in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-vector-vs-std-deque-memory-layout-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article examines the core architectural differences in memory layout between std::vector and std::deque in the C++ standard library. While both sequence containers offer dynamic sizing and constant-time random access, their underlying storage models" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stdvector-vs-stddeque-memory-layout-in-c">std::vector vs
+std::deque Memory Layout in C++</h1>
+<p>This article examines the core architectural differences in memory
+layout between <code>std::vector</code> and <code>std::deque</code> in
+the C++ standard library. While both sequence containers offer dynamic
+sizing and constant-time random access, their underlying storage models
+differ fundamentally: <code>std::vector</code> relies on a single
+contiguous memory block, whereas <code>std::deque</code> uses a
+segmented collection of fixed-size chunks managed by an index map.
+Understanding these structural differences clarifies their trade-offs in
+cache performance, pointer stability, reallocation costs, and API
+compatibility.</p>
+<h3 id="stdvector-contiguous-allocation">std::vector: Contiguous
+Allocation</h3>
+<p>A <code>std::vector</code> stores all of its elements in a single,
+strictly contiguous array in dynamic memory. Internally, an
+implementation typically maintains three pointers: one to the beginning
+of the allocated storage, one to the end of the currently constructed
+elements (defining <code>size()</code>), and one to the end of the
+allocated storage (defining <code>capacity()</code>).</p>
+<p>Because the elements reside back-to-back in memory:</p>
+<ul>
+<li><strong>Direct Pointer Compatibility:</strong> You can obtain a raw
+pointer to the underlying buffer using <code>vec.data()</code> or
+<code>&amp;vec[0]</code>, making <code>std::vector</code> directly
+compatible with C-style APIs and routines expecting contiguous
+arrays.</li>
+<li><strong>Cache Locality:</strong> Traversing a vector provides
+optimal spatial locality. Modern CPU cache prefetchers can easily detect
+and accelerate sequential access over its flat memory buffer.</li>
+<li><strong>Indexing Arithmetic:</strong> Element access via
+<code>operator[]</code> compiles down to a single base-pointer offset
+calculation: <code>*(base_address + index)</code>.</li>
+</ul>
+<p>The primary limitation of this layout occurs during expansion. When
+an insertion exceeds the container's <code>capacity()</code>, the vector
+must allocate an entirely new, larger block of contiguous memory, copy
+or move all existing elements to the new buffer, and deallocate the old
+buffer. This operation invalidates all existing pointers, references,
+and iterators to elements in the vector.</p>
+<h3 id="stddeque-segmented-block-layout">std::deque: Segmented Block
+Layout</h3>
+<p>A <code>std::deque</code> (double-ended queue) avoids full
+reallocations by using a segmented memory layout, often described as an
+array of arrays or a "map of chunks." Instead of one large buffer, a
+deque manages multiple fixed-size memory blocks (chunks) containing the
+actual elements, alongside a central control map (an array of pointers)
+where each pointer targets one chunk.</p>
+<p>Because the memory is divided into discrete pages:</p>
+<ul>
+<li><strong>Non-Contiguous Overall:</strong> While elements within any
+single chunk are contiguous, the container as a whole is not. As a
+result, <code>std::deque</code> lacks a <code>data()</code> member
+function and cannot be passed directly to C-style APIs that require a
+contiguous buffer.</li>
+<li><strong>Two-Level Indexing:</strong> Random access via
+<code>operator[]</code> involves two steps of indirection rather than
+one. The container must compute which chunk contains the element
+(<code>index / chunk_size</code>) and then locate the element within
+that chunk (<code>index % chunk_size</code>).</li>
+<li><strong>Cache Performance:</strong> Iterating through a deque is
+slightly less cache-friendly than iterating through a vector due to
+pointer chasing across chunk boundaries, though locality remains high
+within the boundaries of an individual chunk.</li>
+</ul>
+<h3 id="reallocation-and-growth-characteristics">Reallocation and Growth
+Characteristics</h3>
+<p>The differences in layout lead to distinct reallocation
+behaviors:</p>
+<ol type="1">
+<li><strong>Growth at the Ends:</strong> When expanding a
+<code>std::vector</code>, the entire array must move if capacity is
+exhausted. When expanding a <code>std::deque</code> at the front or
+back, the container merely allocates a new fixed-size chunk and adds its
+address to the central pointer map. Existing elements remain untouched
+at their original memory addresses.</li>
+<li><strong>Pointer and Reference Stability:</strong> Inserting elements
+at either end of a <code>std::deque</code> never invalidates references
+or pointers to existing elements (though iterators may be invalidated
+due to updates in the chunk map). In contrast, inserting into a
+<code>std::vector</code> invalidates all references and pointers if a
+reallocation occurs.</li>
+<li><strong>Internal Fragmentation and Overhead:</strong> A vector
+maintains unused memory solely as reserved capacity at the end of its
+single buffer. A deque introduces metadata overhead for the chunk
+pointer map, may waste memory in partially filled chunks at the front
+and back, and incurs heap allocation overhead each time a new chunk is
+requested from the runtime allocator.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

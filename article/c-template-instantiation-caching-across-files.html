@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Template Instantiation Caching Across Files - cpp</title>
+    <meta name="description" content="In C++, template instantiation across separate source files relies primarily on the &quot;vague linkage&quot; model resolved at link time rather than a shared runtime cache during compilation. Because C++ treats each translation unit independently, identical templa">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-template-instantiation-caching-across-files">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Template Instantiation Caching Across Files - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-template-instantiation-caching-across-files" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, template instantiation across separate source files relies primarily on the &quot;vague linkage&quot; model resolved at link time rather than a shared runtime cache during compilation. Because C++ treats each translation unit independently, identical templa" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-template-instantiation-caching-across-files">C++ Template
+Instantiation Caching Across Files</h1>
+<p>In C++, template instantiation across separate source files relies
+primarily on the "vague linkage" model resolved at link time rather than
+a shared runtime cache during compilation. Because C++ treats each
+translation unit independently, identical template instantiations are
+generated multiple times across distinct object files. This article
+explains how modern compilers and linkers handle these redundant
+instantiations using COMDAT sections, the historical repository
+approach, and modern language features like explicit template
+declarations and C++20 modules to optimize binary size and build
+performance.</p>
+<h3 id="the-separate-compilation-challenge">The Separate Compilation
+Challenge</h3>
+<p>C++ compiles source files through independent translation units. When
+a header file containing a template definition is included in multiple
+<code>.cpp</code> files, the compiler cannot automatically verify
+whether another file has already generated the assembly code for a
+specific specialization (such as <code>std::vector&lt;int&gt;</code>).
+Without a coordination mechanism, the compiler instantiates the same
+specialization in every object file where it is referenced, leading to
+severe code bloat and potential violations of the One Definition Rule
+(ODR).</p>
+<h3 id="the-dominant-solution-duplicate-emission-and-comdat-folding">The
+Dominant Solution: Duplicate Emission and COMDAT Folding</h3>
+<p>Modern C++ toolchains (including GCC, Clang, and MSVC) solve this
+issue using a strategy commonly referred to as the Borland model or
+duplicate emission with link-time deduplication:</p>
+<ol type="1">
+<li><strong>Weak Symbols and COMDAT Sections</strong>: When compiling a
+template specialization, the compiler places the resulting machine code
+and data into a specialized container within the object file called a
+COMDAT (Common Data) section, marking the symbol with weak linkage.</li>
+<li><strong>Linker Deduplication</strong>: During the link step, the
+linker inspects all incoming object files. When it identifies multiple
+COMDAT sections bearing the exact same symbol name and signature, it
+retains one arbitrarily chosen copy and discards the rest.</li>
+<li><strong>Relocation Patching</strong>: The linker updates all call
+sites across all translation units to jump to the single retained
+definition.</li>
+</ol>
+<p>This approach acts as a post-compilation deduplication cache. While
+it successfully eliminates duplicate machine code in the final
+executable, it does not prevent the compiler from redundantly parsing
+and generating the machine code in each translation unit during the
+compilation phase.</p>
+<h3 id="historical-alternative-the-instantiation-repository">Historical
+Alternative: The Instantiation Repository</h3>
+<p>Earlier implementations, such as the AT&amp;T <code>cfront</code>
+compiler and early versions of GCC (via the <code>-frepo</code> flag),
+used a centralized database to implement actual compile-time caching.
+Under this model:</p>
+<ol type="1">
+<li>The compiler left template instantiations undefined in initial
+object files.</li>
+<li>A database tracked which templates were needed and where they were
+defined.</li>
+<li>At link time, a specialized pre-linker checked the database,
+identified missing instantiations, triggered recompilation of only the
+necessary templates into a centralized repository, and finalized the
+link.</li>
+</ol>
+<p>Although this approach eliminated redundant compilation, it
+introduced severe coordination bottlenecks, broke parallel build tools
+like <code>make</code> and <code>ninja</code>, and was eventually
+abandoned by mainstream compilers in favor of COMDAT folding.</p>
+<h3
+id="programmer-controlled-caching-extern-templates">Programmer-Controlled
+Caching: Extern Templates</h3>
+<p>To eliminate redundant compilation time without relying on linker
+deduplication, C++11 introduced explicit template instantiation
+declarations using the <code>extern template</code> syntax.</p>
+<p>By declaring
+<code>extern template class std::vector&lt;int&gt;;</code> in a shared
+header, developers instruct the compiler not to instantiate that
+specialization in translation units that include the header. A single
+translation unit then explicitly defines the specialization using
+<code>template class std::vector&lt;int&gt;;</code>. This manually
+caches the template to one object file, reducing both compile times and
+linker overhead.</p>
+<h3 id="c20-modules-and-compiler-caches">C++20 Modules and Compiler
+Caches</h3>
+<p>The introduction of C++20 Modules fundamentally changes template
+sharing. When a template is exported from a module interface unit, the
+compiler generates a serialized binary representation of the Abstract
+Syntax Tree (AST) called a Built Module Interface (BMI). Dependent
+translation units import this pre-analyzed metadata rather than
+reparsing raw text headers.</p>
+<p>Complementary to this, external build tools such as
+<code>ccache</code> and <code>sccache</code> operate at the process
+level, hashing compiler inputs to retrieve previously compiled object
+files—along with their template COMDATs—from an on-disk cache to prevent
+re-instantiation across subsequent builds.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

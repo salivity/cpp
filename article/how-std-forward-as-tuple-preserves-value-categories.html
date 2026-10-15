@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::forward_as_tuple Preserves Value Categories - cpp</title>
+    <meta name="description" content="In C++, std::forwardastuple allows developers to bundle heterogeneous arguments into a single std::tuple while strictly preserving the original value categories—both lvalues and rvalues—of each element. By taking arguments via forwarding references and ap">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-forward-as-tuple-preserves-value-categories">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::forward_as_tuple Preserves Value Categories - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-forward-as-tuple-preserves-value-categories" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, std::forwardastuple allows developers to bundle heterogeneous arguments into a single std::tuple while strictly preserving the original value categories—both lvalues and rvalues—of each element. By taking arguments via forwarding references and ap" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdforward_as_tuple-preserves-value-categories">How
+std::forward_as_tuple Preserves Value Categories</h1>
+<p>In C++, <code>std::forward_as_tuple</code> allows developers to
+bundle heterogeneous arguments into a single <code>std::tuple</code>
+while strictly preserving the original value categories—both lvalues and
+rvalues—of each element. By taking arguments via forwarding references
+and applying C++ reference collapsing rules, the function constructs a
+tuple composed entirely of reference types (<code>T&amp;</code> or
+<code>T&amp;&amp;</code>) without making copies or premature moves. This
+article explains the underlying language mechanics behind
+<code>std::forward_as_tuple</code>, detailing how reference deduction,
+reference collapsing, and tuple instantiation collaborate to enable
+perfect forwarding for bundled function arguments.</p>
+<h2 id="the-problem-of-bundled-forwarding">The Problem of Bundled
+Forwarding</h2>
+<p>When forwarding individual arguments to a function,
+<code>std::forward&lt;T&gt;(arg)</code> suffices. However, certain
+interfaces require multiple arguments to be packaged together before
+being forwarded to another construct. A primary example is
+<code>std::pair</code> piecewise construction using
+<code>std::piecewise_construct</code>, where the constructors of two
+separate objects must receive their arguments as tuples.</p>
+<p>Using <code>std::make_tuple</code> in these scenarios fails to
+preserve value categories because it decays types, stripping references
+and making copies or moving objects into the tuple elements. Using
+<code>std::tie</code> also fails because it can only bind to lvalue
+references (<code>T&amp;</code>), rejecting rvalues or temporaries
+unless bound to <code>const&amp;</code>, which prevents moving.
+<code>std::forward_as_tuple</code> solves this gap.</p>
+<h2 id="the-function-signature-and-universal-references">The Function
+Signature and Universal References</h2>
+<p>The standard defines <code>std::forward_as_tuple</code> essentially
+as follows:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="bu">std::</span>tuple<span class="op">&lt;</span>Args<span class="op">&amp;&amp;...&gt;</span> forward_as_tuple<span class="op">(</span>Args<span class="op">&amp;&amp;...</span> args<span class="op">)</span> <span class="kw">noexcept</span><span class="op">;</span></span></code></pre></div>
+<p>The function takes a parameter pack <code>Args&amp;&amp;...</code>.
+Because <code>Args</code> is a template parameter being deduced in a
+function template, <code>Args&amp;&amp;</code> constitutes a forwarding
+reference (or universal reference).</p>
+<p>When an argument is passed to <code>std::forward_as_tuple</code>,
+template argument deduction determines <code>Args</code> based on the
+argument's value category:</p>
+<ul>
+<li>If the argument is an <strong>lvalue</strong> of type
+<code>T</code>, <code>Args</code> is deduced as an lvalue reference:
+<code>T&amp;</code>.</li>
+<li>If the argument is an <strong>rvalue</strong> (a temporary or the
+result of <code>std::move</code>) of type <code>T</code>,
+<code>Args</code> is deduced as the object type: <code>T</code>.</li>
+</ul>
+<h2 id="reference-collapsing-rules">Reference Collapsing Rules</h2>
+<p>C++ applies reference collapsing when references to references arise
+during template instantiation. The rules specify:</p>
+<ul>
+<li><code>&amp;</code> with <code>&amp;</code> becomes
+<code>&amp;</code></li>
+<li><code>&amp;</code> with <code>&amp;&amp;</code> becomes
+<code>&amp;</code></li>
+<li><code>&amp;&amp;</code> with <code>&amp;</code> becomes
+<code>&amp;</code></li>
+<li><code>&amp;&amp;</code> with <code>&amp;&amp;</code> becomes
+<code>&amp;&amp;</code></li>
+</ul>
+<p>Applying these rules to the return type
+<code>std::tuple&lt;Args&amp;&amp;...&gt;</code> demonstrates how value
+categories are maintained:</p>
+<ol type="1">
+<li><strong>For an lvalue argument of type <code>T</code>:</strong>
+<ul>
+<li><code>Args</code> is deduced as <code>T&amp;</code>.</li>
+<li>The parameter <code>Args&amp;&amp;</code> becomes
+<code>T&amp; &amp;&amp;</code>, which collapses to
+<code>T&amp;</code>.</li>
+<li>The return type element <code>Args&amp;&amp;</code> also becomes
+<code>T&amp; &amp;&amp;</code>, which collapses to
+<code>T&amp;</code>.</li>
+<li>The resulting tuple stores an lvalue reference
+(<code>T&amp;</code>), preserving lvalue semantics.</li>
+</ul></li>
+<li><strong>For an rvalue argument of type <code>T</code>:</strong>
+<ul>
+<li><code>Args</code> is deduced as <code>T</code>.</li>
+<li>The parameter <code>Args&amp;&amp;</code> becomes
+<code>T&amp;&amp;</code>.</li>
+<li>The return type element <code>Args&amp;&amp;</code> becomes
+<code>T&amp;&amp;</code>.</li>
+<li>The resulting tuple stores an rvalue reference
+(<code>T&amp;&amp;</code>), preserving rvalue semantics and permitting
+future moves.</li>
+</ul></li>
+</ol>
+<h2 id="forwarding-the-tuple-elements">Forwarding the Tuple
+Elements</h2>
+<p>Inside the implementation of <code>std::forward_as_tuple</code>, the
+arguments are forwarded to the tuple constructor:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">return</span> <span class="bu">std::</span>tuple<span class="op">&lt;</span>Args<span class="op">&amp;&amp;...&gt;(</span><span class="bu">std::</span>forward<span class="op">&lt;</span>Args<span class="op">&gt;(</span>args<span class="op">)...);</span></span></code></pre></div>
+<p>Because <code>std::tuple</code> has a constructor capable of holding
+references, the tuple itself does not store instances of <code>T</code>.
+Instead, it stores references directly bound to the actual arguments
+passed by the caller.</p>
+<p>When the receiving function unpacks the tuple (for example, via
+<code>std::apply</code> or piecewise constructors), accessing a
+<code>T&amp;&amp;</code> element yields an xvalue (an rvalue), while
+accessing a <code>T&amp;</code> element yields an lvalue. This ensures
+that the destination constructor or function receives the exact value
+category initially supplied to <code>std::forward_as_tuple</code>.</p>
+<h2 id="lifetime-considerations">Lifetime Considerations</h2>
+<p>Because <code>std::forward_as_tuple</code> stores references rather
+than owning values, it introduces lifetime constraints. Rvalue
+references stored in the tuple do not extend the lifetime of temporary
+objects beyond the full-expression containing the call. Consequently,
+<code>std::forward_as_tuple</code> is designed strictly for immediate
+forwarding within the same expression and should not be stored or
+returned across broader scopes, as doing so leads to dangling
+references.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

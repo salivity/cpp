@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::type_info::name Handles Name Mangling in C++ - cpp</title>
+    <meta name="description" content="In C++, the std::typeinfo::name() member function provides an identifier for a given data type at runtime through Run-Time Type Information (RTTI). However, the C++ standard does not mandate a human-readable format, leaving the output implementation-defin">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-type-info-name-handles-name-mangling-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::type_info::name Handles Name Mangling in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-type-info-name-handles-name-mangling-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, the std::typeinfo::name() member function provides an identifier for a given data type at runtime through Run-Time Type Information (RTTI). However, the C++ standard does not mandate a human-readable format, leaving the output implementation-defin" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdtype_infoname-handles-name-mangling-in-c">How
+std::type_info::name Handles Name Mangling in C++</h1>
+<p>In C++, the <code>std::type_info::name()</code> member function
+provides an identifier for a given data type at runtime through Run-Time
+Type Information (RTTI). However, the C++ standard does not mandate a
+human-readable format, leaving the output implementation-defined.
+Consequently, most compilers return the compiler-specific "mangled" name
+of the type—a symbol encoded with structural metadata such as
+namespaces, template parameters, and qualifiers—rather than its literal
+source-code representation. Understanding how
+<code>std::type_info::name()</code> produces these decorated names and
+how to demangle them is essential for effective runtime type inspection
+and debugging.</p>
+<h3 id="the-standard-specification-of-stdtype_infoname">The Standard
+Specification of <code>std::type_info::name</code></h3>
+<p>According to the ISO C++ standard,
+<code>std::type_info::name()</code> returns a pointer to a
+null-terminated string (<code>const char*</code>) that represents the
+type. The standard establishes only minimal guarantees:</p>
+<ul>
+<li>The returned pointer remains valid throughout the program
+execution.</li>
+<li>The string identifies the type, but identical types are only
+guaranteed to produce equivalent representations within the same
+execution context.</li>
+<li>The formatting, readability, and content of the string are entirely
+defined by the implementation (the compiler).</li>
+</ul>
+<p>Because the standard avoids dictating a human-readable format,
+compiler vendors prioritize internal efficiency and linkage semantics,
+frequently exposing the internal ABI (Application Binary Interface)
+representation directly.</p>
+<h3 id="the-role-of-name-mangling">The Role of Name Mangling</h3>
+<p>Name mangling is a technique employed by C++ compilers to preserve
+type information through the compilation and linking phases. Because C++
+allows function overloading, namespaces, classes, and templates, the
+linker requires distinct, unique symbol names that plain C-style
+identifiers cannot supply.</p>
+<p>When <code>std::type_info::name()</code> is invoked, compilers often
+return this underlying ABI-level decorated string. The string
+encodes:</p>
+<ul>
+<li>Namespaces and class scoping.</li>
+<li>Template arguments and specialization details.</li>
+<li>Type qualifiers such as <code>const</code>, <code>volatile</code>,
+and references.</li>
+</ul>
+<h3 id="compiler-implementations-gcc-and-clang-vs-msvc">Compiler
+Implementations: GCC and Clang vs. MSVC</h3>
+<p>Different toolchains handle <code>std::type_info::name()</code>
+distinctly based on their platform ABIs:</p>
+<h4 id="gcc-and-clang-itanium-c-abi">GCC and Clang (Itanium C++
+ABI)</h4>
+<p>Compilers adhering to the Itanium C++ ABI (common on Linux, macOS,
+and many embedded platforms) return raw mangled symbols from
+<code>name()</code>.</p>
+<ul>
+<li>Primitive types yield single-character abbreviations:
+<code>int</code> produces <code>"i"</code>, <code>double</code> produces
+<code>"d"</code>, and <code>char</code> produces <code>"c"</code>.</li>
+<li>Complex types produce structured symbols: <code>std::string</code>
+appears as a symbol such as
+<code>"NSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE"</code>.</li>
+</ul>
+<h4 id="microsoft-visual-c-msvc">Microsoft Visual C++ (MSVC)</h4>
+<p>MSVC behaves differently. Its implementation of
+<code>std::type_info::name()</code> automatically demangles the internal
+name and returns a human-readable string, such as
+<code>"class std::basic_string&lt;char,struct std::char_traits&lt;char&gt;,class std::allocator&lt;char&gt; &gt;"</code>.
+For access to the raw decorated string under MSVC, the non-standard
+member function <code>std::type_info::raw_name()</code> must be called
+instead.</p>
+<h3 id="demangling-names-at-runtime">Demangling Names at Runtime</h3>
+<p>Because Itanium ABI implementations expose raw mangled symbols,
+translating the string into a human-readable format requires
+compiler-specific runtime utilities.</p>
+<p>In GCC and Clang, the C++ runtime provides the
+<code>abi::__cxa_demangle</code> function declared in the
+<code>&lt;cxxabi.h&gt;</code> header:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;typeinfo&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cxxabi.h&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;memory&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string demangle<span class="op">(</span><span class="at">const</span> <span class="dt">char</span><span class="op">*</span> mangled_name<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> status <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>unique_ptr<span class="op">&lt;</span><span class="dt">char</span><span class="op">,</span> <span class="dt">void</span><span class="op">(*)(</span><span class="dt">void</span><span class="op">*)&gt;</span> res<span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        abi<span class="op">::</span>__cxa_demangle<span class="op">(</span>mangled_name<span class="op">,</span> <span class="kw">nullptr</span><span class="op">,</span> <span class="kw">nullptr</span><span class="op">,</span> <span class="op">&amp;</span>status<span class="op">),</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>free</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>status <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">?</span> res<span class="op">.</span>get<span class="op">()</span> <span class="op">:</span> mangled_name<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>For MSVC, if working directly with decorated names from
+<code>raw_name()</code>, the Windows API provides the
+<code>UnDecorateSymbolName</code> function through the
+<code>DbgHelp.h</code> library.</p>
+<h3 id="portability-considerations">Portability Considerations</h3>
+<p>Because <code>std::type_info::name()</code> relies entirely on
+implementation-defined behavior, developers should adhere to the
+following best practices:</p>
+<ol type="1">
+<li><strong>Avoid Serialization:</strong> Do not persist the output of
+<code>name()</code> across disk, network, or process boundaries, as
+strings can change between compiler versions or build flags.</li>
+<li><strong>Avoid Control Flow Logic:</strong> Do not write conditional
+code based on string comparisons of <code>name()</code>. Use
+<code>std::type_index</code> or the <code>==</code> and <code>!=</code>
+operators on <code>std::type_info</code> instances for robust, portable
+type comparisons.</li>
+<li><strong>Use for Diagnostic Logging Only:</strong> Treat the return
+value strictly as an aid for debugging, logging, and diagnostics where
+absolute cross-platform consistency is not required.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

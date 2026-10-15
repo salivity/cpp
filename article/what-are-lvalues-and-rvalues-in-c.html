@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Are Lvalues and Rvalues in C++? - cpp</title>
+    <meta name="description" content="Lvalues and rvalues represent the two fundamental value categories in C++ that govern how expressions are evaluated, assigned, and passed between functions. At its core, an lvalue refers to an object with an identifiable memory address that persists beyon">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/what-are-lvalues-and-rvalues-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Are Lvalues and Rvalues in C++? - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/what-are-lvalues-and-rvalues-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Lvalues and rvalues represent the two fundamental value categories in C++ that govern how expressions are evaluated, assigned, and passed between functions. At its core, an lvalue refers to an object with an identifiable memory address that persists beyon" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-are-lvalues-and-rvalues-in-c">What Are Lvalues and Rvalues
+in C++?</h1>
+<p>Lvalues and rvalues represent the two fundamental value categories in
+C++ that govern how expressions are evaluated, assigned, and passed
+between functions. At its core, an lvalue refers to an object with an
+identifiable memory address that persists beyond a single expression,
+whereas an rvalue represents a temporary value or literal that typically
+ceases to exist once an expression completes. Understanding this
+distinction, along with the references designed to bind to them, unlocks
+modern C++ features such as move semantics, perfect forwarding, and
+significant runtime performance optimizations.</p>
+<h2 id="identity-vs-lifetime-the-core-concept">Identity vs. Lifetime:
+The Core Concept</h2>
+<p>To differentiate lvalues from rvalues, consider two questions: Does
+the expression have an identifiable memory address that can be taken
+using the address-of operator (<code>&amp;</code>)? Does it persist
+across multiple statements?</p>
+<ul>
+<li><strong>Lvalues (Locator Values):</strong> Expressions that occupy
+identifiable locations in memory. Standard named variables, object data
+members, references, and dereferenced pointers are all lvalues. Because
+they have a distinct storage address, you can assign new values to them
+(unless they are declared <code>const</code>).</li>
+<li><strong>Rvalues (Read Values / Temporary Values):</strong>
+Expressions that represent temporary data generated during calculation,
+literals (excluding string literals), or function return values that do
+not return a reference. These values exist transiently in registers or
+temporary stack locations and do not possess persistent identity.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> x <span class="op">=</span> <span class="dv">42</span><span class="op">;</span>         <span class="co">// &#39;x&#39; is an lvalue; &#39;42&#39; is an rvalue</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> y <span class="op">=</span> x <span class="op">+</span> <span class="dv">5</span><span class="op">;</span>      <span class="co">// &#39;y&#39; is an lvalue; &#39;x + 5&#39; produces a temporary rvalue</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span><span class="op">*</span> ptr <span class="op">=</span> <span class="op">&amp;</span>x<span class="op">;</span>      <span class="co">// Valid: &#39;x&#39; has an identifiable address</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// int* bad = &amp;(x + 5); // Error: cannot take the address of a temporary rvalue</span></span></code></pre></div>
+<h2 id="lvalue-references-">Lvalue References (<code>&amp;</code>)</h2>
+<p>An lvalue reference forms an alias to an existing object that already
+resides in persistent memory. Declared using a single ampersand
+(<code>Type&amp;</code>), an lvalue reference cannot bind directly to an
+rvalue unless it is qualified with <code>const</code>.</p>
+<h3 id="non-const-lvalue-references">Non-Const Lvalue References</h3>
+<p>A non-const lvalue reference requires a modifiable lvalue to bind
+against. It allows direct mutation of the underlying object without
+incurring copying overhead.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span><span class="op">&amp;</span> refA <span class="op">=</span> a<span class="op">;</span>       <span class="co">// Valid: binds to lvalue &#39;a&#39;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>refA <span class="op">=</span> <span class="dv">20</span><span class="op">;</span>          <span class="co">// Modifies &#39;a&#39; directly</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">// int&amp; invalid = 50; // Compilation Error: cannot bind non-const lvalue reference to an rvalue</span></span></code></pre></div>
+<h3 id="const-lvalue-references">Const Lvalue References</h3>
+<p>A <code>const</code> lvalue reference (<code>const Type&amp;</code>)
+is unique because the C++ standard allows it to bind to both lvalues and
+rvalues. When binding to an rvalue, the compiler extends the lifetime of
+the temporary object to match the scope of the reference itself.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">int</span><span class="op">&amp;</span> safeRef <span class="op">=</span> <span class="dv">100</span><span class="op">;</span> <span class="co">// Valid: binds to rvalue and extends its lifetime</span></span></code></pre></div>
+<h2 id="rvalue-references-">Rvalue References
+(<code>&amp;&amp;</code>)</h2>
+<p>Introduced in C++11, rvalue references are designated by a double
+ampersand (<code>Type&amp;&amp;</code>). They are engineered
+specifically to bind exclusively to temporary rvalues rather than
+persistent lvalues.</p>
+<p>By exclusively capturing temporary objects that are slated for
+destruction, an rvalue reference signals to functions and constructors
+that the resource owned by that object can safely be "stolen" or
+transferred, bypassing expensive deep copies.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span><span class="op">&amp;&amp;</span> rref <span class="op">=</span> <span class="dv">25</span> <span class="op">+</span> <span class="dv">75</span><span class="op">;</span> <span class="co">// Valid: binds to temporary value 100</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> count <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">// int&amp;&amp; badRref = count; // Compilation Error: cannot bind rvalue reference to lvalue &#39;count&#39;</span></span></code></pre></div>
+<h2 id="practical-applications-move-semantics-and-stdmove">Practical
+Applications: Move Semantics and <code>std::move</code></h2>
+<p>The practical utility of distinguishing between reference types
+becomes visible when implementing move constructors and move assignment
+operators.</p>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th>Category</th>
+<th>Primary Syntax</th>
+<th>Can Bind To</th>
+<th>Key Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Lvalue Reference</strong></td>
+<td><code>Type&amp;</code></td>
+<td>Non-const lvalues</td>
+<td>In-place mutation, aliasing</td>
+</tr>
+<tr>
+<td><strong>Const Lvalue Reference</strong></td>
+<td><code>const Type&amp;</code></td>
+<td>Lvalues, rvalues</td>
+<td>Read-only access without copying</td>
+</tr>
+<tr>
+<td><strong>Rvalue Reference</strong></td>
+<td><code>Type&amp;&amp;</code></td>
+<td>Non-const rvalues</td>
+<td>Move semantics, resource pilfering</td>
+</tr>
+</tbody>
+</table>
+<h3 id="eliminating-deep-copies">Eliminating Deep Copies</h3>
+<p>Classes managing heap allocations (such as dynamically sized buffers,
+network sockets, or file handles) historically paid a heavy performance
+penalty when returning by value or passing arguments. With rvalue
+references, resources are transferred via pointer swaps:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> DynamicBuffer <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span><span class="op">*</span> data<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_t</span> size<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Copy constructor: allocates new memory and duplicates content</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    DynamicBuffer<span class="op">(</span><span class="at">const</span> DynamicBuffer<span class="op">&amp;</span> other<span class="op">)</span> </span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span> size<span class="op">(</span>other<span class="op">.</span>size<span class="op">),</span> data<span class="op">(</span><span class="kw">new</span> <span class="dt">int</span><span class="op">[</span>other<span class="op">.</span>size<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>copy<span class="op">(</span>other<span class="op">.</span>data<span class="op">,</span> other<span class="op">.</span>data <span class="op">+</span> size<span class="op">,</span> data<span class="op">);</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Move constructor: pilfers heap pointer from expiring temporary</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    DynamicBuffer<span class="op">(</span>DynamicBuffer<span class="op">&amp;&amp;</span> other<span class="op">)</span> <span class="kw">noexcept</span> </span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span> data<span class="op">(</span>other<span class="op">.</span>data<span class="op">),</span> size<span class="op">(</span>other<span class="op">.</span>size<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        other<span class="op">.</span>data <span class="op">=</span> <span class="kw">nullptr</span><span class="op">;</span> <span class="co">// Leave source in a safe, destructible state</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        other<span class="op">.</span>size <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">~</span>DynamicBuffer<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="kw">delete</span><span class="op">[]</span> data<span class="op">;</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="the-role-of-stdmove">The Role of <code>std::move</code></h3>
+<p>An lvalue does not automatically bind to an rvalue reference. If a
+programmer knows an lvalue is no longer needed, <code>std::move</code>
+casts the lvalue into an rvalue reference type (an <code>xvalue</code>).
+It does not actually move any data on its own; it merely enables
+overload resolution to select the move constructor or move assignment
+operator.</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>DynamicBuffer buf1<span class="op">;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>DynamicBuffer buf2 <span class="op">=</span> <span class="bu">std::</span>move<span class="op">(</span>buf1<span class="op">);</span> <span class="co">// Casts buf1 to an rvalue; invokes move constructor</span></span></code></pre></div>
+<h2 id="the-named-rvalue-gotcha">The Named Rvalue Gotcha</h2>
+<p>A critical rule in C++ value semantics is that <strong>if an entity
+has a name, the expression evaluating it is an lvalue</strong>, even if
+its declared type is an rvalue reference.</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="dt">int</span><span class="op">&amp;&amp;</span> value<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// &#39;value&#39; is an rvalue reference by type, but &#39;value&#39; itself has a name!</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Inside this function, the expression &#39;value&#39; is an lvalue.</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// int&amp;&amp; nextRef = value; // Error: cannot bind rvalue reference to lvalue &#39;value&#39;</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span><span class="op">&amp;&amp;</span> nextRef <span class="op">=</span> <span class="bu">std::</span>move<span class="op">(</span>value<span class="op">);</span> <span class="co">// Valid: explicitly cast back to rvalue</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This prevents unexpected multiple moves from occurring when a
+variable is referenced more than once across a function body. To forward
+the rvalue property deeper into subsequent call stacks, explicit casting
+via <code>std::move</code> or <code>std::forward</code> remains
+necessary.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

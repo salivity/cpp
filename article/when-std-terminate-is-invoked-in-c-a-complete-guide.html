@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>When std::terminate Is Invoked in C++: A Complete Guide - cpp</title>
+    <meta name="description" content="In modern C++, std::terminate serves as the runtime&#39;s ultimate fail-safe when normal execution and exception handling mechanisms collapse. This article explains the core mechanics of std::terminate, its default behavior, and provides an exhaustive, straig">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/when-std-terminate-is-invoked-in-c-a-complete-guide">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="When std::terminate Is Invoked in C++: A Complete Guide - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/when-std-terminate-is-invoked-in-c-a-complete-guide" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, std::terminate serves as the runtime&#39;s ultimate fail-safe when normal execution and exception handling mechanisms collapse. This article explains the core mechanics of std::terminate, its default behavior, and provides an exhaustive, straig" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="when-stdterminate-is-invoked-in-c-a-complete-guide">When
+std::terminate Is Invoked in C++: A Complete Guide</h1>
+<p>In modern C++, <code>std::terminate</code> serves as the runtime's
+ultimate fail-safe when normal execution and exception handling
+mechanisms collapse. This article explains the core mechanics of
+<code>std::terminate</code>, its default behavior, and provides an
+exhaustive, straightforward breakdown of the exact language and library
+conditions under which the C++ runtime automatically invokes it.</p>
+<hr />
+<h3 id="what-is-stdterminate">What Is std::terminate?</h3>
+<p>Defined in the <code>&lt;exception&gt;</code> header,
+<code>std::terminate()</code> is an exception handling function called
+by the C++ runtime when the program reaches an unrecoverable state where
+execution cannot safely proceed.</p>
+<p>When invoked, <code>std::terminate()</code> delegates to the active
+<code>std::terminate_handler</code>, a function pointer that defaults to
+<code>std::abort()</code>. Unlike standard exit functions (such as
+<code>std::exit()</code>), <code>std::terminate</code> does not
+guarantee stack unwinding, destructors for active local objects may not
+execute, and standard exit routines registered via
+<code>std::atexit()</code> are bypassed. While you can customize this
+handler using <code>std::set_terminate()</code>, the custom handler must
+not return; it must terminate the process or execution yields undefined
+behavior.</p>
+<hr />
+<h3
+id="exact-conditions-when-stdterminate-is-automatically-invoked">Exact
+Conditions When std::terminate Is Automatically Invoked</h3>
+<p>The C++ standard mandates the automatic invocation of
+<code>std::terminate</code> under the following explicit conditions:</p>
+<h4 id="1-an-exception-is-not-caught">1. An Exception Is Not Caught</h4>
+<p>If an exception is thrown and the runtime searches the call stack
+without finding a matching <code>catch</code> handler,
+<code>std::terminate</code> is called immediately once stack unwinding
+reaches the boundaries of <code>main()</code> or the initial function of
+a thread.</p>
+<h4 id="2-an-exception-is-thrown-during-stack-unwinding">2. An Exception
+Is Thrown During Stack Unwinding</h4>
+<p>If an exception is currently active and traveling up the stack, and a
+destructor called during this unwinding process throws an unhandled
+exception of its own, the runtime aborts via
+<code>std::terminate</code>. C++ allows only one active exception to be
+unwound at a time.</p>
+<h4 id="3-an-exception-escapes-a-noexcept-specification">3. An Exception
+Escapes a <code>noexcept</code> Specification</h4>
+<p>If a function marked <code>noexcept</code>,
+<code>noexcept(true)</code>, or <code>throw()</code> (deprecated/removed
+in modern standards) exits via an exception, the runtime does not search
+for a caller's catch block. Instead, it directly calls
+<code>std::terminate()</code>.</p>
+<h4 id="4-destruction-of-an-active-joinable-stdthread">4. Destruction of
+an Active, Joinable <code>std::thread</code></h4>
+<p>If a <code>std::thread</code> object's destructor is executed while
+the thread is still joinable (i.e., <code>joinable() == true</code>),
+<code>std::terminate</code> is called. Developers must explicitly call
+either <code>.join()</code> or <code>.detach()</code> on a
+<code>std::thread</code> before its lifetime ends.</p>
+<h4
+id="5-exceptions-thrown-during-static-or-thread-local-destruction">5.
+Exceptions Thrown During Static or Thread-Local Destruction</h4>
+<p>If an exception is thrown and escapes the destructor of a static
+object, a namespace-scope variable, or a thread-local object during
+program or thread termination, <code>std::terminate</code> is
+invoked.</p>
+<h4 id="6-exceptions-escaping-stdatexit-or-stdat_quick_exit-handlers">6.
+Exceptions Escaping <code>std::atexit</code> or
+<code>std::at_quick_exit</code> Handlers</h4>
+<p>If a function registered with <code>std::atexit()</code> or
+<code>std::at_quick_exit()</code> terminates with an uncaught exception,
+the runtime handles this failure by invoking
+<code>std::terminate</code>.</p>
+<h4 id="7-exceptions-in-parallel-execution-policies-c17">7. Exceptions
+in Parallel Execution Policies (C++17)</h4>
+<p>When using C++ Standard Library parallel algorithms with an execution
+policy (e.g., <code>std::execution::par</code> or
+<code>std::execution::par_unseq</code>), any exception thrown by an
+element access function that escapes the algorithm's invocation triggers
+<code>std::terminate</code>.</p>
+<h4 id="8-rethrowing-an-empty-or-null-exception-pointer">8. Rethrowing
+an Empty or Null Exception Pointer</h4>
+<p>Calling <code>std::rethrow_exception</code> with a null
+<code>std::exception_ptr</code>, or invoking <code>throw;</code> when no
+exception is currently being handled, directly invokes
+<code>std::terminate</code>.</p>
+<h4 id="9-failure-handling-inside-a-coroutine-promise-c20">9. Failure
+Handling Inside a Coroutine Promise (C++20)</h4>
+<p>In coroutines, if an exception escapes the body of the coroutine and
+the promise type's <code>unhandled_exception()</code> member function
+itself throws an exception or fails to handle it,
+<code>std::terminate</code> is invoked. It is also invoked if an
+exception escapes from the <code>initial_suspend()</code> or
+<code>final_suspend()</code> awaiters when configured as
+<code>noexcept</code>.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

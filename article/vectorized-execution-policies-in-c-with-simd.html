@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vectorized Execution Policies in C++ with SIMD - cpp</title>
+    <meta name="description" content="Modern C++ provides standardized execution policies that allow standard library algorithms to run concurrently and vectorize automatically. This article explores how vectorized execution policies—specifically std::execution::unseq and std::execution::paru">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/vectorized-execution-policies-in-c-with-simd">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Vectorized Execution Policies in C++ with SIMD - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/vectorized-execution-policies-in-c-with-simd" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern C++ provides standardized execution policies that allow standard library algorithms to run concurrently and vectorize automatically. This article explores how vectorized execution policies—specifically std::execution::unseq and std::execution::paru" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="vectorized-execution-policies-in-c-with-simd">Vectorized
+Execution Policies in C++ with SIMD</h1>
+<p>Modern C++ provides standardized execution policies that allow
+standard library algorithms to run concurrently and vectorize
+automatically. This article explores how vectorized execution
+policies—specifically <code>std::execution::unseq</code> and
+<code>std::execution::par_unseq</code>—grant compilers the semantic
+freedom to emit Single Instruction, Multiple Data (SIMD) hardware
+instructions, how these policies alter loop execution guarantees, and
+the rules developers must follow to achieve optimal vectorized
+performance.</p>
+<h3 id="understanding-execution-policies">Understanding Execution
+Policies</h3>
+<p>C++17 introduced execution policies in the
+<code>&lt;execution&gt;</code> header to parallelize standard algorithms
+in <code>&lt;algorithm&gt;</code> and <code>&lt;numeric&gt;</code>.
+These policies dictate how iterations of an algorithm may be
+scheduled:</p>
+<ul>
+<li><strong><code>std::execution::seq</code></strong>: Traditional
+sequential execution on the calling thread.</li>
+<li><strong><code>std::execution::par</code></strong>: Multi-threaded
+execution across multiple threads, where iterations cannot interleave on
+the same thread.</li>
+<li><strong><code>std::execution::par_unseq</code></strong>:
+Multi-threaded and unsequenced (vectorized) execution.</li>
+<li><strong><code>std::execution::unseq</code> (C++20)</strong>:
+Single-threaded, unsequenced execution intended specifically for SIMD
+vectorization.</li>
+</ul>
+<h3 id="the-mechanism-unsequenced-execution">The Mechanism: Unsequenced
+Execution</h3>
+<p>The critical distinction enabling SIMD is the "unsequenced"
+guarantee. Under standard sequential or parallel policies, an operation
+inside an iteration must complete before the next iteration begins on
+that same thread. This prevents traditional loop vectorization if the
+compiler cannot mathematically prove the absence of dependencies.</p>
+<p>When you pass <code>std::execution::unseq</code> or
+<code>std::execution::par_unseq</code> to an algorithm like
+<code>std::transform</code> or <code>std::for_each</code>, you provide a
+contract to the compiler: individual iterations may be interleaved
+arbitrarily on a single thread. The compiler interprets this guarantee
+as permission to process multiple data elements simultaneously within
+CPU vector registers (such as x86 SSE/AVX or ARM NEON).</p>
+<h3 id="how-compilers-map-algorithms-to-simd">How Compilers Map
+Algorithms to SIMD</h3>
+<p>Modern C++ toolchains translate vectorized policies into SIMD through
+a multi-tier pipeline:</p>
+<ol type="1">
+<li><strong>Semantic Lowering</strong>: The standard library
+implementation lowers the algorithm into an unrolled loop decorated with
+internal compiler pragmas (such as
+<code>#pragma clang loop vectorize(enable)</code> or OpenMP SIMD
+directives).</li>
+<li><strong>Vector Register Packing</strong>: The compiler loads
+contiguous elements of input sequences into hardware vector registers
+(e.g., eight 32-bit integers into a 256-bit AVX2 register).</li>
+<li><strong>Vectorized Arithmetic</strong>: The operation provided in
+the lambda or function object executes across all packed lanes in a
+single CPU cycle using instructions like <code>vpaddd</code> (vector
+packed add).</li>
+<li><strong>Masking and Remainder Handling</strong>: If the data size is
+not an exact multiple of the vector register width, the compiler
+automatically generates a vectorized masked load/store or a scalar tail
+loop to handle remaining elements safely.</li>
+</ol>
+<h3 id="vectorization-with-stdtransform-and-stdreduce">Vectorization
+with std::transform and std::reduce</h3>
+<p>Vectorization yields significant performance gains in data-parallel
+computations. For example, computing the sum of elements using
+<code>std::reduce</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;numeric&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;execution&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">float</span><span class="op">&gt;</span> data<span class="op">(</span><span class="dv">10&#39;000&#39;000</span><span class="op">,</span> <span class="fl">1.5</span><span class="bu">f</span><span class="op">);</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Emits vectorized instructions (e.g., AVX vaddps)</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> total <span class="op">=</span> <span class="bu">std::</span>reduce<span class="op">(</span><span class="bu">std::</span>execution::unseq<span class="op">,</span> data<span class="op">.</span>begin<span class="op">(),</span> data<span class="op">.</span>end<span class="op">(),</span> <span class="fl">0.0</span><span class="bu">f</span><span class="op">);</span></span></code></pre></div>
+<p>Because <code>std::reduce</code> does not guarantee a strict
+left-to-right evaluation order, the compiler can accumulate multiple
+intermediate partial sums in vector lanes before performing a final
+horizontal reduction across the register.</p>
+<h3 id="constraints-and-safety-rules-for-simd-execution">Constraints and
+Safety Rules for SIMD Execution</h3>
+<p>To leverage SIMD through standard library algorithms without
+undefined behavior, developers must adhere to strict constraints:</p>
+<ul>
+<li><strong>No Synchronization Primitives</strong>: You cannot acquire
+mutexes, use condition variables, or perform memory allocations inside
+the invoked function. If one SIMD lane were to block waiting for a lock
+held by another lane on the same thread, the execution would
+deadlock.</li>
+<li><strong>No Non-Atomic Shared State</strong>: Modifying shared
+variables across iterations causes data races or vector hazards. Only
+lock-free atomic operations are permitted, though atomics inside SIMD
+loops generally negate vectorization efficiency.</li>
+<li><strong>Memory Contiguity</strong>: SIMD hardware works best with
+continuous chunks of memory. Vectorized execution policies are most
+effective when applied to contiguous iterators, such as those provided
+by <code>std::vector</code>, <code>std::array</code>, or
+<code>std::span</code>. Iterating over non-contiguous structures like
+<code>std::list</code> forces gather/scatter operations, significantly
+degrading performance.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom std::streambuf Text Redirection in C++ - cpp</title>
+    <meta name="description" content="In C++, input and output operations are split between high-level formatting handled by std::ostream and low-level character transport managed by std::streambuf. By creating a custom class that derives from std::streambuf and overriding its virtual charact">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/custom-std-streambuf-text-redirection-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Custom std::streambuf Text Redirection in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/custom-std-streambuf-text-redirection-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, input and output operations are split between high-level formatting handled by std::ostream and low-level character transport managed by std::streambuf. By creating a custom class that derives from std::streambuf and overriding its virtual charact" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="custom-stdstreambuf-text-redirection-in-c">Custom std::streambuf
+Text Redirection in C++</h1>
+<p>In C++, input and output operations are split between high-level
+formatting handled by <code>std::ostream</code> and low-level character
+transport managed by <code>std::streambuf</code>. By creating a custom
+class that derives from <code>std::streambuf</code> and overriding its
+virtual character-consumption functions, developers can intercept,
+modify, or reroute text output to any destination, such as log files,
+GUI widgets, network sockets, or memory buffers. This article explains
+how the stream buffer mechanism works, which virtual methods must be
+implemented, and how to attach the custom buffer to standard streams
+like <code>std::cout</code>.</p>
+<h3 id="the-separation-of-ostream-and-streambuf">The Separation of
+<code>ostream</code> and <code>streambuf</code></h3>
+<p>C++ I/O streams decouple the presentation of data from physical
+transport. When you pass an integer or string to <code>std::cout</code>
+using <code>operator&lt;&lt;</code>, the stream formats that data into a
+sequence of characters and forwards them to its associated
+<code>std::streambuf</code> pointer via <code>rdbuf()</code>. The stream
+buffer controls buffering strategies and determines where the raw bytes
+actually go.</p>
+<p>Redirecting output requires replacing this internal buffer with a
+custom implementation. The standard output stream continues formatting
+data as usual, but the underlying destination becomes your custom
+target.</p>
+<h3 id="essential-virtual-functions-to-override">Essential Virtual
+Functions to Override</h3>
+<p>To create an output-only stream buffer, you must inherit from
+<code>std::basic_streambuf&lt;char&gt;</code> (aliased as
+<code>std::streambuf</code>) and override specific protected virtual
+functions:</p>
+<ol type="1">
+<li><p><strong><code>int_type overflow(int_type ch)</code></strong> This
+is the primary method called when the internal buffer is full or when
+operating in unbuffered mode. If <code>ch</code> is not the end-of-file
+marker (<code>traits_type::eof()</code>), it represents a character that
+must be written to the target. It must return a value other than
+<code>traits_type::eof()</code> on success (typically <code>ch</code> or
+<code>traits_type::not_eof(ch)</code>), and
+<code>traits_type::eof()</code> on failure.</p></li>
+<li><p><strong><code>std::streamsize xsputn(const char_type* s, std::streamsize count)</code></strong>
+While optional, overriding <code>xsputn</code> optimizes bulk character
+writes. Instead of invoking <code>overflow()</code> repeatedly for every
+character in a string, the stream calls <code>xsputn</code> to write
+contiguous arrays directly to the target.</p></li>
+<li><p><strong><code>int sync()</code></strong> If your implementation
+uses internal buffering, <code>sync()</code> is called when the stream
+is flushed (for example, via <code>std::endl</code> or
+<code>std::flush</code>). It synchronizes the internal buffer with the
+external destination, returning <code>0</code> on success or
+<code>-1</code> on failure.</p></li>
+</ol>
+<h3 id="minimal-custom-buffer-implementation">Minimal Custom Buffer
+Implementation</h3>
+<p>The following example defines an unbuffered custom stream buffer that
+redirects every written character to a callback function:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;streambuf&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;functional&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> CallbackStreamBuf <span class="op">:</span> <span class="kw">public</span> <span class="bu">std::</span>streambuf <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> Callback <span class="op">=</span> <span class="bu">std::</span>function<span class="op">&lt;</span><span class="dt">void</span><span class="op">(</span><span class="at">const</span> <span class="dt">char</span><span class="op">*,</span> <span class="bu">std::</span>streamsize<span class="op">)&gt;;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">explicit</span> CallbackStreamBuf<span class="op">(</span>Callback cb<span class="op">)</span> <span class="op">:</span> <span class="va">callback_</span><span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>cb<span class="op">))</span> <span class="op">{}</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">protected</span><span class="op">:</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Handles single characters</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int_type</span> overflow<span class="op">(</span><span class="dt">int_type</span> ch<span class="op">)</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>ch <span class="op">!=</span> <span class="dt">traits_type</span><span class="op">::</span>eof<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>            <span class="dt">char</span> c <span class="op">=</span> <span class="kw">static_cast</span><span class="op">&lt;</span><span class="dt">char</span><span class="op">&gt;(</span>ch<span class="op">);</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>            <span class="va">callback_</span><span class="op">(&amp;</span>c<span class="op">,</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> ch<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dt">traits_type</span><span class="op">::</span>eof<span class="op">();</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Handles bulk strings efficiently</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>streamsize xsputn<span class="op">(</span><span class="at">const</span> <span class="dt">char_type</span><span class="op">*</span> s<span class="op">,</span> <span class="bu">std::</span>streamsize count<span class="op">)</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>        <span class="va">callback_</span><span class="op">(</span>s<span class="op">,</span> count<span class="op">);</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> count<span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    Callback <span class="va">callback_</span><span class="op">;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="redirecting-text-output">Redirecting Text Output</h3>
+<p>Once the custom buffer is created, redirecting a standard stream like
+<code>std::cout</code> involves calling <code>rdbuf()</code> with a
+pointer to the new buffer.</p>
+<p>The original buffer pointer returned by <code>rdbuf()</code> should
+always be saved and restored before the custom buffer is destroyed.
+Failing to restore the original buffer causes undefined behavior when
+the stream attempts to use a destroyed buffer during program
+termination.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string captured_output<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Define custom destination logic</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    CallbackStreamBuf custom_buf<span class="op">([&amp;</span>captured_output<span class="op">](</span><span class="at">const</span> <span class="dt">char</span><span class="op">*</span> data<span class="op">,</span> <span class="bu">std::</span>streamsize size<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        captured_output<span class="op">.</span>append<span class="op">(</span>data<span class="op">,</span> size<span class="op">);</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">});</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Swap the buffer of std::cout with the custom buffer</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>streambuf<span class="op">*</span> original_buf <span class="op">=</span> <span class="bu">std::</span>cout<span class="op">.</span>rdbuf<span class="op">(&amp;</span>custom_buf<span class="op">);</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// This text is captured into captured_output instead of the console</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Redirected message: &quot;</span> <span class="op">&lt;&lt;</span> <span class="dv">42</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>endl<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Restore the original buffer before custom_buf goes out of scope</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout<span class="op">.</span>rdbuf<span class="op">(</span>original_buf<span class="op">);</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Normal output restored</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Captured length: &quot;</span> <span class="op">&lt;&lt;</span> captured_output<span class="op">.</span>length<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>endl<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="applying-raii-for-safe-redirection">Applying RAII for Safe
+Redirection</h3>
+<p>To ensure exception safety and prevent dangling pointers, redirecting
+streams is best handled using a Resource Acquisition Is Initialization
+(RAII) wrapper:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> StreamRedirector <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    StreamRedirector<span class="op">(</span><span class="bu">std::</span>ostream<span class="op">&amp;</span> stream<span class="op">,</span> <span class="bu">std::</span>streambuf<span class="op">*</span> new_buf<span class="op">)</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span> <span class="va">stream_</span><span class="op">(</span>stream<span class="op">),</span> <span class="va">original_buf_</span><span class="op">(</span>stream<span class="op">.</span>rdbuf<span class="op">(</span>new_buf<span class="op">))</span> <span class="op">{}</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">~</span>StreamRedirector<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">stream_</span><span class="op">.</span>rdbuf<span class="op">(</span><span class="va">original_buf_</span><span class="op">);</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    StreamRedirector<span class="op">(</span><span class="at">const</span> StreamRedirector<span class="op">&amp;)</span> <span class="op">=</span> <span class="kw">delete</span><span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    StreamRedirector<span class="op">&amp;</span> <span class="kw">operator</span><span class="op">=(</span><span class="at">const</span> StreamRedirector<span class="op">&amp;)</span> <span class="op">=</span> <span class="kw">delete</span><span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>ostream<span class="op">&amp;</span> <span class="va">stream_</span><span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>streambuf<span class="op">*</span> <span class="va">original_buf_</span><span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Instantiating
+<code>StreamRedirector redirect(std::cout, &amp;custom_buf);</code>
+automatically handles cleanup when leaving the enclosing scope,
+guaranteeing that <code>std::cout</code> always returns to its valid
+initial state.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

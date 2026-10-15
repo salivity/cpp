@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resolving Ambiguity in C++ Multiple Inheritance - cpp</title>
+    <meta name="description" content="In C++, inheriting from multiple base classes that share identical member names introduces name collisions, leading to compile-time ambiguity errors. Rather than automatically choosing one member over another based on accessibility or type signatures, the">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/resolving-ambiguity-in-c-multiple-inheritance">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Resolving Ambiguity in C++ Multiple Inheritance - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/resolving-ambiguity-in-c-multiple-inheritance" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, inheriting from multiple base classes that share identical member names introduces name collisions, leading to compile-time ambiguity errors. Rather than automatically choosing one member over another based on accessibility or type signatures, the" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="resolving-ambiguity-in-c-multiple-inheritance">Resolving
+Ambiguity in C++ Multiple Inheritance</h1>
+<p>In C++, inheriting from multiple base classes that share identical
+member names introduces name collisions, leading to compile-time
+ambiguity errors. Rather than automatically choosing one member over
+another based on accessibility or type signatures, the C++ compiler
+halts compilation during the name-lookup phase whenever an ambiguous
+identifier is referenced without qualification. This article explains
+how C++ identifies these conflicts, how name lookup precedes access
+control, and the standard mechanisms—such as the scope resolution
+operator, derived class overrides, <code>using</code> declarations, and
+virtual inheritance dominance rules—used to resolve them cleanly.</p>
+<h3 id="name-lookup-precedes-type-and-access-checking">Name Lookup
+Precedes Type and Access Checking</h3>
+<p>A fundamental rule in C++ is that name lookup occurs before type
+checking and accessibility (e.g., <code>public</code>,
+<code>private</code>) verification. If class <code>Derived</code>
+inherits from both <code>BaseA</code> and <code>BaseB</code>, and both
+bases contain a member named <code>display()</code>, writing
+<code>derivedObject.display()</code> results in a compiler error.</p>
+<p>Even if <code>BaseA::display()</code> is <code>public</code> and
+<code>BaseB::display()</code> is <code>private</code>, or if one takes
+parameters and the other does not, the compiler still flags an
+ambiguity. It finds two candidates with the same name in different base
+scopes and cannot independently determine which one the programmer
+intended to access.</p>
+<h3
+id="explicit-disambiguation-using-the-scope-resolution-operator">Explicit
+Disambiguation Using the Scope Resolution Operator</h3>
+<p>The most direct way to resolve a member conflict is by explicitly
+specifying the intended base class using the scope resolution operator
+(<code>::</code>). This bypasses name ambiguity by instructing the
+compiler precisely which scope to query:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> BaseA <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> print<span class="op">()</span> <span class="op">{}</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> BaseB <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> print<span class="op">()</span> <span class="op">{}</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> BaseA<span class="op">,</span> <span class="kw">public</span> BaseB <span class="op">{};</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    Derived d<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// d.print(); // Error: Request for member &#39;print&#39; is ambiguous</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    d<span class="op">.</span>BaseA<span class="op">::</span>print<span class="op">();</span> <span class="co">// OK: Calls BaseA&#39;s implementation</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    d<span class="op">.</span>BaseB<span class="op">::</span>print<span class="op">();</span> <span class="co">// OK: Calls BaseB&#39;s implementation</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="overriding-and-hiding-in-the-derived-class">Overriding and
+Hiding in the Derived Class</h3>
+<p>If a derived class defines its own member with the same name, that
+member hides all base class members with that name during unqualified
+lookup. Under this approach, calling the member on an instance of the
+derived class invokes the derived implementation without any
+ambiguity:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> BaseA<span class="op">,</span> <span class="kw">public</span> BaseB <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> print<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Disambiguate internally if base behavior is still needed</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        BaseA<span class="op">::</span>print<span class="op">();</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    Derived d<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    d<span class="op">.</span>print<span class="op">();</span> <span class="co">// OK: Calls Derived::print()</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="using-declarations">Using Declarations</h3>
+<p>A derived class can bring a specific base class member into its own
+scope using a <code>using</code> declaration. This makes unqualified
+calls resolve directly to the chosen base class member:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> BaseA<span class="op">,</span> <span class="kw">public</span> BaseB <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> BaseA<span class="op">::</span>print<span class="op">;</span> <span class="co">// Unqualified calls to print() will use BaseA::print</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>If you introduce both <code>using BaseA::print;</code> and
+<code>using BaseB::print;</code>, you create an overloaded set if their
+parameter lists differ. However, if their signatures are identical, the
+ambiguity remains unresolved for calls matching that signature.</p>
+<h3 id="virtual-inheritance-and-the-dominance-rule">Virtual Inheritance
+and the Dominance Rule</h3>
+<p>In complex hierarchies, such as the diamond problem where two
+intermediate classes inherit from a common base and are subsequently
+inherited by a single derived class, identical member names can appear
+along different inheritance paths. When virtual inheritance is used, C++
+applies the "dominance rule."</p>
+<p>If a member name is defined in a class <code>Dominant</code> that is
+derived from another base class <code>Subordinate</code>, the definition
+in <code>Dominant</code> dominates the definition in
+<code>Subordinate</code>. The compiler automatically chooses the
+dominant member without flagging an ambiguity error, because one
+definition clearly overrides or supersedes the other along that
+inheritance hierarchy.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

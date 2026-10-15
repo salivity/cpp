@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Placement New in Pre-Allocated Storage - cpp</title>
+    <meta name="description" content="Placement new is a specialized variation of the standard new operator in C++ that constructs an object inside a pre-existing, raw memory buffer rather than requesting fresh memory from the heap. This article explains how placement new operates under the h">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-placement-new-in-pre-allocated-storage">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Placement New in Pre-Allocated Storage - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-placement-new-in-pre-allocated-storage" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Placement new is a specialized variation of the standard new operator in C++ that constructs an object inside a pre-existing, raw memory buffer rather than requesting fresh memory from the heap. This article explains how placement new operates under the h" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-placement-new-in-pre-allocated-storage">C++ Placement New in
+Pre-Allocated Storage</h1>
+<p>Placement <code>new</code> is a specialized variation of the standard
+<code>new</code> operator in C++ that constructs an object inside a
+pre-existing, raw memory buffer rather than requesting fresh memory from
+the heap. This article explains how placement <code>new</code> operates
+under the hood, how it separates memory allocation from object
+initialization, the required syntax and alignment rules, and the
+mandatory practice of manually invoking destructors to prevent resource
+leaks.</p>
+<hr />
+<h3 id="standard-new-vs-placement-new">Standard <code>new</code> vs.
+Placement <code>new</code></h3>
+<p>When you write standard dynamic allocation code such as
+<code>MyClass* obj = new MyClass();</code>, the C++ compiler performs
+two distinct operations:</p>
+<ol type="1">
+<li><strong>Allocation:</strong> It calls
+<code>operator new(sizeof(MyClass))</code> to allocate raw bytes from
+the free store (heap).</li>
+<li><strong>Construction:</strong> It invokes the constructor of
+<code>MyClass</code> using the address returned by the allocation
+step.</li>
+</ol>
+<p>Placement <code>new</code> removes the first step. Instead of
+searching for or allocating free memory, it assumes you have already
+provided a valid memory address. It directly invokes the constructor on
+that exact memory address without interacting with the system memory
+allocator.</p>
+<hr />
+<h3 id="how-it-works-internally">How It Works Internally</h3>
+<p>The core of placement <code>new</code> relies on a trivial overload
+provided by the standard library in the <code>&lt;new&gt;</code>
+header:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span><span class="op">*</span> <span class="kw">operator</span> <span class="kw">new</span><span class="op">(</span><span class="bu">std::</span>size_t<span class="op">,</span> <span class="dt">void</span><span class="op">*</span> ptr<span class="op">)</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> ptr<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When you write:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;new&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Assume buffer points to suitable pre-allocated memory</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>Type<span class="op">*</span> obj <span class="op">=</span> <span class="kw">new</span> <span class="op">(</span>buffer<span class="op">)</span> Type<span class="op">(</span>args<span class="op">);</span></span></code></pre></div>
+<p>The compiler translates the expression into the following
+sequence:</p>
+<ol type="1">
+<li>It resolves the placement overload of <code>operator new</code>,
+passing the requested size and your pointer <code>buffer</code>.</li>
+<li>The placement <code>operator new</code> simply returns the
+<code>buffer</code> pointer unmodified.</li>
+<li>The compiler generates machine code to call <code>Type</code>'s
+constructor, passing <code>buffer</code> as the implicit
+<code>this</code> pointer.</li>
+<li>The expression evaluates to a pointer of type <code>Type*</code>
+pointing to the newly initialized object at <code>buffer</code>.</li>
+</ol>
+<hr />
+<h3 id="buffer-alignment-and-size-requirements">Buffer Alignment and
+Size Requirements</h3>
+<p>For placement <code>new</code> to operate safely and avoid undefined
+behavior, the pre-allocated buffer must meet two strict criteria:</p>
+<ol type="1">
+<li><strong>Size:</strong> The buffer must be at least
+<code>sizeof(Type)</code> bytes.</li>
+<li><strong>Alignment:</strong> The memory address must be properly
+aligned for the target type according to
+<code>alignof(Type)</code>.</li>
+</ol>
+<p>Creating an arbitrary array of <code>char</code> or
+<code>uint8_t</code> without alignment qualifiers can lead to hardware
+faults on architectures that enforce strict alignment. Using
+<code>alignas</code> or <code>std::aligned_storage</code> ensures the
+buffer satisfies the type's alignment requirement.</p>
+<hr />
+<h3 id="practical-example">Practical Example</h3>
+<p>The following code demonstrates allocating raw, aligned stack
+storage, constructing an object within it, and cleaning it up:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;new&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> User <span class="op">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    User<span class="op">(</span><span class="bu">std::</span>string name<span class="op">)</span> <span class="op">:</span> <span class="va">name_</span><span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>name<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;User constructed: &quot;</span> <span class="op">&lt;&lt;</span> <span class="va">name_</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">~</span>User<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;User destroyed: &quot;</span> <span class="op">&lt;&lt;</span> <span class="va">name_</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> print<span class="op">()</span> <span class="at">const</span> <span class="op">{</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Name: &quot;</span> <span class="op">&lt;&lt;</span> <span class="va">name_</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string <span class="va">name_</span><span class="op">;</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Allocate an aligned raw byte array</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">alignas</span><span class="op">(</span>User<span class="op">)</span> <span class="dt">unsigned</span> <span class="dt">char</span> storage<span class="op">[</span><span class="kw">sizeof</span><span class="op">(</span>User<span class="op">)];</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Construct the object inside the storage using placement new</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    User<span class="op">*</span> userPtr <span class="op">=</span> <span class="kw">new</span> <span class="op">(</span>storage<span class="op">)</span> User<span class="op">(</span><span class="st">&quot;Alice&quot;</span><span class="op">);</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Use the object normally</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    userPtr<span class="op">-&gt;</span>print<span class="op">();</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Manually destroy the object</span></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    userPtr<span class="op">-&gt;~</span>User<span class="op">();</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<hr />
+<h3 id="object-lifetime-and-destruction">Object Lifetime and
+Destruction</h3>
+<p>Standard dynamic objects are destroyed using the <code>delete</code>
+operator, which calls the object's destructor and then deallocates
+memory via <code>operator delete</code>.</p>
+<p>With placement <code>new</code>, calling <code>delete userPtr;</code>
+is undefined behavior because the memory was not allocated by standard
+dynamic memory functions. Attempting to pass stack-allocated memory,
+static buffers, or custom pool slices to <code>delete</code> causes
+runtime crashes or heap corruption.</p>
+<p>To destroy an object built with placement <code>new</code>:</p>
+<ol type="1">
+<li><p><strong>Explicit Destructor Call:</strong> Explicitly call the
+destructor:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>userPtr<span class="op">-&gt;~</span>Type<span class="op">();</span></span></code></pre></div></li>
+<li><p><strong>Buffer Management:</strong> Manage the lifetime of the
+underlying buffer separately. If the buffer was on the stack, it goes
+out of scope automatically. If it was allocated from a custom memory
+pool or via <code>malloc</code>, release that memory through the
+corresponding mechanism.</p></li>
+</ol>
+<hr />
+<h3 id="primary-use-cases">Primary Use Cases</h3>
+<ul>
+<li><strong>Custom Allocators and Memory Pools:</strong>
+High-performance systems, such as game engines and trading platforms,
+pre-allocate large blocks of memory upfront to avoid the latency of
+frequent system-level allocations.</li>
+<li><strong>Standard Library Containers:</strong> Classes like
+<code>std::vector</code>, <code>std::optional</code>, and
+<code>std::variant</code> reserve raw, uninitialized memory and only
+instantiate objects inside that memory as items are inserted or
+activated.</li>
+<li><strong>Embedded Hardware:</strong> Placing objects at specific
+memory-mapped hardware I/O addresses.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

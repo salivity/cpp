@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lock-Free Programming and std::atomic::is_lock_free in C++ - cpp</title>
+    <meta name="description" content="Lock-free programming is a concurrent programming design paradigm that allows multiple threads to access shared data without relying on mutual exclusion locks. This article explains the core principles of lock-free systems, how they contrast with traditio">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/lock-free-programming-and-std-atomic-is-lock-free-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Lock-Free Programming and std::atomic::is_lock_free in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/lock-free-programming-and-std-atomic-is-lock-free-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Lock-free programming is a concurrent programming design paradigm that allows multiple threads to access shared data without relying on mutual exclusion locks. This article explains the core principles of lock-free systems, how they contrast with traditio" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="lock-free-programming-and-stdatomicis_lock_free-in-c">Lock-Free
+Programming and std::atomic::is_lock_free in C++</h1>
+<p>Lock-free programming is a concurrent programming design paradigm
+that allows multiple threads to access shared data without relying on
+mutual exclusion locks. This article explains the core principles of
+lock-free systems, how they contrast with traditional blocking
+mechanisms, and examines the exact semantic and hardware guarantees
+provided by the <code>std::atomic::is_lock_free</code> member function
+in the C++ standard library.</p>
+<h3 id="understanding-lock-free-programming">Understanding Lock-Free
+Programming</h3>
+<p>Lock-free programming is a technique used in concurrent computing
+where operations on shared memory are designed such that the suspension
+or termination of any single thread cannot prevent other threads from
+making progress.</p>
+<p>In traditional concurrent designs, synchronization relies on
+primitives like <code>std::mutex</code>. If a thread acquires a mutex
+and is subsequently preempted, context-switched out, or encounters a
+fault, all other threads waiting for that mutex are blocked. Lock-free
+programming removes this vulnerability by relying on atomic
+read-modify-write (RMW) hardware instructions, such as Compare-And-Swap
+(CAS), represented in C++ by <code>compare_exchange_weak</code> and
+<code>compare_exchange_strong</code>.</p>
+<p>The defining theoretical characteristic of a lock-free algorithm is
+system-wide progress: at any given point in execution, at least one
+thread is guaranteed to make forward progress within a bounded number of
+steps, even under heavy contention. It does not guarantee
+starvation-freedom for individual threads—a distinction reserved for
+wait-free programming—meaning an individual thread may loop repeatedly
+if other threads continuously succeed ahead of it.</p>
+<h3 id="guarantees-provided-by-stdatomicis_lock_free">Guarantees
+Provided by <code>std::atomic::is_lock_free</code></h3>
+<p>The C++ standard library provides the <code>std::atomic</code>
+template to handle atomic operations across basic types and small
+user-defined structures. However, not all
+<code>std::atomic&lt;T&gt;</code> instantiations are implemented without
+locks under the hood. If a target CPU architecture lacks hardware
+instructions to manipulate a given data size atomically, the C++ runtime
+fallback uses internal locks to preserve atomicity semantics.</p>
+<p>The member function <code>std::atomic&lt;T&gt;::is_lock_free()</code>
+provides runtime verification of whether operations on a specific atomic
+object are genuinely non-blocking. It offers the following
+guarantees:</p>
+<ol type="1">
+<li><strong>Absence of Internal Locks:</strong> If
+<code>is_lock_free()</code> returns <code>true</code>, the
+implementation guarantees that operations on that object do not use
+internal mutexes, critical sections, or operating system locks.
+Operations are mapped directly to native CPU atomic instructions.</li>
+<li><strong>System-Wide Forward Progress:</strong> When an atomic
+operation is lock-free, a thread suspended in the middle of executing an
+atomic operation will never prevent other threads from completing their
+own atomic operations on that same memory address.</li>
+<li><strong>Address-Free Execution:</strong> Lock-free operations are
+typically "address-free," meaning the synchronization mechanism does not
+depend on a specific virtual memory address registration. This allows
+shared memory across distinct processes to be safely accessed through
+lock-free atomics.</li>
+<li><strong>Signal Safety Contexts:</strong> Types that are lock-free
+are generally safe to read and modify within signal handlers, provided
+the type is also trivially copyable and properly aligned.</li>
+</ol>
+<h3 id="compile-time-vs-runtime-verification">Compile-Time vs. Runtime
+Verification</h3>
+<p>The <code>is_lock_free()</code> method evaluates the state of a
+specific instance at runtime. This accommodates architectures where
+atomic capability depends on runtime CPU feature flags or memory
+alignment.</p>
+<p>Since C++17, developers can also use the compile-time constant
+expression <code>std::atomic&lt;T&gt;::is_always_lock_free</code>. If
+this static member evaluates to <code>true</code>, the type is
+guaranteed to be lock-free on the target platform for any valid
+alignment and instance, allowing compile-time assertions
+(<code>static_assert</code>) to enforce real-time and lock-free
+requirements.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

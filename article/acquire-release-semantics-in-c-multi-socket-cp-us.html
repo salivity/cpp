@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acquire-Release Semantics in C++ Multi-Socket CPUs - cpp</title>
+    <meta name="description" content="This article explores how C++ memory barriers and acquire-release ordering guarantee deterministic memory visibility across modern multi-socket architectures. It examines the hardware realities of non-uniform memory access (NUMA), cache coherence protocol">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/acquire-release-semantics-in-c-multi-socket-cp-us">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Acquire-Release Semantics in C++ Multi-Socket CPUs - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/acquire-release-semantics-in-c-multi-socket-cp-us" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how C++ memory barriers and acquire-release ordering guarantee deterministic memory visibility across modern multi-socket architectures. It examines the hardware realities of non-uniform memory access (NUMA), cache coherence protocol" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="acquire-release-semantics-in-c-multi-socket-cpus">Acquire-Release
+Semantics in C++ Multi-Socket CPUs</h1>
+<p>This article explores how C++ memory barriers and acquire-release
+ordering guarantee deterministic memory visibility across modern
+multi-socket architectures. It examines the hardware realities of
+non-uniform memory access (NUMA), cache coherence protocols, and
+processor store buffers, detailing how the C++ abstract machine
+translates high-level synchronization primitives into low-level CPU
+instructions to eliminate data races and prevent stale reads across
+socket boundaries.</p>
+<h2 id="the-multi-socket-hardware-challenge">The Multi-Socket Hardware
+Challenge</h2>
+<p>In a multi-socket system, each CPU socket contains multiple physical
+cores, private L1/L2 caches, a shared L3 cache, and a dedicated memory
+controller. Sockets communicate over high-speed point-to-point
+interconnects, such as Intel UPI or AMD Infinity Fabric. While hardware
+cache coherence protocols (such as MESI, MOESI, or directory-based
+schemes) guarantee that a single memory location eventually resolves to
+a single coherent state, they do not inherently guarantee the arrival
+order of writes across different memory locations.</p>
+<p>Modern CPUs maximize throughput by utilizing out-of-order execution,
+speculative execution, write buffers (store buffers), and invalidate
+queues. When Core A on Socket 0 writes to memory, the write sits
+temporarily in a local store buffer before draining into the cache
+hierarchy. Simultaneously, Core B on Socket 1 may hold older copies of
+that memory line in its local cache. Without explicit synchronization,
+Socket 1 can read stale data out of order, violating sequential
+consistency and corrupting multithreaded state.</p>
+<h2 id="the-c-memory-model-and-acquire-release-semantics">The C++ Memory
+Model and Acquire-Release Semantics</h2>
+<p>The C++11 standard introduced a formal memory model defining how
+threads interact through memory. Rather than forcing expensive, full
+sequential consistency (<code>std::memory_order_seq_cst</code>) across
+all operations, C++ provides acquire-release semantics
+(<code>std::memory_order_acquire</code> and
+<code>std::memory_order_release</code>) to create lightweight
+synchronization points.</p>
+<p>Acquire-release operates as a pairwise contract between threads:</p>
+<ul>
+<li><strong>Release operation
+(<code>std::memory_order_release</code>):</strong> Applied to a store
+operation. It guarantees that all prior memory operations (both reads
+and writes, atomic and non-atomic) within the current thread cannot be
+reordered <em>after</em> this store.</li>
+<li><strong>Acquire operation
+(<code>std::memory_order_acquire</code>):</strong> Applied to a load
+operation. It guarantees that all subsequent memory operations (reads
+and writes) within the current thread cannot be reordered
+<em>before</em> this load.</li>
+</ul>
+<p>When an acquire load in Thread B reads the value written by a release
+store in Thread A, a <em>synchronizes-with</em> relationship is
+established. This forms an inter-thread <em>happens-before</em>
+relationship, ensuring that all modifications made by Thread A prior to
+the release store are guaranteed to be visible to Thread B after the
+acquire load.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;atomic&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string shared_data<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>atomic<span class="op">&lt;</span><span class="dt">bool</span><span class="op">&gt;</span> ready_flag<span class="op">{</span><span class="kw">false</span><span class="op">};</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Executed by Thread on Socket 0</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> producer<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    shared_data <span class="op">=</span> <span class="st">&quot;Engine initialized&quot;</span><span class="op">;</span> <span class="co">// Non-atomic write</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    ready_flag<span class="op">.</span>store<span class="op">(</span><span class="kw">true</span><span class="op">,</span> <span class="bu">std::</span>memory_order_release<span class="op">);</span> <span class="co">// Release store</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Executed by Thread on Socket 1</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> consumer<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(!</span>ready_flag<span class="op">.</span>load<span class="op">(</span><span class="bu">std::</span>memory_order_acquire<span class="op">))</span> <span class="op">{</span> <span class="co">// Acquire load</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Spin or yield</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Guaranteed to observe &quot;Engine initialized&quot;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="ot">assert</span><span class="op">(</span>shared_data <span class="op">==</span> <span class="st">&quot;Engine initialized&quot;</span><span class="op">);</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="hardware-translation-across-interconnects">Hardware Translation
+Across Interconnects</h2>
+<p>C++ acquire-release semantics translate into specific compiler and
+hardware actions, varying by processor architecture:</p>
+<h3 id="1-strongly-ordered-architectures-eg-x86-64">1. Strongly Ordered
+Architectures (e.g., x86-64)</h3>
+<p>x86 implements Total Store Order (TSO). In TSO, the hardware already
+prevents:</p>
+<ul>
+<li>Loads from being reordered with other loads.</li>
+<li>Stores from being reordered with earlier stores.</li>
+<li>Stores from being reordered with earlier loads.</li>
+</ul>
+<p>Consequently, <code>std::memory_order_release</code> and
+<code>std::memory_order_acquire</code> typically compile into plain
+<code>MOV</code> instructions without dedicated barrier instructions.
+The compiler merely enforces a software barrier to prevent compile-time
+reordering.</p>
+<p>Across sockets, hardware directory controllers coordinate modified
+cache lines. When the release store commits to L1, the directory
+protocol invalidates the corresponding lines on remote sockets. When the
+acquire load executes, the remote core checks its directory state,
+misses or re-reads the line, and retrieves the updated payload over the
+inter-socket link.</p>
+<h3 id="2-weakly-ordered-architectures-eg-arm64-power">2. Weakly Ordered
+Architectures (e.g., ARM64, POWER)</h3>
+<p>On weakly ordered architectures, CPUs can reorder loads and stores
+almost arbitrarily. To satisfy C++ acquire-release semantics across
+sockets:</p>
+<ul>
+<li><strong>Release:</strong> The compiler emits instructions such as
+<code>STLR</code> (Store-Release) on ARM64 or a <code>dmb ish</code>
+(Data Memory Barrier, Inner Shareable) fence before a store. This drains
+the local store buffer and ensures that all prior memory writes are
+broadcast across the interconnect before the flag update is visible to
+other sockets.</li>
+<li><strong>Acquire:</strong> The compiler emits <code>LDAR</code>
+(Load-Acquire) or appends a memory fence after the load. This prevents
+subsequent speculative reads from accessing memory until the acquire
+load confirms its dependency and flushes stale entries from invalidate
+queues.</li>
+</ul>
+<h2 id="ensuring-inter-socket-visibility">Ensuring Inter-Socket
+Visibility</h2>
+<p>By combining compiler constraints with hardware memory barriers,
+acquire-release semantics force cache controllers to propagate
+modifications through the socket interconnect before the downstream
+synchronization flag is observed:</p>
+<ol type="1">
+<li><strong>Buffer Draining:</strong> The release barrier guarantees
+that write-buffers holding payload data are flushed into the local
+socket's cache and made globally visible via coherence messages across
+the inter-socket fabric.</li>
+<li><strong>Invalidate Processing:</strong> The acquire barrier forces
+the receiving socket to process all pending cache invalidation messages
+before executing subsequent reads.</li>
+<li><strong>Preventing Speculation:</strong> The acquire operation
+prevents the CPU pipeline on the remote socket from speculatively
+reading stale payload data out of order prior to reading the
+synchronization variable.</li>
+</ol>
+<p>Through this coordinated mechanism, C++ acquire-release semantics
+achieve cross-socket visibility and synchronization with minimal
+hardware overhead compared to full sequentially consistent fences.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

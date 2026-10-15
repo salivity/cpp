@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using std::atomic_ref for Atomic Operations in C++ - cpp</title>
+    <meta name="description" content="Introduced in C++20, std::atomicref provides a way to perform atomic operations on existing, non-atomic objects without modifying their underlying type or data layout. This article examines how std::atomicref operates as a lightweight, non-owning proxy to">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/using-std-atomic-ref-for-atomic-operations-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using std::atomic_ref for Atomic Operations in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/using-std-atomic-ref-for-atomic-operations-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++20, std::atomicref provides a way to perform atomic operations on existing, non-atomic objects without modifying their underlying type or data layout. This article examines how std::atomicref operates as a lightweight, non-owning proxy to" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-stdatomic_ref-for-atomic-operations-in-c">Using
+std::atomic_ref for Atomic Operations in C++</h1>
+<p>Introduced in C++20, <code>std::atomic_ref</code> provides a way to
+perform atomic operations on existing, non-atomic objects without
+modifying their underlying type or data layout. This article examines
+how <code>std::atomic_ref</code> operates as a lightweight, non-owning
+proxy to raw memory, the hardware requirements it imposes, and the rules
+developers must follow to ensure data-race-free concurrent
+execution.</p>
+<h2 id="the-problem-with-stdatomict">The Problem with
+<code>std::atomic&lt;T&gt;</code></h2>
+<p>Historically, C++ required objects to be explicitly declared as
+<code>std::atomic&lt;T&gt;</code> to perform atomic operations. While
+effective, this approach has notable drawbacks:</p>
+<ul>
+<li><strong>Ownership and Layout:</strong>
+<code>std::atomic&lt;T&gt;</code> is an owning type that may alter the
+alignment, size, or trivially copyable nature of the underlying data,
+making it incompatible with standard C-style APIs or external memory
+buffers.</li>
+<li><strong>Overhead in Single-Threaded Phases:</strong> A data
+structure accessed concurrently during only one phase of an application
+still pays the performance or structural penalties of atomic types
+throughout its entire lifetime.</li>
+<li><strong>Large Containers:</strong> Applying atomic semantics to
+elements within a large contiguous container (like
+<code>std::vector&lt;int&gt;</code>) requires declaring the entire
+vector as containing <code>std::atomic&lt;int&gt;</code>, which disables
+operations like copy-assignment or standard bulk-memory operations.</li>
+</ul>
+<h2 id="how-stdatomic_ref-works">How <code>std::atomic_ref</code>
+Works</h2>
+<p><code>std::atomic_ref&lt;T&gt;</code> is a non-owning reference
+wrapper. It binds to an existing object of type <code>T</code> and
+exposes the standard atomic interface—such as <code>load()</code>,
+<code>store()</code>, <code>fetch_add()</code>, and
+<code>compare_exchange_strong()</code>—directly to that object's memory
+address.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;atomic&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;thread&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> increment_counter<span class="op">(</span><span class="dt">int</span><span class="op">&amp;</span> counter<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Wrap the existing non-atomic int</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>atomic_ref<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> atomic_counter<span class="op">(</span>counter<span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">1000</span><span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        atomic_counter<span class="op">.</span>fetch_add<span class="op">(</span><span class="dv">1</span><span class="op">,</span> <span class="bu">std::</span>memory_order_relaxed<span class="op">);</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When an operation is invoked on <code>std::atomic_ref</code>, the
+compiler generates hardware-level atomic instructions (such as
+<code>LOCK XADD</code> on x86 or <code>LDREX</code>/<code>STREX</code>
+on ARM) targeted directly at the address of the referenced non-atomic
+object.</p>
+<h2 id="alignment-and-hardware-constraints">Alignment and Hardware
+Constraints</h2>
+<p>Hardware architectures typically require memory addresses to be
+aligned to specific byte boundaries to execute atomic instructions
+natively. Because <code>std::atomic_ref</code> references arbitrary
+memory, it cannot enforce alignment at object creation time.</p>
+<p>Instead, <code>std::atomic_ref</code> specifies an alignment
+requirement via the static member constant:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="at">static</span> <span class="kw">constexpr</span> <span class="dt">size_t</span> required_alignment<span class="op">;</span></span></code></pre></div>
+<p>To safely bind <code>std::atomic_ref&lt;T&gt;</code> to an instance
+of <code>T</code>, the object's address must satisfy
+<code>reinterpret_cast&lt;uintptr_t&gt;(&amp;object) % std::atomic_ref&lt;T&gt;::required_alignment == 0</code>.
+If the memory address does not meet this alignment constraint, the
+behavior is undefined.</p>
+<h2 id="concurrency-rules-and-undefined-behavior">Concurrency Rules and
+Undefined Behavior</h2>
+<p>Using <code>std::atomic_ref</code> safely requires adhering to strict
+access rules:</p>
+<ol type="1">
+<li><strong>Exclusive Access Path:</strong> During the lifetime of any
+<code>std::atomic_ref</code> referencing an object, all concurrent reads
+and writes to that object must be mediated exclusively through
+<code>std::atomic_ref</code> instances. Accessing the object directly
+through its original non-atomic identifier while an
+<code>atomic_ref</code> is active creates a data race and leads to
+undefined behavior.</li>
+<li><strong>Object Lifetime:</strong> The referenced object must outlive
+all <code>std::atomic_ref</code> instances bound to it. The wrapper does
+not manage memory or extend the lifetime of the target.</li>
+<li><strong>Type Constraints:</strong> The referenced type
+<code>T</code> must be trivially copyable. It cannot be a
+<code>const</code> type, as atomic modifications require mutable
+memory.</li>
+</ol>
+<p>By serving as a temporary bridge to hardware atomic instructions,
+<code>std::atomic_ref</code> enables high-performance synchronization
+patterns across legacy codebases, numeric arrays, and multi-stage
+parallel pipelines without sacrificing memory efficiency.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

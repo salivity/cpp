@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using Weak Symbols for Default Implementations in C++ - cpp</title>
+    <meta name="description" content="This article provides an overview of weak symbols in C++, explaining their role in the linking process and how they enable developers to supply default, overridable function implementations across translation units. You will learn the mechanics behind str">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/using-weak-symbols-for-default-implementations-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using Weak Symbols for Default Implementations in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/using-weak-symbols-for-default-implementations-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of weak symbols in C++, explaining their role in the linking process and how they enable developers to supply default, overridable function implementations across translation units. You will learn the mechanics behind str" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-weak-symbols-for-default-implementations-in-c">Using Weak
+Symbols for Default Implementations in C++</h1>
+<p>This article provides an overview of weak symbols in C++, explaining
+their role in the linking process and how they enable developers to
+supply default, overridable function implementations across translation
+units. You will learn the mechanics behind strong versus weak symbol
+resolution, how to declare weak symbols using compiler attributes,
+practical code patterns for fallback functionality, and important
+portability considerations across different toolchains.</p>
+<h3 id="understanding-strong-vs-weak-symbols">Understanding Strong vs.
+Weak Symbols</h3>
+<p>During compilation, every non-static function and global variable is
+converted into a symbol within an object file. By default, the linker
+treats these as <strong>strong symbols</strong>. According to standard
+linking rules:</p>
+<ol type="1">
+<li><strong>Multiple Strong Symbols:</strong> If two translation units
+define the same strong symbol with external linkage, the linker halts
+with a "multiple definition" error.</li>
+<li><strong>Strong and Weak Symbols:</strong> If a strong symbol shares
+the same name as one or more weak symbols, the linker discards the weak
+symbols and links to the strong symbol.</li>
+<li><strong>Multiple Weak Symbols:</strong> If only weak symbols exist
+with the same identifier, the linker arbitrarily selects one without
+generating an error.</li>
+</ol>
+<p>A <strong>weak symbol</strong> is a symbol marked with a specific
+directive informing the linker that its definition is non-authoritative
+and can be replaced if a stronger definition is supplied elsewhere.</p>
+<h3 id="declaring-weak-symbols-in-c">Declaring Weak Symbols in C++</h3>
+<p>Standard C++ does not have a native <code>weak</code> keyword, but
+major compilers like GCC and Clang provide the
+<code>__attribute__((weak))</code> extension for ELF-based targets:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Declaring a weak function definition</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">extern</span> <span class="st">&quot;C&quot;</span> <span class="dt">void</span> system_logger<span class="op">(</span><span class="at">const</span> <span class="dt">char</span><span class="op">*</span> message<span class="op">)</span> <span class="ex">__attribute__((weak))</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">extern</span> <span class="st">&quot;C&quot;</span> <span class="dt">void</span> system_logger<span class="op">(</span><span class="at">const</span> <span class="dt">char</span><span class="op">*</span> message<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Default implementation</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>printf<span class="op">(</span><span class="st">&quot;[DEFAULT LOG]: </span><span class="sc">%s\n</span><span class="st">&quot;</span><span class="op">,</span> message<span class="op">);</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When using C++, name mangling must be considered. If a weak symbol is
+intended to be overridden in another translation unit, both the default
+definition and the override must have matching signatures and linkage
+specifications (such as <code>extern "C"</code> or identical C++
+namespaces and types) so the generated mangled symbols match
+exactly.</p>
+<h3
+id="providing-default-implementations-across-translation-units">Providing
+Default Implementations Across Translation Units</h3>
+<p>Weak symbols are frequently used in embedded systems, systems
+programming, and extensible libraries to define fallback hooks.</p>
+<h4 id="1-the-default-implementation-logger_defaultcpp">1. The Default
+Implementation (<code>logger_default.cpp</code>)</h4>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ex">__attribute__((weak))</span> <span class="dt">void</span> custom_log<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> msg<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Fallback Logger: &quot;</span> <span class="op">&lt;&lt;</span> msg <span class="op">&lt;&lt;</span> <span class="bu">std::</span>endl<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h4 id="2-the-header-file-loggerh">2. The Header File
+(<code>logger.h</code>)</h4>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#pragma once</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> custom_log<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> msg<span class="op">);</span></span></code></pre></div>
+<h4 id="3-user-code-without-override">3. User Code without Override</h4>
+<p>If the project compiles <code>logger_default.cpp</code> and
+<code>main.cpp</code>, the linker resolves calls to
+<code>custom_log</code> using the weak definition in
+<code>logger_default.cpp</code>.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// main.cpp</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;logger.h&quot;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    custom_log<span class="op">(</span><span class="st">&quot;Application started&quot;</span><span class="op">);</span> <span class="co">// Outputs: &quot;Fallback Logger: Application started&quot;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h4 id="4-user-code-with-override-logger_overridecpp">4. User Code with
+Override (<code>logger_override.cpp</code>)</h4>
+<p>If a separate translation unit provides a standard, strong
+implementation of the same function, the linker swaps out the weak
+implementation automatically.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// logger_override.cpp</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;logger.h&quot;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Strong symbol (no weak attribute)</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> custom_log<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> msg<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="st">&quot;[CRITICAL OVERRIDE]: &quot;</span> <span class="op">&lt;&lt;</span> msg <span class="op">&lt;&lt;</span> <span class="bu">std::</span>endl<span class="op">;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When <code>logger_override.cpp</code> is linked into the final binary
+alongside <code>logger_default.cpp</code> and <code>main.cpp</code>, all
+references resolve to the strong version, discarding the weak version
+entirely without causing a duplicate symbol error.</p>
+<h3 id="weak-symbols-behind-the-scenes-in-c">Weak Symbols Behind the
+Scenes in C++</h3>
+<p>Even when not explicitly declared via compiler attributes, the C++
+compiler internally relies on weak symbols to satisfy the One Definition
+Rule (ODR) across translation units for:</p>
+<ul>
+<li><strong>Inline Functions:</strong> When an <code>inline</code>
+function is defined across multiple headers, the compiler marks each
+instance as a weak symbol so the linker collapses them into a single
+address.</li>
+<li><strong>Template Instantiations:</strong> Identical template
+instantiations across separate object files are emitted as weak symbols,
+allowing the linker to eliminate duplicates.</li>
+</ul>
+<h3 id="toolchain-and-portability-considerations">Toolchain and
+Portability Considerations</h3>
+<ul>
+<li><strong>GCC and Clang:</strong> Support
+<code>__attribute__((weak))</code> natively on ELF targets (Linux, BSD)
+and with certain constraints on Mach-O (macOS).</li>
+<li><strong>MSVC (Windows):</strong> Microsoft Visual C++ does not
+support <code>__attribute__((weak))</code>. Instead, MSVC provides
+<code>#pragma comment(linker, "/alternatename:symbol=fallback_symbol")</code>,
+which redirects unresolved external symbols to a fallback symbol.</li>
+<li><strong>Static Libraries:</strong> When linking static archives
+(<code>.a</code>), linkers only extract object files needed to resolve
+undefined symbols. If a weak implementation is in an object file inside
+a static library, the linker might not pull it into the final executable
+unless explicitly referenced.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

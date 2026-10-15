@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::hardware_destructive_interference_size in C++ - cpp</title>
+    <meta name="description" content="This article explores the utility of std::hardwaredestructiveinterferencesize, introduced in C++17, which provides the recommended byte boundary to prevent false sharing in multithreaded applications. By defining the minimum alignment required to isolate">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-hardware-destructive-interference-size-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::hardware_destructive_interference_size in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-hardware-destructive-interference-size-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the utility of std::hardwaredestructiveinterferencesize, introduced in C++17, which provides the recommended byte boundary to prevent false sharing in multithreaded applications. By defining the minimum alignment required to isolate" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="stdhardware_destructive_interference_size-in-c">std::hardware_destructive_interference_size
+in C++</h1>
+<p>This article explores the utility of
+<code>std::hardware_destructive_interference_size</code>, introduced in
+C++17, which provides the recommended byte boundary to prevent false
+sharing in multithreaded applications. By defining the minimum alignment
+required to isolate concurrently modified variables onto distinct cache
+lines, this constant enables developers to write portable,
+high-performance concurrent code that mitigates costly cache-coherence
+penalties.</p>
+<h3 id="the-problem-false-sharing">The Problem: False Sharing</h3>
+<p>Modern CPU architectures manage memory in chunks called cache lines,
+typically 64 bytes in size. When multiple processor cores access or
+modify variables situated within the exact same cache line, the CPU's
+cache-coherence protocol steps in.</p>
+<p>Even if two threads are updating completely independent variables,
+sharing a physical cache line forces the hardware to invalidate and
+synchronize that entire line between cores. This phenomenon is known as
+"false sharing" or destructive interference. It causes significant,
+unnecessary latency and severely degrades multithreaded performance.</p>
+<h3 id="the-role-of-stdhardware_destructive_interference_size">The Role
+of std::hardware_destructive_interference_size</h3>
+<p>Defined in the <code>&lt;new&gt;</code> header,
+<code>std::hardware_destructive_interference_size</code> is a
+<code>constexpr std::size_t</code> value that returns the minimum byte
+offset required between two concurrently accessed objects to avoid false
+sharing.</p>
+<p>Before C++17, developers typically hardcoded assumed cache line sizes
+(such as 64 bytes) or relied on architecture-specific preprocessor
+macros. <code>std::hardware_destructive_interference_size</code>
+standardizes this practice, making alignment requirements explicit,
+self-documenting, and portable across platforms.</p>
+<h3 id="how-to-use-it">How to Use It</h3>
+<p>The most common application is combining the constant with the
+<code>alignas</code> specifier to separate frequently modified fields
+within a data structure.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;new&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;atomic&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> ThreadCounters <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Thread 1 writes here</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">alignas</span><span class="op">(</span><span class="bu">std::</span>hardware_destructive_interference_size<span class="op">)</span> <span class="bu">std::</span>atomic<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> counterA<span class="op">{</span><span class="dv">0</span><span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Thread 2 writes here</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">alignas</span><span class="op">(</span><span class="bu">std::</span>hardware_destructive_interference_size<span class="op">)</span> <span class="bu">std::</span>atomic<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> counterB<span class="op">{</span><span class="dv">0</span><span class="op">};</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>In this example, <code>counterA</code> and <code>counterB</code> are
+guaranteed to occupy distinct cache lines. When two threads concurrently
+increment their respective counters, neither core invalidates the
+other's cache, avoiding contention and maximizing throughput.</p>
+<h3 id="destructive-vs-constructive-interference">Destructive vs.
+Constructive Interference</h3>
+<p>Alongside the destructive constant, C++17 introduced
+<code>std::hardware_constructive_interference_size</code>:</p>
+<ul>
+<li><strong>Destructive interference size:</strong> The minimum spacing
+needed to avoid cache line contention when data is accessed
+independently by concurrent threads.</li>
+<li><strong>Constructive interference size:</strong> The maximum
+recommended size to keep related data within the <em>same</em> cache
+line, promoting spatial locality so that accessing one value pulls
+associated values into the cache automatically.</li>
+</ul>
+<h3 id="compilation-and-portability-considerations">Compilation and
+Portability Considerations</h3>
+<p>Because <code>std::hardware_destructive_interference_size</code>
+depends on the underlying hardware target, compiling code for a generic
+architecture (such as standard x86-64 without a specific
+<code>-march</code> flag) may cause some compilers to issue warnings.
+Compilers often must assume a conservative default, which may not match
+every specific sub-architecture. For mission-critical performance
+tuning, compile with target-specific optimization flags to ensure the
+value reflects the target CPU's actual cache line dimensions.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

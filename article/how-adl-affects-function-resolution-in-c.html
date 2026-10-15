@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How ADL Affects Function Resolution in C++ - cpp</title>
+    <meta name="description" content="Argument-Dependent Lookup (ADL), also known as Koenig lookup, is a core language mechanism in C++ that expands standard name resolution for unqualified function calls. By automatically adding the namespaces of a function’s arguments to the candidate looku">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-adl-affects-function-resolution-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How ADL Affects Function Resolution in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-adl-affects-function-resolution-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Argument-Dependent Lookup (ADL), also known as Koenig lookup, is a core language mechanism in C++ that expands standard name resolution for unqualified function calls. By automatically adding the namespaces of a function’s arguments to the candidate looku" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-adl-affects-function-resolution-in-c">How ADL Affects
+Function Resolution in C++</h1>
+<p>Argument-Dependent Lookup (ADL), also known as Koenig lookup, is a
+core language mechanism in C++ that expands standard name resolution for
+unqualified function calls. By automatically adding the namespaces of a
+function’s arguments to the candidate lookup set, ADL allows the
+compiler to discover relevant functions and operators across different
+namespaces without requiring explicit scope qualification or
+<code>using</code> declarations. This article explores how ADL operates,
+its fundamental role in operator overloading and generic programming,
+and the behavioral nuances it introduces to cross-namespace
+resolution.</p>
+<h3 id="the-mechanics-of-argument-dependent-lookup">The Mechanics of
+Argument-Dependent Lookup</h3>
+<p>During a standard unqualified function call—such as
+<code>doSomething(x)</code>—the compiler initiates ordinary unqualified
+lookup, searching enclosing blocks, classes, and namespaces outward from
+the call site. If the call includes arguments of user-defined types
+(such as classes, structs, unions, or enums), the compiler triggers
+ADL.</p>
+<p>ADL identifies the "associated namespaces" and "associated classes"
+for each argument passed to the function:</p>
+<ul>
+<li>For a class type, the associated namespaces include the namespace
+where the class is declared, as well as the namespaces of its direct and
+indirect base classes.</li>
+<li>For template instantiations, the namespaces of template type
+arguments are also included.</li>
+</ul>
+<p>The compiler then searches all these associated namespaces for
+matching function names. The functions found via ADL are merged with the
+functions found via ordinary lookup into a single candidate set, from
+which overload resolution selects the best match.</p>
+<h3 id="impact-on-operator-overloading">Impact on Operator
+Overloading</h3>
+<p>The most prevalent and critical impact of ADL is enabling non-member
+operator overloading. In C++, operators are typically called using infix
+notation rather than qualified syntax (for example, <code>a + b</code>
+or <code>std::cout &lt;&lt; obj</code> instead of
+<code>ns::operator&lt;&lt;(std::cout, obj)</code>).</p>
+<p>Consider streaming a custom type to <code>std::cout</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> Graphics <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> Color <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> r<span class="op">,</span> g<span class="op">,</span> b<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>ostream<span class="op">&amp;</span> <span class="kw">operator</span><span class="op">&lt;&lt;(</span><span class="bu">std::</span>ostream<span class="op">&amp;</span> os<span class="op">,</span> <span class="at">const</span> Color<span class="op">&amp;</span> c<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> os <span class="op">&lt;&lt;</span> <span class="st">&quot;RGB(&quot;</span> <span class="op">&lt;&lt;</span> c<span class="op">.</span>r <span class="op">&lt;&lt;</span> <span class="st">&quot;, &quot;</span> <span class="op">&lt;&lt;</span> c<span class="op">.</span>g <span class="op">&lt;&lt;</span> <span class="st">&quot;, &quot;</span> <span class="op">&lt;&lt;</span> c<span class="op">.</span>b <span class="op">&lt;&lt;</span> <span class="st">&quot;)&quot;</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    Graphics<span class="op">::</span>Color red<span class="op">{</span><span class="dv">255</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">};</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> red<span class="op">;</span> <span class="co">// Resolves Graphics::operator&lt;&lt; via ADL</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Without ADL, <code>std::cout &lt;&lt; red</code> would fail to
+compile unless <code>operator&lt;&lt;</code> was declared in namespace
+<code>std</code> (which is prohibited for user types) or explicitly
+invoked with full qualification. Because <code>red</code> originates
+from the <code>Graphics</code> namespace, ADL adds <code>Graphics</code>
+to the candidate search, allowing the compiler to find and bind the
+overloaded <code>operator&lt;&lt;</code>.</p>
+<h3 id="impact-on-generic-programming-and-customization-points">Impact
+on Generic Programming and Customization Points</h3>
+<p>ADL is vital to generic code, particularly in templates where the
+exact namespace of a type is unknown. It enables the "customization
+point" idiom, widely utilized across the C++ Standard Library.</p>
+<p>The canonical example is <code>std::swap</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> processAndSwap<span class="op">(</span>T<span class="op">&amp;</span> a<span class="op">,</span> T<span class="op">&amp;</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> <span class="bu">std::</span>swap<span class="op">;</span> <span class="co">// Provide default fallback</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    swap<span class="op">(</span>a<span class="op">,</span> b<span class="op">);</span>      <span class="co">// ADL chooses custom swap if available, else std::swap</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this pattern:</p>
+<ol type="1">
+<li><code>using std::swap;</code> brings the generic standard
+implementation into the local scope as a fallback.</li>
+<li>The unqualified call <code>swap(a, b)</code> prompts the compiler to
+search the namespace of <code>T</code> using ADL.</li>
+<li>If <code>T</code> has an optimized <code>swap</code> function
+defined in its own namespace, overload resolution prefers it over
+<code>std::swap</code>.</li>
+<li>If no specialized function exists, the fallback
+<code>std::swap</code> is selected via standard unqualified lookup.</li>
+</ol>
+<h3 id="cross-namespace-hidden-friends">Cross-Namespace Hidden
+Friends</h3>
+<p>ADL directly influences the behavior of "hidden friend" functions. A
+hidden friend is a non-member function defined entirely within the body
+of a class declaration:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> Math <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">class</span> Vector <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">friend</span> Vector <span class="kw">operator</span><span class="op">+(</span><span class="at">const</span> Vector<span class="op">&amp;</span> lhs<span class="op">,</span> <span class="at">const</span> Vector<span class="op">&amp;</span> rhs<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Implementation</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> lhs<span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Hidden friend functions cannot be found by regular unqualified lookup
+or qualified lookup (<code>Math::operator+</code> fails). They are
+strictly invisible unless discovered via ADL when an instance of
+<code>Vector</code> is passed as an argument. This mechanism prevents
+namespace pollution and reduces the size of candidate sets during
+ordinary lookups, improving compiler performance and preventing
+accidental conversions.</p>
+<h3 id="potential-pitfalls-hijacking-and-ambiguities">Potential
+Pitfalls: Hijacking and Ambiguities</h3>
+<p>While ADL facilitates intuitive syntax, it can introduce unexpected
+behavior:</p>
+<ul>
+<li><strong>Unintended Overloads:</strong> If a namespace contains a
+broadly named function (e.g., <code>init</code> or <code>reset</code>),
+passing a type from that namespace to an unqualified function call
+elsewhere can unexpectedly bring those functions into the candidate set,
+causing unintended ambiguity errors.</li>
+<li><strong>Template Argument Exposure:</strong> ADL inspects template
+arguments. If a function receives
+<code>std::vector&lt;MyType&gt;</code>, both namespace <code>std</code>
+and the namespace containing <code>MyType</code> are searched,
+potentially exposing unrelated functions from either namespace to the
+candidate pool.</li>
+</ul>
+<p>ADL bridges the gap between encapsulated namespaces and convenient,
+generic syntax. It ensures that functions designed to form the interface
+of a type travel naturally with that type across namespace
+boundaries.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

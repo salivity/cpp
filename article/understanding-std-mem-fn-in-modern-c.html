@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding std::mem_fn in Modern C++ - cpp</title>
+    <meta name="description" content="In the C++ programming language, member function pointers have a distinct and cumbersome syntax compared to standard callable entities like free functions or lambdas. The primary purpose of std::memfn is to wrap pointers to members—both member functions a">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/understanding-std-mem-fn-in-modern-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding std::mem_fn in Modern C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/understanding-std-mem-fn-in-modern-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C++ programming language, member function pointers have a distinct and cumbersome syntax compared to standard callable entities like free functions or lambdas. The primary purpose of std::memfn is to wrap pointers to members—both member functions a" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-stdmem_fn-in-modern-c">Understanding std::mem_fn
+in Modern C++</h1>
+<p>In the C++ programming language, member function pointers have a
+distinct and cumbersome syntax compared to standard callable entities
+like free functions or lambdas. The primary purpose of
+<code>std::mem_fn</code> is to wrap pointers to members—both member
+functions and member data—into standard, callable function objects. This
+article explains the exact role of <code>std::mem_fn</code>, how it
+resolves member-pointer syntax limitations, and how it enables seamless
+integration with standard library algorithms.</p>
+<h3 id="the-problem-with-member-pointers">The Problem with Member
+Pointers</h3>
+<p>In C++, invoking a member function pointer directly requires the
+pointer-to-member operators (<code>.*</code> or <code>-&gt;*</code>).
+Consequently, you cannot invoke a member function pointer using standard
+function call syntax (<code>f(args...)</code>).</p>
+<p>Consider this basic definition:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Widget <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> display<span class="op">()</span> <span class="at">const</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="op">(</span>Widget<span class="op">::*</span>pmf<span class="op">)()</span> <span class="at">const</span> <span class="op">=</span> <span class="op">&amp;</span>Widget<span class="op">::</span>display<span class="op">;</span></span></code></pre></div>
+<p>To call <code>pmf</code>, you must explicitly bind it to an
+instance:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>Widget w<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="op">(</span>w<span class="op">.*</span>pmf<span class="op">)();</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>Widget<span class="op">*</span> ptr <span class="op">=</span> <span class="op">&amp;</span>w<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">(</span>ptr<span class="op">-&gt;*</span>pmf<span class="op">)();</span></span></code></pre></div>
+<p>Because of this requirement, standard library algorithms such as
+<code>std::for_each</code> or <code>std::transform</code>, which expect
+a regular callable object invoked via <code>fn(arg)</code>, cannot
+accept raw member function pointers directly.</p>
+<h3 id="the-purpose-and-role-of-stdmem_fn">The Purpose and Role of
+<code>std::mem_fn</code></h3>
+<p>Defined in the <code>&lt;functional&gt;</code> header,
+<code>std::mem_fn</code> acts as a function adapter. When passed a
+pointer to a member, it returns an unspecified callable function
+object.</p>
+<p>The returned wrapper provides three key capabilities:</p>
+<ol type="1">
+<li><strong>Uniform Callable Interface:</strong> It generates an
+<code>operator()</code> overload, allowing the member pointer to be
+invoked with typical function call syntax:
+<code>wrapped_fn(object, args...)</code>.</li>
+<li><strong>Polymorphic Argument Resolution:</strong> The first argument
+can be an object reference (<code>w</code>), a raw pointer
+(<code>&amp;w</code>), or a smart pointer
+(<code>std::unique_ptr&lt;Widget&gt;</code> or
+<code>std::shared_ptr&lt;Widget&gt;</code>). The adapter automatically
+determines whether to apply the <code>.*</code> operator or dereference
+the pointer via <code>operator*</code>.</li>
+<li><strong>Data Member Access:</strong> If passed a pointer to member
+data, <code>std::mem_fn</code> produces a callable object that extracts
+that member variable when called, returning a reference to the
+data.</li>
+</ol>
+<h3 id="practical-usage-example">Practical Usage Example</h3>
+<p>Below is a practical scenario demonstrating how
+<code>std::mem_fn</code> eliminates the need for boilerplate code when
+working with containers and algorithms:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;memory&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;algorithm&gt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;functional&gt;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Task <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> execute<span class="op">()</span> <span class="at">const</span> <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Executing task: &quot;</span> <span class="op">&lt;&lt;</span> id <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span>Task<span class="op">&gt;</span> tasks<span class="op">{{</span><span class="dv">1</span><span class="op">},</span> <span class="op">{</span><span class="dv">2</span><span class="op">},</span> <span class="op">{</span><span class="dv">3</span><span class="op">}};</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>shared_ptr<span class="op">&lt;</span>Task<span class="op">&gt;&gt;</span> task_ptrs <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>make_shared<span class="op">&lt;</span>Task<span class="op">&gt;(</span>Task<span class="op">{</span><span class="dv">4</span><span class="op">}),</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>make_shared<span class="op">&lt;</span>Task<span class="op">&gt;(</span>Task<span class="op">{</span><span class="dv">5</span><span class="op">})</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Adapt the member function &#39;execute&#39;</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> exec <span class="op">=</span> <span class="bu">std::</span>mem_fn<span class="op">(&amp;</span>Task<span class="op">::</span>execute<span class="op">);</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Call directly on a value</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    exec<span class="op">(</span>tasks<span class="op">[</span><span class="dv">0</span><span class="op">]);</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Call directly on a smart pointer without manual dereferencing</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>    exec<span class="op">(</span>task_ptrs<span class="op">[</span><span class="dv">0</span><span class="op">]);</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Pass directly to standard algorithms</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>for_each<span class="op">(</span>tasks<span class="op">.</span>begin<span class="op">(),</span> tasks<span class="op">.</span>end<span class="op">(),</span> <span class="bu">std::</span>mem_fn<span class="op">(&amp;</span>Task<span class="op">::</span>execute<span class="op">));</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>for_each<span class="op">(</span>task_ptrs<span class="op">.</span>begin<span class="op">(),</span> task_ptrs<span class="op">.</span>end<span class="op">(),</span> <span class="bu">std::</span>mem_fn<span class="op">(&amp;</span>Task<span class="op">::</span>execute<span class="op">));</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Adapt a data member to extract values</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> get_id <span class="op">=</span> <span class="bu">std::</span>mem_fn<span class="op">(&amp;</span>Task<span class="op">::</span>id<span class="op">);</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Extracted ID: &quot;</span> <span class="op">&lt;&lt;</span> get_id<span class="op">(</span>tasks<span class="op">[</span><span class="dv">0</span><span class="op">])</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="context-in-modern-c">Context in Modern C++</h3>
+<p>Since C++17, utility functions like <code>std::invoke</code> natively
+handle pointer-to-member invocations, and modern standard algorithms
+(including C++20 Ranges) use projection mechanisms powered by
+<code>std::invoke</code>. Similarly, generic lambda expressions
+(<code>[](const auto&amp; obj) { obj.execute(); }</code>) can accomplish
+the same task.</p>
+<p>Despite these modern alternatives, <code>std::mem_fn</code> remains a
+valuable tool. It explicitly states the intent to treat a member as a
+self-contained callable object, avoids lambda boilerplate, and stores
+uniform callables cleanly when passing member actions to older standard
+library algorithms and components.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

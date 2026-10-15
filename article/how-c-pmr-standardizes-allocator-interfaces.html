@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C++ PMR Standardizes Allocator Interfaces - cpp</title>
+    <meta name="description" content="The Polymorphic Memory Resources (PMR) framework, introduced in C++17, standardizes custom memory management by decoupling a container&#39;s allocation strategy from its static type. Historically, C++ allocators were embedded directly into container type sign">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-c-pmr-standardizes-allocator-interfaces">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C++ PMR Standardizes Allocator Interfaces - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-c-pmr-standardizes-allocator-interfaces" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Polymorphic Memory Resources (PMR) framework, introduced in C++17, standardizes custom memory management by decoupling a container&#39;s allocation strategy from its static type. Historically, C++ allocators were embedded directly into container type sign" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c-pmr-standardizes-allocator-interfaces">How C++ PMR
+Standardizes Allocator Interfaces</h1>
+<p>The Polymorphic Memory Resources (PMR) framework, introduced in
+C++17, standardizes custom memory management by decoupling a container's
+allocation strategy from its static type. Historically, C++ allocators
+were embedded directly into container type signatures, causing severe
+interoperability and code bloat issues. PMR resolves this by using an
+abstract base class and runtime polymorphism, allowing developers to
+swap memory allocation mechanisms—such as pool, monotonic, or arena
+allocators—without altering container types or rewriting API
+interfaces.</p>
+<h3 id="the-problem-with-traditional-c-allocators">The Problem with
+Traditional C++ Allocators</h3>
+<p>Prior to C++17, standard containers accepted an allocator as a
+template parameter:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span>T<span class="op">,</span> Allocator<span class="op">&gt;</span></span></code></pre></div>
+<p>Because the allocator is part of the type signature, two containers
+with the same element type but different allocators are fundamentally
+incompatible. A function designed to accept a
+<code>std::vector&lt;int, std::allocator&lt;int&gt;&gt;&amp;</code>
+cannot accept a
+<code>std::vector&lt;int, CustomStackAllocator&lt;int&gt;&gt;&amp;</code>.</p>
+<p>This design caused several architectural problems:</p>
+<ul>
+<li><strong>Interface Fragmentation:</strong> Library authors had to
+either force users to use <code>std::allocator</code>, make their APIs
+heavily templated to accommodate arbitrary allocator types, or write
+wrapper layers.</li>
+<li><strong>Code Bloat:</strong> Templating functions on allocator types
+generates redundant compiled code for each allocator configuration.</li>
+<li><strong>Complex Customization:</strong> Injecting specialized memory
+handling (e.g., stack buffers or arena allocators) into existing
+codebases often required invasive refactoring.</li>
+</ul>
+<h3 id="the-pmr-architecture-moving-from-compile-time-to-runtime">The
+PMR Architecture: Moving from Compile-Time to Runtime</h3>
+<p>The PMR framework shifts memory allocation from compile-time
+templates to runtime polymorphism through three core components defined
+in <code>&lt;memory_resource&gt;</code>:</p>
+<h4 id="1-stdpmrmemory_resource">1.
+<code>std::pmr::memory_resource</code></h4>
+<p>At the foundation of PMR is the abstract base class
+<code>std::pmr::memory_resource</code>. It defines pure virtual
+functions for low-level memory operations:</p>
+<ul>
+<li><code>do_allocate(std::size_t bytes, std::size_t alignment)</code></li>
+<li><code>do_deallocate(void* p, std::size_t bytes, std::size_t alignment)</code></li>
+<li><code>do_is_equal(const std::pmr::memory_resource&amp; other) const noexcept</code></li>
+</ul>
+<p>Public non-virtual member functions (<code>allocate</code>,
+<code>deallocate</code>, and <code>is_equal</code>) call these private
+virtual methods, following the Non-Virtual Interface (NVI) idiom. Any
+custom allocation logic simply inherits from
+<code>memory_resource</code> and overrides these methods.</p>
+<h4 id="2-stdpmrpolymorphic_allocatort">2.
+<code>std::pmr::polymorphic_allocator&lt;T&gt;</code></h4>
+<p>To bridge the gap between standard containers and
+<code>std::pmr::memory_resource</code>, C++ provides
+<code>std::pmr::polymorphic_allocator&lt;T&gt;</code>. This class
+fulfills the standard allocator requirements but internally stores a
+non-owning pointer to a <code>std::pmr::memory_resource</code>.</p>
+<p>When a container requests memory,
+<code>std::pmr::polymorphic_allocator&lt;T&gt;</code> delegates the
+request to the underlying <code>memory_resource</code> pointer via
+virtual function dispatch.</p>
+<h4 id="3-standard-container-type-aliases">3. Standard Container Type
+Aliases</h4>
+<p>The <code>std::pmr</code> namespace provides pre-defined type aliases
+for all standard containers using
+<code>polymorphic_allocator</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> <span class="bu">std::</span>pmr <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> vector <span class="op">=</span> <span class="bu">std::</span>vector<span class="op">&lt;</span>T<span class="op">,</span> <span class="bu">std::</span>pmr::polymorphic_allocator<span class="op">&lt;</span>T<span class="op">&gt;&gt;;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> string <span class="op">=</span> <span class="bu">std::</span>basic_string<span class="op">&lt;</span><span class="dt">char</span><span class="op">,</span> <span class="bu">std::</span>char_traits<span class="op">&lt;</span><span class="dt">char</span><span class="op">&gt;,</span> <span class="bu">std::</span>pmr::polymorphic_allocator<span class="op">&lt;</span><span class="dt">char</span><span class="op">&gt;&gt;;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Because <code>std::pmr::vector&lt;int&gt;</code> has a fixed type, it
+can be passed across boundaries, stored in interfaces, and reused
+regardless of which memory resource backs it at runtime.</p>
+<h3 id="standardized-built-in-memory-resources">Standardized Built-in
+Memory Resources</h3>
+<p>PMR standardizes several common allocation strategies out of the
+box:</p>
+<ul>
+<li><strong><code>std::pmr::monotonic_buffer_resource</code>:</strong>
+Allocates sequentially from a provided buffer or growing heap chunks and
+never deallocates until the entire resource is destroyed. Ideal for
+short-lived, high-throughput tasks like frame-based operations in game
+loops.</li>
+<li><strong><code>std::pmr::unsynchronized_pool_resource</code>:</strong>
+Organizes memory into a collection of pools containing fixed-size chunks
+to minimize fragmentation and optimize allocations of varying sizes in a
+single thread.</li>
+<li><strong><code>std::pmr::synchronized_pool_resource</code>:</strong>
+A thread-safe variant of the pool resource.</li>
+<li><strong><code>std::pmr::new_delete_resource()</code>:</strong>
+Returns a global pointer to a resource that delegates to the standard
+global <code>operator new</code> and <code>operator delete</code>.</li>
+<li><strong><code>std::pmr::null_memory_resource()</code>:</strong> A
+resource that throws <code>std::bad_alloc</code> on any allocation
+attempt, useful for guaranteeing that an operation will not exceed a
+pre-allocated buffer.</li>
+</ul>
+<h3 id="practical-impact-on-api-design">Practical Impact on API
+Design</h3>
+<p>PMR standardizes how C++ applications handle memory by eliminating
+the need to choose between performance and clean API design. APIs can
+accept types like <code>const std::pmr::vector&lt;int&gt;&amp;</code> in
+function signatures, while callers maintain full control over whether
+that vector uses stack memory, a shared arena, or standard heap
+memory:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;array&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;memory_resource&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_data<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>pmr::vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&amp;</span> data<span class="op">);</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> run<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>array<span class="op">&lt;</span><span class="bu">std::</span>byte<span class="op">,</span> <span class="dv">1024</span><span class="op">&gt;</span> stack_buffer<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>pmr::monotonic_buffer_resource mem_pool<span class="op">(</span>stack_buffer<span class="op">.</span>data<span class="op">(),</span> stack_buffer<span class="op">.</span>size<span class="op">());</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Allocates directly from stack_buffer without heap overhead</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>pmr::vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> numbers<span class="op">(&amp;</span>mem_pool<span class="op">);</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    numbers<span class="op">.</span>push_back<span class="op">(</span><span class="dv">10</span><span class="op">);</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    numbers<span class="op">.</span>push_back<span class="op">(</span><span class="dv">20</span><span class="op">);</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Passed seamlessly without template parameters</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    process_data<span class="op">(</span>numbers<span class="op">);</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By establishing a common polymorphic base and unifying container
+signatures, PMR provides a consistent, standardized vocabulary for
+custom memory management across modern C++.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

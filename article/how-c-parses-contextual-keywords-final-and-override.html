@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C++ Parses Contextual Keywords final and override - cpp</title>
+    <meta name="description" content="In C++11, the committee introduced final and override to improve object-oriented design and catch subtle inheritance bugs, but adding them as reserved keywords would have broken millions of lines of legacy code where these terms were already used as ident">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-c-parses-contextual-keywords-final-and-override">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C++ Parses Contextual Keywords final and override - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-c-parses-contextual-keywords-final-and-override" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++11, the committee introduced final and override to improve object-oriented design and catch subtle inheritance bugs, but adding them as reserved keywords would have broken millions of lines of legacy code where these terms were already used as ident" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c-parses-contextual-keywords-final-and-override">How C++
+Parses Contextual Keywords final and override</h1>
+<p>In C++11, the committee introduced <code>final</code> and
+<code>override</code> to improve object-oriented design and catch subtle
+inheritance bugs, but adding them as reserved keywords would have broken
+millions of lines of legacy code where these terms were already used as
+identifiers. To solve this, the language defines them as "identifiers
+with special meaning"—commonly called contextual keywords. This article
+explains how the C++ translation process distinguishes these identifiers
+from ordinary names, how lexical analysis interacts with syntactic
+parsing, and how the grammar resolves ambiguity without treating these
+terms as globally reserved words.</p>
+<h3 id="the-backward-compatibility-dilemma">The Backward Compatibility
+Dilemma</h3>
+<p>Before C++11, words like <code>final</code> and <code>override</code>
+were valid names for variables, member functions, macros, or types. If
+the standard had promoted them to full keywords (like
+<code>virtual</code>, <code>class</code>, or <code>const</code>), legal
+pre-C++11 code such as the following would immediately fail to
+compile:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="kw">override</span> <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="kw">final</span><span class="op">();</span></span></code></pre></div>
+<p>To prevent breaking existing codebases, the C++ standard designated
+<code>final</code> and <code>override</code> as identifiers that only
+act as keywords within strictly defined grammatical contexts. Everywhere
+else, they behave as standard user-defined identifiers.</p>
+<h3 id="lexing-vs-parsing-keeping-identifiers-general">Lexing vs.
+Parsing: Keeping Identifiers General</h3>
+<p>In a standard C++ compilation pipeline, the lexical analyzer (lexer)
+reads source characters and groups them into tokens.</p>
+<p>For ordinary reserved keywords, the lexer recognizes them
+directly:</p>
+<ul>
+<li>The text <code>"virtual"</code> produces the token
+<code>TOKEN_VIRTUAL</code>.</li>
+<li>The text <code>"const"</code> produces the token
+<code>TOKEN_CONST</code>.</li>
+</ul>
+<p>For contextual keywords, the lexer does not generate distinct keyword
+tokens. Instead, when encountering <code>"override"</code> or
+<code>"final"</code>, it yields a general <code>TOKEN_IDENTIFIER</code>
+whose string value is recorded as <code>"override"</code> or
+<code>"final"</code>. Because the lexer lacks knowledge of grammar
+hierarchy, it remains agnostic about the semantic intent of the
+word.</p>
+<h3 id="grammar-driven-resolution-in-the-parser">Grammar-Driven
+Resolution in the Parser</h3>
+<p>The syntactic analyzer (parser) is responsible for interpreting the
+meaning of these identifiers. It does this by checking the token stream
+against the C++ grammar rules defined in the ISO standard.</p>
+<p>The grammar defines specific slots where these identifiers take on
+special semantics:</p>
+<ol type="1">
+<li><p><strong>Virtual Specifiers
+(<code>virt-specifier</code>):</strong> Occurs at the end of a member
+function declaration, following the parameter list, cv-qualifiers, and
+exception specifications:</p>
+<pre class="text"><code>virt-specifier:
+    override
+    final</code></pre></li>
+<li><p><strong>Class Virtual Specifiers
+(<code>class-virt-specifier</code>):</strong> Occurs immediately after
+the class name (and optional attributes) in a class-head:</p>
+<pre class="text"><code>class-virt-specifier:
+    final</code></pre></li>
+</ol>
+<p>When the parser encounters a <code>TOKEN_IDENTIFIER</code> at one of
+these exact grammatical positions, it inspects the identifier’s string
+value. If the string is <code>"override"</code> or <code>"final"</code>,
+the parser applies the appropriate semantic constraint:</p>
+<ul>
+<li><strong><code>override</code></strong>: Ensures that the member
+function is virtual and overrides a virtual function from a base
+class.</li>
+<li><strong><code>final</code> on a function</strong>: Prevents further
+overriding in derived classes.</li>
+<li><strong><code>final</code> on a class</strong>: Prevents the class
+from being used as a base class.</li>
+</ul>
+<p>If the identifier appears in any other grammatical position—such as a
+type specifier, variable name, or function name—the parser treats it
+like any other user-defined identifier.</p>
+<h3 id="disambiguating-edge-cases">Disambiguating Edge Cases</h3>
+<p>Because parsing is contextual, valid C++ code can combine both usages
+within the same scope without collision:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Base <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> foo<span class="op">()</span> <span class="op">{}</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="kw">override</span> <span class="op">:</span> Base <span class="op">{</span> <span class="co">// &#39;override&#39; is a class name here</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="kw">final</span> <span class="op">=</span> <span class="dv">5</span><span class="op">;</span>       <span class="co">// &#39;final&#39; is a member variable here</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// The first &#39;override&#39; is the return type (if a type named &#39;override&#39; exists),</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// and the trailing &#39;override&#39; is the contextual keyword.</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> foo<span class="op">()</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> <span class="kw">override</span> <span class="op">=</span> <span class="dv">20</span><span class="op">;</span> <span class="co">// Local variable</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Derived <span class="kw">final</span> <span class="op">:</span> <span class="kw">override</span> <span class="op">{</span> <span class="co">// &#39;final&#39; is a contextual specifier; &#39;override&#39; is the base class</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> foo<span class="op">()</span> <span class="kw">final</span> <span class="kw">override</span> <span class="op">{}</span>  <span class="co">// Both used as virt-specifiers</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>When parsing <code>void foo() override</code>, the parser reaches the
+end of the declarator where a <code>virt-specifier-seq</code> is
+grammatically expected. The token matches the text
+<code>"override"</code>, so it consumes it as an instruction to verify
+the base class virtual table. When parsing
+<code>int override = 20;</code>, the parser expects a declarator-id
+following the type <code>int</code>, meaning the token is consumed as an
+ordinary variable name.</p>
+<p>By deferring resolution to the syntactic parsing stage rather than
+the lexical analysis stage, C++ compilers maintain complete backward
+compatibility while extending the language's type-checking
+capabilities.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tag Dispatch in C++: Selecting Functions at Compile Time - cpp</title>
+    <meta name="description" content="Tag dispatch is a C++ template metaprogramming idiom used to select different function implementations at compile time based on type properties. By passing an instantiated, empty struct—called a &quot;tag&quot;—as an extra argument to an overloaded implementation f">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/tag-dispatch-in-c-selecting-functions-at-compile-time">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Tag Dispatch in C++: Selecting Functions at Compile Time - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/tag-dispatch-in-c-selecting-functions-at-compile-time" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Tag dispatch is a C++ template metaprogramming idiom used to select different function implementations at compile time based on type properties. By passing an instantiated, empty struct—called a &quot;tag&quot;—as an extra argument to an overloaded implementation f" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="tag-dispatch-in-c-selecting-functions-at-compile-time">Tag
+Dispatch in C++: Selecting Functions at Compile Time</h1>
+<p>Tag dispatch is a C++ template metaprogramming idiom used to select
+different function implementations at compile time based on type
+properties. By passing an instantiated, empty struct—called a "tag"—as
+an extra argument to an overloaded implementation function, the compiler
+uses standard overload resolution to select the most suitable version.
+This mechanism delivers zero runtime overhead and clear separation
+between algorithm variants, serving as the foundational design pattern
+behind standard utilities such as <code>std::advance</code>.</p>
+<h3 id="how-tag-dispatch-works">How Tag Dispatch Works</h3>
+<p>Tag dispatch relies on three main components: tag types, overloaded
+implementation functions, and a public wrapper function that queries a
+type trait.</p>
+<ol type="1">
+<li><strong>Tag Types</strong>: Lightweight, empty structs that
+represent specific capabilities, categories, or traits of a type.</li>
+<li><strong>Implementation Functions</strong>: Overloaded functions
+(<code>impl</code> functions) that take an instance of a specific tag
+type as an auxiliary parameter.</li>
+<li><strong>Public Interface</strong>: A single entry-point function
+that extracts the appropriate tag from a type trait and passes a
+default-constructed instance of that tag to the implementation
+function.</li>
+</ol>
+<p>Because tag structs contain no state, optimizing compilers eliminate
+the tag argument entirely, leaving behind direct, optimal machine
+instructions without virtual dispatch or runtime branching.</p>
+<h3 id="implementation-example-custom-advance">Implementation Example:
+Custom <code>advance</code></h3>
+<p>A classic demonstration of tag dispatch is advancing an iterator.
+While random-access iterators can jump directly to a target position in
+constant time (<code>O(1)</code>), forward iterators must step through
+elements sequentially in linear time (<code>O(N)</code>).</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;list&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iterator&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> detail <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Implementation for random access iterators: O(1)</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Iter<span class="op">,</span> <span class="kw">typename</span> Distance<span class="op">&gt;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> advance_impl<span class="op">(</span>Iter<span class="op">&amp;</span> it<span class="op">,</span> Distance n<span class="op">,</span> <span class="bu">std::</span>random_access_iterator_tag<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        it <span class="op">+=</span> n<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Implementation for bidirectional/input iterators: O(N)</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Iter<span class="op">,</span> <span class="kw">typename</span> Distance<span class="op">&gt;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> advance_impl<span class="op">(</span>Iter<span class="op">&amp;</span> it<span class="op">,</span> Distance n<span class="op">,</span> <span class="bu">std::</span>input_iterator_tag<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span>n <span class="op">&gt;</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>            <span class="op">++</span>it<span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>            <span class="op">--</span>n<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="co">// Public interface</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Iter<span class="op">,</span> <span class="kw">typename</span> Distance<span class="op">&gt;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> my_advance<span class="op">(</span>Iter<span class="op">&amp;</span> it<span class="op">,</span> Distance n<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Extract the iterator category tag using traits</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> category <span class="op">=</span> <span class="kw">typename</span> <span class="bu">std::</span>iterator_traits<span class="op">&lt;</span>Iter<span class="op">&gt;::</span>iterator_category<span class="op">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Dispatch to the matching overload by constructing the tag</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>    detail::advance_impl<span class="op">(</span>it<span class="op">,</span> n<span class="op">,</span> category<span class="op">{});</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="leveraging-tag-hierarchies-for-fallback-behavior">Leveraging Tag
+Hierarchies for Fallback Behavior</h3>
+<p>Tag dispatch becomes particularly powerful when tags are organized in
+an inheritance hierarchy. The C++ standard library defines iterator
+categories using inheritance:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> input_iterator_tag <span class="op">{};</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> forward_iterator_tag       <span class="op">:</span> <span class="kw">public</span> input_iterator_tag <span class="op">{};</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> bidirectional_iterator_tag <span class="op">:</span> <span class="kw">public</span> forward_iterator_tag <span class="op">{};</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> random_access_iterator_tag <span class="op">:</span> <span class="kw">public</span> bidirectional_iterator_tag <span class="op">{};</span></span></code></pre></div>
+<p>When an exact match for a tag does not exist, standard C++ overload
+resolution falls back to a base class. In the example above, if a
+<code>std::bidirectional_iterator_tag</code> is passed, the compiler
+matches <code>advance_impl(..., std::input_iterator_tag)</code> because
+<code>bidirectional_iterator_tag</code> derives from
+<code>input_iterator_tag</code>. This enables library authors to provide
+specialized implementations for advanced types while automatically
+falling back to generic implementations for others.</p>
+<h3 id="tag-dispatch-vs-modern-alternatives">Tag Dispatch vs. Modern
+Alternatives</h3>
+<p>While tag dispatch remains a core pattern in legacy codebases and
+specific template designs, modern C++ offers direct alternatives:</p>
+<ul>
+<li><strong>C++17 <code>if constexpr</code></strong>: Allows
+compile-time branching within a single function body without needing
+separate overloaded helper functions or tag types.</li>
+<li><strong>C++20 Concepts</strong>: Enables constraint-based overload
+resolution directly on function signatures using <code>requires</code>
+clauses, producing more concise code and clearer compiler
+diagnostics.</li>
+</ul>
+<p>Despite these advancements, tag dispatch remains an essential
+technique. It demonstrates how standard overload resolution can resolve
+complex compile-time polymorphism without introducing language
+extensions beyond fundamental template types.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

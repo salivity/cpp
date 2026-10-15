@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loop Unrolling in C++: Speed vs Binary Size - cpp</title>
+    <meta name="description" content="Loop unrolling is a compiler and code optimization technique in C++ that replicates the body of a loop multiple times to decrease loop control overhead and improve CPU instruction scheduling. While unrolling can significantly accelerate execution speed by">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/loop-unrolling-in-c-speed-vs-binary-size">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Loop Unrolling in C++: Speed vs Binary Size - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/loop-unrolling-in-c-speed-vs-binary-size" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Loop unrolling is a compiler and code optimization technique in C++ that replicates the body of a loop multiple times to decrease loop control overhead and improve CPU instruction scheduling. While unrolling can significantly accelerate execution speed by" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="loop-unrolling-in-c-speed-vs-binary-size">Loop Unrolling in C++:
+Speed vs Binary Size</h1>
+<p>Loop unrolling is a compiler and code optimization technique in C++
+that replicates the body of a loop multiple times to decrease loop
+control overhead and improve CPU instruction scheduling. While unrolling
+can significantly accelerate execution speed by minimizing branch
+conditions and exposing instruction-level parallelism, it does so by
+increasing the number of compiled machine instructions, directly trading
+binary size for runtime performance.</p>
+<h2 id="what-is-loop-unrolling">What Is Loop Unrolling?</h2>
+<p>In standard iteration, a loop evaluates a condition, executes its
+body, updates a counter, and branches back to the start. Loop unrolling
+rewrites the loop so that multiple iterations are performed within a
+single iteration cycle.</p>
+<p>Consider a simple standard loop:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">100</span><span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    process<span class="op">(</span>data<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this unoptimized state, the CPU performs 100 conditional checks,
+100 increments, and 100 potential branch jumps.</p>
+<p>A manually unrolled version with an unroll factor of 4 looks like
+this:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">100</span><span class="op">;</span> i <span class="op">+=</span> <span class="dv">4</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    process<span class="op">(</span>data<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    process<span class="op">(</span>data<span class="op">[</span>i <span class="op">+</span> <span class="dv">1</span><span class="op">]);</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    process<span class="op">(</span>data<span class="op">[</span>i <span class="op">+</span> <span class="dv">2</span><span class="op">]);</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    process<span class="op">(</span>data<span class="op">[</span>i <span class="op">+</span> <span class="dv">3</span><span class="op">]);</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The transformed loop executes the body logic four times per
+iteration, reducing the branch checks and counter increments from 100 to
+25.</p>
+<h2 id="how-loop-unrolling-improves-speed">How Loop Unrolling Improves
+Speed</h2>
+<p>Loop unrolling enhances execution speed through several
+microarchitectural mechanisms:</p>
+<ul>
+<li><strong>Reduced Branch Overhead:</strong> Decreasing the total
+number of conditional jumps reduces the risk of CPU branch
+mispredictions, which can flush instruction pipelines and cause severe
+latency.</li>
+<li><strong>Instruction-Level Parallelism (ILP):</strong> When multiple
+independent operations are placed sequentially, modern superscalar
+processors can execute them concurrently across multiple execution
+units.</li>
+<li><strong>Improved Register Allocation and Scheduling:</strong>
+Compilers gain a wider window of adjacent operations, allowing them to
+optimize register reuse and reorder assembly instructions to avoid CPU
+pipeline stalls.</li>
+<li><strong>Vectorization (SIMD):</strong> Unrolled loops make it easier
+for modern compilers to auto-vectorize operations using SIMD (Single
+Instruction, Multiple Data) extensions like AVX or NEON.</li>
+</ul>
+<h2 id="the-binary-size-trade-off">The Binary Size Trade-Off</h2>
+<p>The primary cost of loop unrolling is code bloat. Because the loop
+body is duplicated at compile time, the resulting machine code contains
+more instructions, directly expanding the size of the compiled binary
+file.</p>
+<p>This expansion has performance implications:</p>
+<ul>
+<li><strong>Instruction Cache (I-Cache) Thrashing:</strong> Modern CPUs
+rely on fast, limited L1 instruction caches (often 32 KB to 64 KB). If
+unrolling inflates the loop body beyond the capacity of the L1 I-cache,
+the CPU must fetch instructions from slower L2 or L3 caches, or system
+RAM. This cache miss latency often wipes out any speed gains achieved by
+eliminating branch overhead.</li>
+<li><strong>Memory Footprint:</strong> Larger binaries require more
+memory space to load, which can be detrimental in memory-constrained
+environments such as embedded systems.</li>
+</ul>
+<h2 id="compiler-driven-unrolling-in-c">Compiler-Driven Unrolling in
+C++</h2>
+<p>Manual unrolling is generally discouraged in modern C++ because
+compilers like GCC, Clang, and MSVC can calculate the optimal unroll
+factor based on target architecture heuristics.</p>
+<p>Compilers apply unrolling automatically at aggressive optimization
+levels, such as <code>-O3</code>. Developers can also guide the compiler
+explicitly using pragmas without cluttering their source code:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#pragma unroll 4</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">100</span><span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    process<span class="op">(</span>data<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By balancing loop control reduction against instruction cache limits,
+loop unrolling remains a fundamental optimization tool when tuning
+performance-critical sections of C++ code.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

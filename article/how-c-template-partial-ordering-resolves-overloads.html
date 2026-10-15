@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C++ Template Partial Ordering Resolves Overloads - cpp</title>
+    <meta name="description" content="When multiple function template overloads match a function call in C++, the compiler relies on template partial ordering to select the &quot;most specialized&quot; template. This mechanism transforms candidate templates by inventing unique placeholder types, tests">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-c-template-partial-ordering-resolves-overloads">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C++ Template Partial Ordering Resolves Overloads - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-c-template-partial-ordering-resolves-overloads" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When multiple function template overloads match a function call in C++, the compiler relies on template partial ordering to select the &quot;most specialized&quot; template. This mechanism transforms candidate templates by inventing unique placeholder types, tests" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c-template-partial-ordering-resolves-overloads">How C++
+Template Partial Ordering Resolves Overloads</h1>
+<p>When multiple function template overloads match a function call in
+C++, the compiler relies on template partial ordering to select the
+"most specialized" template. This mechanism transforms candidate
+templates by inventing unique placeholder types, tests whether each
+template can accept the synthesized types of the others through
+bidirectional deduction, and selects the template that imposes the
+strictest type constraints. This article details the formal steps C++
+compilers follow during partial ordering, illustrates the process with a
+concrete example, and outlines how ambiguities are resolved.</p>
+<h2 id="the-principle-of-partial-ordering">The Principle of Partial
+Ordering</h2>
+<p>Template partial ordering determines which of two matching function
+templates is more specialized. A template <code>A</code> is considered
+more specialized than a template <code>B</code> if <code>A</code>
+accepts a strict subset of the argument types that <code>B</code> can
+accept. If a call matches both templates, the compiler picks
+<code>A</code> because it represents a more specific implementation.</p>
+<h2 id="the-deduction-process-step-by-step">The Deduction Process: Step
+by Step</h2>
+<p>To determine which template is more specialized, the compiler ignores
+the actual call arguments and performs a theoretical comparison between
+pairs of candidate templates using the following procedure:</p>
+<h3 id="1-generating-invented-types">1. Generating Invented Types</h3>
+<p>For each template under consideration, the compiler replaces its
+template parameters with unique, fictional types or non-type values
+(often referred to as invented or synthesized types).</p>
+<p>For example, given:</p>
+<ul>
+<li>Template 1: <code>template&lt;typename T&gt; void f(T);</code></li>
+<li>Template 2: <code>template&lt;typename T&gt; void f(T*);</code></li>
+</ul>
+<p>The compiler replaces parameter <code>T</code> in Template 1 with a
+synthesized type <code>$T1</code>, yielding the parameter type
+<code>$T1</code>. For Template 2, <code>T</code> is replaced with
+<code>$T2</code>, yielding the parameter type <code>$T2*</code>.</p>
+<h3 id="2-bidirectional-template-argument-deduction">2. Bidirectional
+Template Argument Deduction</h3>
+<p>The compiler performs template argument deduction in both directions
+using these synthesized parameter types:</p>
+<ul>
+<li><p><strong>Direction 1 (Testing if Template 1 can accept Template
+2):</strong><br />
+Can Template 1's parameter pattern (<code>T</code>) match the
+synthesized argument of Template 2 (<code>$T2*</code>)?<br />
+<em>Result:</em> Yes, <code>T</code> is deduced as
+<code>$T2*</code>.</p></li>
+<li><p><strong>Direction 2 (Testing if Template 2 can accept Template
+1):</strong><br />
+Can Template 2's parameter pattern (<code>T*</code>) match the
+synthesized argument of Template 1 (<code>$T1</code>)?<br />
+<em>Result:</em> No, <code>$T1</code> is a plain type and cannot be
+decomposed into a pointer type <code>T*</code>. Deduction
+fails.</p></li>
+</ul>
+<h3 id="3-determining-the-winner">3. Determining the Winner</h3>
+<p>After testing deduction in both directions:</p>
+<ul>
+<li>If Template 1 can accept Template 2's types, but Template 2 cannot
+accept Template 1's types, Template 2 is <strong>at least as
+specialized</strong> as Template 1, and overall <strong>more
+specialized</strong>.</li>
+<li>If both directions succeed, neither is more specialized than the
+other.</li>
+<li>If both directions fail, neither is more specialized than the
+other.</li>
+</ul>
+<p>In the example above, Template 2 is selected as the most specialized
+overload for any call passing a pointer argument.</p>
+<h2 id="additional-ordering-rules">Additional Ordering Rules</h2>
+<p>When performing the transformation and deduction steps, the standard
+specifies special handling for specific language constructs:</p>
+<ul>
+<li><strong>References and Qualifiers:</strong> For value arguments,
+top-level references and cv-qualifiers are typically dropped before
+comparison. If one parameter is a reference and another is by-value,
+specific tie-breaking rules favor the reference binding based on value
+category.</li>
+<li><strong>Parameter Packs:</strong> A non-pack parameter is considered
+more specialized than a function parameter pack. Given
+<code>void g(T, Args...)</code> versus <code>void g(T)</code>, the
+version without the pack is preferred for a single-argument call.</li>
+<li><strong>Concepts and Constraints:</strong> Since C++20, if two
+templates have identical parameter types, partial ordering evaluates
+their <code>requires</code> clauses. A template whose constraints
+subsume (logically imply) the constraints of another is considered more
+specialized.</li>
+</ul>
+<h2 id="ambiguity-resolution">Ambiguity Resolution</h2>
+<p>If the partial ordering comparison fails to find a single template
+that is strictly more specialized than all other matching candidates,
+the compiler halts with an ambiguity error. Furthermore, if a
+non-template function overload matches the call with an equal conversion
+sequence to the best template, the non-template function is always
+chosen over the template specialization.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

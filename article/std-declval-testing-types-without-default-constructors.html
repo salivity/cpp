@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::declval: Testing Types Without Default Constructors - cpp</title>
+    <meta name="description" content="In modern C++, metaprogramming techniques such as SFINAE and C++20 concepts frequently inspect the properties, member variables, and member functions of types at compile time. However, types that lack a default constructor cannot be instantiated using exp">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-declval-testing-types-without-default-constructors">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::declval: Testing Types Without Default Constructors - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-declval-testing-types-without-default-constructors" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, metaprogramming techniques such as SFINAE and C++20 concepts frequently inspect the properties, member variables, and member functions of types at compile time. However, types that lack a default constructor cannot be instantiated using exp" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="stddeclval-testing-types-without-default-constructors">std::declval:
+Testing Types Without Default Constructors</h1>
+<p>In modern C++, metaprogramming techniques such as SFINAE and C++20
+concepts frequently inspect the properties, member variables, and member
+functions of types at compile time. However, types that lack a default
+constructor cannot be instantiated using expressions like
+<code>T().member</code>, causing compile-time errors even when the
+member exists. This article explains the role of
+<code>std::declval&lt;T&gt;()</code> in bypassing the need for object
+construction, allowing developers to safely test member accessibility
+and expression validity purely within unevaluated contexts.</p>
+<h2 id="the-problem-inspecting-non-default-constructible-types">The
+Problem: Inspecting Non-Default-Constructible Types</h2>
+<p>When writing type traits or concept constraints, you often need to
+determine whether a class <code>T</code> contains a specific member
+function or field. A naive approach to verifying a member function
+<code>foo()</code> might look like this:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> <span class="dt">has_foo_t</span> <span class="op">=</span> <span class="kw">decltype</span><span class="op">(</span>T<span class="op">().</span>foo<span class="op">());</span></span></code></pre></div>
+<p>This implementation assumes <code>T</code> can be value-initialized
+via <code>T()</code>. If <code>T</code> deletes its default constructor,
+requires parameters, or has private constructors, <code>T()</code>
+causes a compilation error regardless of whether <code>T::foo()</code>
+exists. Because the expression relies on object creation rather than
+solely inspecting the type's interface, it fails to work generically
+across all possible types.</p>
+<h2 id="how-stddeclval-solves-the-problem">How std::declval Solves the
+Problem</h2>
+<p>Introduced in C++11 and defined in <code>&lt;utility&gt;</code>,
+<code>std::declval</code> provides a fictitious reference to an object
+of type <code>T</code> without actually creating one. Its signature is
+conceptually defined as:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">typename</span> <span class="bu">std::</span>add_rvalue_reference<span class="op">&lt;</span>T<span class="op">&gt;::</span>type declval<span class="op">()</span> <span class="kw">noexcept</span><span class="op">;</span></span></code></pre></div>
+<p><code>std::declval</code> is declared but intentionally never
+defined. Because it has no definition, it can only be utilized inside
+unevaluated operands, such as within <code>decltype</code>,
+<code>sizeof</code>, <code>noexcept</code>, or <code>requires</code>
+clauses. Within these unevaluated contexts, the compiler does not
+generate code to execute the function or construct an object; it only
+needs to know the type that would be returned.</p>
+<p>By returning an rvalue reference (<code>T&amp;&amp;</code>),
+<code>std::declval&lt;T&gt;()</code> allows you to simulate member
+access as if an instance of <code>T</code> were available.</p>
+<h2 id="testing-member-accessibility-in-practice">Testing Member
+Accessibility in Practice</h2>
+<p>Using <code>std::declval</code>, compile-time queries evaluate only
+the interface of the class rather than its constructibility.</p>
+<h3 id="pre-c20-sfinae--void_t">Pre-C++20 (SFINAE / void_t)</h3>
+<p>Using <code>std::void_t</code> and <code>std::declval</code>, you can
+detect if a type has an accessible member function
+<code>process()</code> even if the type cannot be
+default-constructed:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;utility&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;type_traits&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span><span class="op">,</span> <span class="kw">typename</span> <span class="op">=</span> <span class="dt">void</span><span class="op">&gt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> has_process <span class="op">:</span> <span class="bu">std::</span>false_type <span class="op">{};</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> has_process<span class="op">&lt;</span>T<span class="op">,</span> <span class="bu">std::</span>void_t<span class="op">&lt;</span><span class="kw">decltype</span><span class="op">(</span><span class="bu">std::</span>declval<span class="op">&lt;</span>T<span class="op">&gt;().</span>process<span class="op">())&gt;&gt;</span> </span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> <span class="bu">std::</span>true_type <span class="op">{};</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> NonDefaultConstructible <span class="op">{</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    NonDefaultConstructible<span class="op">(</span><span class="dt">int</span> x<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> process<span class="op">()</span> <span class="op">{}</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="kw">static_assert</span><span class="op">(</span>has_process<span class="op">&lt;</span>NonDefaultConstructible<span class="op">&gt;::</span>value<span class="op">,</span> <span class="st">&quot;process() should be detected&quot;</span><span class="op">);</span></span></code></pre></div>
+<p>In this example, <code>std::declval&lt;T&gt;()</code> produces an
+rvalue reference to <code>NonDefaultConstructible</code>, allowing
+<code>decltype</code> to verify that <code>.process()</code> is
+accessible and valid without invoking
+<code>NonDefaultConstructible(int)</code>.</p>
+<h3 id="c20-concepts">C++20 Concepts</h3>
+<p>With C++20 concepts, <code>std::declval</code> can still be used
+inside <code>requires</code> expressions, though a parameter list in the
+requirement block is often preferred:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">concept</span> ProcessableWithDeclval <span class="op">=</span> <span class="kw">requires</span> <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>declval<span class="op">&lt;</span>T<span class="op">&gt;().</span>process<span class="op">();</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Alternative C++20 syntax using a dummy parameter:</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="kw">concept</span> ProcessableWithParam <span class="op">=</span> <span class="kw">requires</span><span class="op">(</span>T t<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    t<span class="op">.</span>process<span class="op">();</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Even in C++20, <code>std::declval</code> remains essential when
+composing traits outside of standard <code>requires</code> blocks or
+when dealing with complex reference-forwarding types.</p>
+<h2 id="important-constraints">Important Constraints</h2>
+<ol type="1">
+<li><strong>Unevaluated Contexts Only:</strong> Calling
+<code>std::declval</code> in an evaluated context (runtime code)
+produces a static assertion failure or a linker error because no
+implementation exists.</li>
+<li><strong>Abstract Classes:</strong> <code>std::declval</code> works
+with abstract classes and incomplete types, as long as the member access
+itself does not require a complete type where prohibited.</li>
+<li><strong>Reference Types:</strong> If <code>T</code> is
+<code>void</code>, <code>std::declval&lt;void&gt;()</code> returns
+<code>void</code>, making it resilient in generic templates where
+<code>T</code> may occasionally resolve to <code>void</code>.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

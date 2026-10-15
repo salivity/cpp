@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct Initialization vs Copy Initialization in C++ - cpp</title>
+    <meta name="description" content="In C++, object initialization can take several forms, with direct initialization and copy initialization being two of the most fundamental mechanisms. While both approaches produce a valid object of a given type, they differ significantly in their syntax,">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/direct-initialization-vs-copy-initialization-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Direct Initialization vs Copy Initialization in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/direct-initialization-vs-copy-initialization-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, object initialization can take several forms, with direct initialization and copy initialization being two of the most fundamental mechanisms. While both approaches produce a valid object of a given type, they differ significantly in their syntax," />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="direct-initialization-vs-copy-initialization-in-c">Direct
+Initialization vs Copy Initialization in C++</h1>
+<p>In C++, object initialization can take several forms, with direct
+initialization and copy initialization being two of the most fundamental
+mechanisms. While both approaches produce a valid object of a given
+type, they differ significantly in their syntax, how they handle
+implicit type conversions, and their treatment of <code>explicit</code>
+constructors. Understanding these differences is essential for writing
+safe, idiomatic, and modern C++ code.</p>
+<h3 id="syntax-differences">Syntax Differences</h3>
+<p>The most immediate distinction between direct initialization and copy
+initialization is their syntax.</p>
+<ul>
+<li><p><strong>Direct Initialization:</strong> Initializes an object by
+providing constructor arguments directly inside parentheses or
+braces.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a<span class="op">(</span><span class="dv">5</span><span class="op">);</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string s<span class="op">(</span><span class="st">&quot;Hello&quot;</span><span class="op">);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> v<span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">};</span> <span class="co">// Direct-list-initialization</span></span></code></pre></div></li>
+<li><p><strong>Copy Initialization:</strong> Uses an equals sign
+(<code>=</code>) to initialize an object from an expression.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a <span class="op">=</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string s <span class="op">=</span> <span class="st">&quot;Hello&quot;</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> v <span class="op">=</span> <span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">};</span> <span class="co">// Copy-list-initialization</span></span></code></pre></div></li>
+</ul>
+<h3 id="handling-of-explicit-constructors">Handling of
+<code>explicit</code> Constructors</h3>
+<p>The primary functional difference lies in whether the compiler is
+permitted to invoke <code>explicit</code> constructors.</p>
+<ul>
+<li><strong>Direct initialization</strong> considers all constructors,
+including those marked <code>explicit</code>.</li>
+<li><strong>Copy initialization</strong> considers only non-explicit
+converting constructors. If the only matching constructor is marked
+<code>explicit</code>, copy initialization results in a compilation
+error.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Buffer <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">explicit</span> Buffer<span class="op">(</span><span class="dt">int</span> size<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>Buffer b1<span class="op">(</span><span class="dv">10</span><span class="op">);</span> <span class="co">// OK: Direct initialization calls explicit Buffer(int)</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>Buffer b2 <span class="op">=</span> <span class="dv">10</span><span class="op">;</span> <span class="co">// Error: Copy initialization cannot use explicit constructor</span></span></code></pre></div>
+<h3 id="underlying-semantics-and-optimization">Underlying Semantics and
+Optimization</h3>
+<p>Historically in C++03, copy initialization conceptually involved two
+steps:</p>
+<ol type="1">
+<li>Implicitly converting the right-hand value to a temporary object of
+the target type.</li>
+<li>Invoking the copy constructor to copy the temporary into the
+destination object.</li>
+</ol>
+<p>Even though compilers typically optimized away (elided) this copy via
+the Return Value Optimization (RVO) or named RVO, the copy or move
+constructor still had to be accessible and non-deleted.</p>
+<p>In <strong>C++17 and later</strong>, guaranteed copy elision changes
+this behavior. When initializing an object from a prvalue of the same
+type via copy initialization, no temporary is created, and no copy or
+move constructor is required. However, the rule regarding
+<code>explicit</code> constructors remains intact: copy initialization
+will still reject an <code>explicit</code> constructor, regardless of
+elision.</p>
+<h3 id="implicit-function-parameter-passing-and-returns">Implicit
+Function Parameter Passing and Returns</h3>
+<p>Copy initialization occurs in more places than just declarations
+using <code>=</code>:</p>
+<ul>
+<li><strong>Passing arguments by value:</strong> Passing a value to a
+function parameter initializes the parameter using copy
+initialization.</li>
+<li><strong>Returning by value:</strong> Returning a value from a
+function using a <code>return</code> statement performs copy
+initialization of the return slot.</li>
+<li><strong>Catching exceptions by value:</strong> Catching an exception
+by value uses copy initialization to populate the exception object in
+the <code>catch</code> block.</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> processBuffer<span class="op">(</span>Buffer b<span class="op">);</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>processBuffer<span class="op">(</span><span class="dv">10</span><span class="op">);</span> <span class="co">// Error: Cannot use explicit Buffer(int) for copy initialization</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>processBuffer<span class="op">(</span>Buffer<span class="op">(</span><span class="dv">10</span><span class="op">));</span> <span class="co">// OK: Explicitly constructed via direct initialization</span></span></code></pre></div>
+<h3 id="summary-of-key-differences">Summary of Key Differences</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Direct Initialization</th>
+<th style="text-align: left;">Copy Initialization</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Syntax</strong></td>
+<td style="text-align: left;"><code>T obj(arg);</code> or
+<code>T obj{arg};</code></td>
+<td style="text-align: left;"><code>T obj = arg;</code> or
+<code>T obj = {arg};</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Explicit
+Constructors</strong></td>
+<td style="text-align: left;">Permitted and considered</td>
+<td style="text-align: left;">Rejected at compile time</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Contexts</strong></td>
+<td style="text-align: left;">Object definitions,
+<code>static_cast</code>, <code>new</code></td>
+<td style="text-align: left;">Object definitions with <code>=</code>,
+passing/returning by value</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Intended Meaning</strong></td>
+<td style="text-align: left;">Directly invoke a specific
+constructor</td>
+<td style="text-align: left;">Implicitly convert/copy from a source
+value</td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

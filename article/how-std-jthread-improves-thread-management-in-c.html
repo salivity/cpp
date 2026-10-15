@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::jthread Improves Thread Management in C++ - cpp</title>
+    <meta name="description" content="Introduced in C++20, std::jthread (joining thread) addresses the primary shortcomings of std::thread by automating lifecycle management and integrating cooperative cancellation. While std::thread provided a standard way to execute concurrent code starting">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-jthread-improves-thread-management-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::jthread Improves Thread Management in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-jthread-improves-thread-management-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++20, std::jthread (joining thread) addresses the primary shortcomings of std::thread by automating lifecycle management and integrating cooperative cancellation. While std::thread provided a standard way to execute concurrent code starting" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdjthread-improves-thread-management-in-c">How std::jthread
+Improves Thread Management in C++</h1>
+<p>Introduced in C++20, <code>std::jthread</code> (joining thread)
+addresses the primary shortcomings of <code>std::thread</code> by
+automating lifecycle management and integrating cooperative
+cancellation. While <code>std::thread</code> provided a standard way to
+execute concurrent code starting in C++11, it lacked native RAII
+(Resource Acquisition Is Initialization) semantics and required manual
+synchronization for cancellation. This article explains how
+<code>std::jthread</code> eliminates undefined behavior, prevents
+program termination, and simplifies multi-threaded C++ programming
+through automatic joining and built-in stop tokens.</p>
+<h2 id="automatic-joining-via-raii">Automatic Joining via RAII</h2>
+<p>The most significant flaw of <code>std::thread</code> is its
+destructor behavior. If a <code>std::thread</code> object is destroyed
+while still in a joinable state (meaning it has not been explicitly
+joined with <code>.join()</code> or detached with
+<code>.detach()</code>), its destructor immediately invokes
+<code>std::terminate()</code>, crashing the application. This makes
+exception handling hazardous, as an unhandled exception escaping a scope
+before a call to <code>.join()</code> leads to immediate process
+termination.</p>
+<p><code>std::jthread</code> solves this by implementing full RAII
+compliance. When a <code>std::jthread</code> object goes out of scope,
+its destructor automatically requests a stop and calls
+<code>.join()</code> if the thread is joinable.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// std::thread: Dangerous</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> unsafe_thread<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>thread t<span class="op">([]()</span> <span class="op">{</span> <span class="co">/* background work */</span> <span class="op">});</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// If an exception throws here, t.~thread() calls std::terminate()</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    t<span class="op">.</span>join<span class="op">();</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// std::jthread: Safe</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> safe_thread<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>jthread t<span class="op">([]()</span> <span class="op">{</span> <span class="co">/* background work */</span> <span class="op">});</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// If an exception throws here, t automatically joins upon destruction</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This automatic cleanup prevents resource leaks and guarantees
+exception safety without requiring custom RAII wrappers (such as a
+custom <code>scoped_thread</code> class).</p>
+<h2 id="built-in-cooperative-cancellation">Built-In Cooperative
+Cancellation</h2>
+<p>Prior to C++20, terminating a running thread required custom
+coordination, typically using <code>std::atomic&lt;bool&gt;</code> or
+condition variables. <code>std::thread</code> offered no native
+mechanism to request that a thread halt its execution.</p>
+<p><code>std::jthread</code> incorporates cooperative cancellation
+directly into its API through <code>std::stop_token</code> and
+<code>std::stop_source</code>. When initializing a
+<code>std::jthread</code>, you can pass a callable that accepts a
+<code>std::stop_token</code> as its first parameter:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> worker<span class="op">(</span><span class="bu">std::</span>stop_token stoken<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(!</span>stoken<span class="op">.</span>stop_requested<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Perform work in chunks</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>jthread t<span class="op">(</span>worker<span class="op">);</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Request interruption manually:</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    t<span class="op">.</span>request_stop<span class="op">();</span> </span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Or let the destructor invoke request_stop() automatically before joining</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Key features of this cancellation model include:</p>
+<ul>
+<li><strong><code>request_stop()</code></strong>: Signals the thread to
+stop. The destructor of <code>std::jthread</code> calls this
+automatically before joining.</li>
+<li><strong><code>stop_requested()</code></strong>: Allows the worker
+thread to poll its cancellation status cleanly.</li>
+<li><strong><code>std::stop_callback</code></strong>: Enables
+registration of callbacks that execute immediately when a stop is
+requested, allowing sleeping threads (e.g., waiting on condition
+variables) to wake up safely.</li>
+</ul>
+<h2 id="simplified-code-and-reduced-boilerplate">Simplified Code and
+Reduced Boilerplate</h2>
+<p>By combining cooperative interruption and automatic joining,
+<code>std::jthread</code> drastically reduces boilerplate code.
+Developers no longer need to write complex cleanup logic, manage atomic
+flags across scopes, or manually catch exceptions to ensure
+<code>.join()</code> is called.</p>
+<h2 id="summary-of-differences">Summary of Differences</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>std::thread</code> (C++11)</th>
+<th style="text-align: left;"><code>std::jthread</code> (C++20)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Destructor Behavior</strong></td>
+<td style="text-align: left;">Calls <code>std::terminate()</code> if
+joinable</td>
+<td style="text-align: left;">Requests stop and automatically calls
+<code>.join()</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Cancellation Support</strong></td>
+<td style="text-align: left;">None (requires custom atomic flags)</td>
+<td style="text-align: left;">Built-in via
+<code>std::stop_token</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Exception Safety</strong></td>
+<td style="text-align: left;">Low (requires manual wrappers)</td>
+<td style="text-align: left;">High (natively RAII-compliant)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Header</strong></td>
+<td style="text-align: left;"><code>&lt;thread&gt;</code></td>
+<td style="text-align: left;"><code>&lt;thread&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<p>For modern C++ projects targeting C++20 and later,
+<code>std::jthread</code> should be considered the default choice for
+thread management unless low-level, unjoined thread detachment is
+explicitly required.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

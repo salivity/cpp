@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is the C++ Abstract Machine? - cpp</title>
+    <meta name="description" content="The C++ abstract machine is an idealized, theoretical computing model defined by the ISO C++ standard to specify the execution semantics of valid C++ code. Rather than defining behavior according to specific hardware architectures like x86 or ARM, the sta">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/what-is-the-c-abstract-machine">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is the C++ Abstract Machine? - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/what-is-the-c-abstract-machine" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The C++ abstract machine is an idealized, theoretical computing model defined by the ISO C++ standard to specify the execution semantics of valid C++ code. Rather than defining behavior according to specific hardware architectures like x86 or ARM, the sta" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-the-c-abstract-machine">What Is the C++ Abstract
+Machine?</h1>
+<p>The C++ abstract machine is an idealized, theoretical computing model
+defined by the ISO C++ standard to specify the execution semantics of
+valid C++ code. Rather than defining behavior according to specific
+hardware architectures like x86 or ARM, the standard describes how an
+imaginary, standard-conforming computer executes program operations step
+by step. Understanding this abstraction is essential, as it dictates how
+compilers interpret program state, evaluate expressions, handle memory,
+and apply aggressive optimizations without altering the program's
+intended result.</p>
+<h3 id="the-purpose-of-the-abstract-machine">The Purpose of the Abstract
+Machine</h3>
+<p>The primary function of the abstract machine is to provide a
+platform-independent specification for C++ code execution. Physical
+hardware varies drastically in register counts, memory architectures,
+instruction sets, and execution pipelines. Instead of binding the
+language specification to physical limitations, C++ defines program
+state, object lifetimes, and control flow in terms of this theoretical
+machine. A conforming C++ compiler's sole job is to translate your
+source code into target machine code that produces the same observable
+results that the abstract machine would produce.</p>
+<h3 id="the-as-if-rule">The "As-If" Rule</h3>
+<p>The cornerstone of the abstract machine is the "as-if" rule. This
+rule states that a compiler is free to alter, reorder, combine, or
+eliminate any operation in your source code, provided that the
+observable behavior of the resulting program is identical to the
+behavior modeled by the abstract machine.</p>
+<p>Observable behavior is strictly defined by the standard as:</p>
+<ul>
+<li>Accesses to <code>volatile</code> objects.</li>
+<li>At program termination, data written to files or streams.</li>
+<li>Input and output operations (such as writing to the terminal or
+network calls via system APIs).</li>
+</ul>
+<p>Because modern compilers only need to maintain observable behavior,
+they can perform optimizations such as dead code elimination, loop
+unrolling, constant folding, and vectorization. If an intermediate
+computation does not affect the observable outcome, the abstract machine
+allows the compiler to discard it entirely.</p>
+<h3 id="state-side-effects-and-sequencing">State, Side Effects, and
+Sequencing</h3>
+<p>The abstract machine operates through state transitions caused by
+evaluating expressions:</p>
+<ul>
+<li><strong>Value Computations:</strong> Calculating a result from
+operands (e.g., computing <code>a + b</code>).</li>
+<li><strong>Side Effects:</strong> Modifying the execution environment,
+such as changing an object’s value, calling an I/O library function, or
+modifying a volatile entity.</li>
+</ul>
+<p>The transition between states is governed by sequencing rules.
+Execution semantics rely on the "sequenced-before" relationship—a
+non-symmetric, transitive relation between evaluations within a single
+thread. If an operation is sequenced before another, the side effects
+and value computations of the first must be completed before the second
+begins within the abstract machine's model.</p>
+<h3 id="undefined-behavior-and-abstract-limits">Undefined Behavior and
+Abstract Limits</h3>
+<p>The abstract machine operates strictly within the confines of
+well-formed C++ programs. When a program violates fundamental semantic
+constraints—such as accessing out-of-bounds memory, reading
+uninitialized variables, dereferencing null pointers, or causing data
+races—it enters the territory of Undefined Behavior (UB).</p>
+<p>Once undefined behavior occurs, the abstract machine ceases to model
+the execution semantics entirely. The compiler is no longer bound by the
+"as-if" rule, meaning it can assume UB never occurs, often leading to
+surprising optimizations or silent failures.</p>
+<h3 id="the-memory-and-concurrency-model">The Memory and Concurrency
+Model</h3>
+<p>Since C++11, the abstract machine incorporates a formal
+multi-threaded memory model. The abstract machine models memory as a
+sequence of bytes containing objects with specific alignments,
+lifetimes, and storage durations.</p>
+<p>In a multi-threaded context, the abstract machine models concurrent
+execution where each thread runs its own set of operations.
+Synchronization primitives, atomic operations, and memory orders (such
+as acquire-release or sequentially consistent) establish
+"happens-before" relationships between different threads. This allows
+the abstract machine to determine whether memory accesses across threads
+are valid or constitute a data race.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

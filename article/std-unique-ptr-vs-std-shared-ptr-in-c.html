@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::unique_ptr vs std::shared_ptr in C++ - cpp</title>
+    <meta name="description" content="In modern C++, smart pointers automate memory management to eliminate manual deallocation and prevent memory leaks. The primary distinction between std::uniqueptr and std::sharedptr lies in their ownership semantics: std::uniqueptr implements exclusive ow">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-unique-ptr-vs-std-shared-ptr-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::unique_ptr vs std::shared_ptr in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-unique-ptr-vs-std-shared-ptr-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, smart pointers automate memory management to eliminate manual deallocation and prevent memory leaks. The primary distinction between std::uniqueptr and std::sharedptr lies in their ownership semantics: std::uniqueptr implements exclusive ow" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stdunique_ptr-vs-stdshared_ptr-in-c">std::unique_ptr vs
+std::shared_ptr in C++</h1>
+<p>In modern C++, smart pointers automate memory management to eliminate
+manual deallocation and prevent memory leaks. The primary distinction
+between <code>std::unique_ptr</code> and <code>std::shared_ptr</code>
+lies in their ownership semantics: <code>std::unique_ptr</code>
+implements exclusive ownership where a single pointer manages a resource
+with zero runtime overhead, whereas <code>std::shared_ptr</code>
+implements shared ownership via reference counting, allowing multiple
+owners to coordinate the lifetime of a single resource. This article
+breaks down their core differences in ownership, performance, custom
+deletion, and practical usage.</p>
+<h3 id="ownership-model">Ownership Model</h3>
+<ul>
+<li><strong><code>std::unique_ptr</code> (Exclusive Ownership):</strong>
+A <code>std::unique_ptr</code> maintains strict, singular ownership of
+the underlying raw pointer. No two <code>std::unique_ptr</code>
+instances can manage the same resource simultaneously. Because of this,
+it cannot be copied; it can only be moved using
+<code>std::move()</code>, transferring ownership from one instance to
+another. Once a <code>std::unique_ptr</code> goes out of scope or is
+reset, the underlying resource is immediately destroyed.</li>
+<li><strong><code>std::shared_ptr</code> (Shared Ownership):</strong> A
+<code>std::shared_ptr</code> allows multiple pointers to own the same
+resource simultaneously. It tracks the number of active owners using an
+internal reference counter. Copying a <code>std::shared_ptr</code>
+increments this counter, and destroying an instance or reassigning it
+decrements it. The managed object is deleted only when the reference
+counter drops to zero.</li>
+</ul>
+<h3 id="memory-footprint-and-performance">Memory Footprint and
+Performance</h3>
+<ul>
+<li><strong><code>std::unique_ptr</code>:</strong> With the default
+deleter, <code>std::unique_ptr</code> has the exact same size and memory
+footprint as a raw pointer. It introduces no runtime overhead, requires
+no heap allocation for control structures, and involves no
+thread-synchronization costs. It represents a zero-cost abstraction over
+raw pointers.</li>
+<li><strong><code>std::shared_ptr</code>:</strong> A
+<code>std::shared_ptr</code> is typically twice the size of a raw
+pointer because it stores two pointers: one pointing to the managed
+object and another pointing to an auxiliary heap-allocated "control
+block." The control block stores the strong reference count, the weak
+reference count, and any custom deleter or allocator. Modifying the
+reference count requires atomic operations to ensure thread safety
+across concurrent reads and copies, introducing CPU overhead.</li>
+</ul>
+<h3 id="custom-deleters">Custom Deleters</h3>
+<ul>
+<li><strong><code>std::unique_ptr</code>:</strong> The type of the
+custom deleter is encoded directly into the pointer's type signature
+(e.g., <code>std::unique_ptr&lt;FILE, decltype(&amp;fclose)&gt;</code>).
+Passing a stateful deleter increases the overall size of the smart
+pointer, but because the deleter is bound at compile time, calls to it
+can be inlined by the compiler for optimal performance.</li>
+<li><strong><code>std::shared_ptr</code>:</strong> The custom deleter is
+type-erased and stored inside the dynamically allocated control block.
+Consequently, the deleter does not alter the type signature of the
+pointer (e.g., <code>std::shared_ptr&lt;FILE&gt;</code>), making
+different instances with different deleters interchangeable in
+containers and interfaces.</li>
+</ul>
+<h3 id="creation-and-best-practices">Creation and Best Practices</h3>
+<p>Modern C++ provides dedicated utility functions for initializing both
+types safely:</p>
+<ul>
+<li>Use <code>std::make_unique&lt;T&gt;()</code> to create a
+<code>std::unique_ptr</code>.</li>
+<li>Use <code>std::make_shared&lt;T&gt;()</code> to create a
+<code>std::shared_ptr</code>. This optimizes allocation by combining the
+managed object and the control block into a single contiguous memory
+block.</li>
+</ul>
+<h3 id="summary-of-differences">Summary of Differences</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>std::unique_ptr</code></th>
+<th style="text-align: left;"><code>std::shared_ptr</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Ownership</strong></td>
+<td style="text-align: left;">Exclusive (single owner)</td>
+<td style="text-align: left;">Shared (multiple owners)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Copyable</strong></td>
+<td style="text-align: left;">No (move-only)</td>
+<td style="text-align: left;">Yes</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Memory Size</strong></td>
+<td style="text-align: left;">Equal to a raw pointer</td>
+<td style="text-align: left;">Typically <span class="math inline">\(2
+\times\)</span> raw pointer size</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Runtime Cost</strong></td>
+<td style="text-align: left;">Zero overhead</td>
+<td style="text-align: left;">Atomic reference counter updates</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Deleter Type</strong></td>
+<td style="text-align: left;">Part of the template type</td>
+<td style="text-align: left;">Type-erased (stored in control block)</td>
+</tr>
+</tbody>
+</table>
+<p>As a general guideline, prefer <code>std::unique_ptr</code> by
+default. It provides clear ownership semantics and maximum efficiency.
+Escalate to <code>std::shared_ptr</code> only when an object genuinely
+requires shared, distributed lifetime management across independent
+subsystems.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

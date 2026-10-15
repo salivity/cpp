@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Static vs Shared Libraries in C++ Distribution - cpp</title>
+    <meta name="description" content="When distributing C++ applications, developers must choose between packaging dependencies directly into the binary using static archives or linking them dynamically using shared libraries. This decision fundamentally impacts the deployment experience, exe">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/static-vs-shared-libraries-in-c-distribution">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Static vs Shared Libraries in C++ Distribution - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/static-vs-shared-libraries-in-c-distribution" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When distributing C++ applications, developers must choose between packaging dependencies directly into the binary using static archives or linking them dynamically using shared libraries. This decision fundamentally impacts the deployment experience, exe" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="static-vs-shared-libraries-in-c-distribution">Static vs Shared
+Libraries in C++ Distribution</h1>
+<p>When distributing C++ applications, developers must choose between
+packaging dependencies directly into the binary using static archives or
+linking them dynamically using shared libraries. This decision
+fundamentally impacts the deployment experience, executable size, memory
+consumption, application security, and long-term maintenance. This
+article outlines the key technical trade-offs between static linking and
+dynamic linking to help you determine the optimal distribution strategy
+for your software.</p>
+<h3 id="deployment-simplicity-and-dependency-management">Deployment
+Simplicity and Dependency Management</h3>
+<p>Static archives (<code>.a</code> on Linux/macOS, <code>.lib</code> on
+Windows) bundle all required object code directly into the final
+executable at compile time. This creates a self-contained binary that
+runs without requiring end users to pre-install specific dependency
+versions. It eliminates missing dependency errors, runtime path
+misconfigurations (<code>LD_LIBRARY_PATH</code> or <code>PATH</code>),
+and "DLL hell."</p>
+<p>Shared libraries (<code>.so</code>, <code>.dylib</code>,
+<code>.dll</code>) remain separate files loaded by the operating system
+when the program starts. While this decouples dependencies from the core
+executable, it introduces distribution complexity. The host system must
+provide compatible versions of the required libraries. If an
+incompatible library version is installed, the application can fail to
+start or crash due to Application Binary Interface (ABI) mismatches.</p>
+<h3 id="executable-size-and-resource-utilization">Executable Size and
+Resource Utilization</h3>
+<p>Static linking increases the size of the distributed binary because
+all external library code is baked directly into the executable.
+However, modern linkers can perform dead-code elimination, stripping out
+unused functions from the archive to mitigate size bloat. If multiple
+statically linked applications share common libraries, each application
+holds its own duplicate copy in storage and memory.</p>
+<p>Shared libraries yield significantly smaller main executables.
+Multiple independent processes can map the exact same shared library
+file into physical memory simultaneously, saving RAM and disk space on
+systems that host several applications relying on the same runtime
+libraries.</p>
+<h3 id="updates-maintenance-and-security-patching">Updates, Maintenance,
+and Security Patching</h3>
+<p>With shared libraries, security patches and bug fixes can be applied
+to a single library file on the host machine without recompiling the
+host application. This model is common in Linux package managers, where
+a critical patch in a library like OpenSSL immediately secures all
+dependent software.</p>
+<p>With static archives, any vulnerability in a dependency requires the
+entire application to be recompiled, relinked, and redistributed. This
+increases the operational overhead for maintaining deployed software,
+though it guarantees that updates to the host system will not
+unexpectedly break the application.</p>
+<h3 id="runtime-performance-and-optimization">Runtime Performance and
+Optimization</h3>
+<p>Statically linked binaries generally execute faster and load more
+quickly than their dynamically linked counterparts:</p>
+<ul>
+<li><strong>Link-Time Optimization (LTO):</strong> Compilers can perform
+whole-program optimizations across static boundary lines, such as
+function inlining, devirtualization, and loop unrolling.</li>
+<li><strong>No Runtime Relocation:</strong> Statically linked code
+avoids the overhead of the dynamic linker resolving symbol addresses at
+startup via the Global Offset Table (GOT) and Procedure Linkage Table
+(PLT).</li>
+<li><strong>Position-Independent Code (PIC):</strong> Shared libraries
+on modern platforms usually require PIC generation, which incurs a minor
+CPU register penalty on architectures with limited general-purpose
+registers.</li>
+</ul>
+<h3 id="c-abi-stability-considerations">C++ ABI Stability
+Considerations</h3>
+<p>The C++ language does not define a standardized ABI. Name mangling
+schemes, class layout rules, and standard library implementations vary
+across compilers, compiler versions, and standard library
+implementations (<code>libstdc++</code> vs. <code>libc++</code>).</p>
+<ul>
+<li>When distributing via <strong>shared libraries</strong>, exporting
+C++ interfaces (classes, templates, standard library containers) across
+library boundaries is fragile. A change in compiler flags or compiler
+versions can result in silent runtime corruption. Shared library
+interfaces are often restricted to pure C boundaries
+(<code>extern "C"</code>) to maintain compatibility.</li>
+<li>When distributing via <strong>static archives</strong>, the entire
+application is resolved using the same toolchain at build time, largely
+shielding the end product from runtime C++ ABI incompatibility issues on
+the target machine.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

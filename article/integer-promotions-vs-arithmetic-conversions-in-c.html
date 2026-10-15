@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integer Promotions vs Arithmetic Conversions in C++ - cpp</title>
+    <meta name="description" content="In C++, implicit type conversions occur automatically during expression evaluation to maintain consistency and match underlying processor architectures. Although standard integer promotions and general arithmetic conversions (formally referred to as &quot;usua">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/integer-promotions-vs-arithmetic-conversions-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Integer Promotions vs Arithmetic Conversions in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/integer-promotions-vs-arithmetic-conversions-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, implicit type conversions occur automatically during expression evaluation to maintain consistency and match underlying processor architectures. Although standard integer promotions and general arithmetic conversions (formally referred to as &quot;usua" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="integer-promotions-vs-arithmetic-conversions-in-c">Integer
+Promotions vs Arithmetic Conversions in C++</h1>
+<p>In C++, implicit type conversions occur automatically during
+expression evaluation to maintain consistency and match underlying
+processor architectures. Although standard integer promotions and
+general arithmetic conversions (formally referred to as "usual
+arithmetic conversions") are closely related, they represent distinct
+stages of this process. Standard integer promotions elevate small
+integral types to <code>int</code> or <code>unsigned int</code> to
+prevent value truncation and optimize hardware registers. In contrast,
+usual arithmetic conversions apply to binary expressions containing
+mixed arithmetic types, determining a single common type so the
+operation can be evaluated safely.</p>
+<h3 id="standard-integer-promotions">Standard Integer Promotions</h3>
+<p>Standard integer promotions apply to small integer types, unscoped
+enumerations, and bit-fields. Types with an integer conversion rank
+lower than that of <code>signed int</code>—such as <code>bool</code>,
+<code>char</code>, <code>signed char</code>, <code>unsigned char</code>,
+<code>short</code>, and <code>unsigned short</code>—are automatically
+promoted before an operation occurs.</p>
+<p>The promotion rules are straightforward:</p>
+<ul>
+<li>If <code>int</code> can represent all values of the original type,
+the value is converted to <code>int</code>.</li>
+<li>If <code>int</code> cannot represent all values (which can occur
+with <code>unsigned short</code> on systems where
+<code>sizeof(short) == sizeof(int)</code>), the value is converted to
+<code>unsigned int</code>.</li>
+</ul>
+<p>Integer promotions can occur on single operands (unary operations
+such as <code>+</code>, <code>-</code>, or <code>~</code>) or as an
+initial phase of a binary operation. For example, adding two
+<code>char</code> variables causes both to be promoted to
+<code>int</code> before the addition takes place:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> a <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> b <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> result <span class="op">=</span> a <span class="op">+</span> b<span class="op">;</span> <span class="co">// Type of &#39;result&#39; is int, not char</span></span></code></pre></div>
+<h3 id="general-usual-arithmetic-conversions">General (Usual) Arithmetic
+Conversions</h3>
+<p>Usual arithmetic conversions are a structured set of rules applied to
+the operands of most binary operators (such as <code>+</code>,
+<code>-</code>, <code>*</code>, <code>/</code>, <code>&lt;</code>, and
+<code>==</code>) when the operands have different arithmetic types. The
+objective is to find a common type that both operands can be safely
+converted to before the operation executes.</p>
+<p>The conversion follows a strict hierarchy:</p>
+<ol type="1">
+<li><strong>Floating-Point Handling:</strong> If either operand is a
+floating-point type, the operand with the lower rank is converted to the
+type of the operand with the higher rank (e.g., <code>float</code> to
+<code>double</code>, or <code>double</code> to
+<code>long double</code>).</li>
+<li><strong>Integral Promotion Step:</strong> If neither operand is a
+floating-point type, standard integer promotions are first applied to
+both operands.</li>
+<li><strong>Integral Type Balancing:</strong> If the types still differ
+after promotion, they are adjusted using rank-based rules:
+<ul>
+<li>If both operands are signed or both are unsigned, the operand with
+the lower conversion rank is converted to the type of the higher rank
+(e.g., <code>int</code> becomes <code>long</code>).</li>
+<li>If the operand with the unsigned type has a rank greater than or
+equal to the signed operand, the signed operand is converted to the
+unsigned type.</li>
+<li>If the signed type can represent all values of the unsigned type,
+the unsigned operand is converted to the signed type. Otherwise, both
+operands are converted to the unsigned version of the signed operand's
+type.</li>
+</ul></li>
+</ol>
+<p>For example, mixing a signed integer with an unsigned integer:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a <span class="op">=</span> <span class="op">-</span><span class="dv">5</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> b <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> result <span class="op">=</span> a <span class="op">+</span> b<span class="op">;</span> <span class="co">// &#39;a&#39; is converted to unsigned int; result is unsigned int</span></span></code></pre></div>
+<h3 id="key-differences">Key Differences</h3>
+<ul>
+<li><strong>Scope and Applicability:</strong> Integer promotions apply
+to single operands of small integral types, including in unary
+operations and shift counts. Arithmetic conversions apply strictly to
+binary expressions with two operands.</li>
+<li><strong>Pipeline Hierarchy:</strong> Integer promotion is a subset
+and prerequisite of arithmetic conversions. When two integers are
+operated on, the compiler first promotes any small integers before
+executing the broader rules of usual arithmetic conversions.</li>
+<li><strong>Target Type:</strong> Integer promotions exclusively convert
+to either <code>int</code> or <code>unsigned int</code>. Usual
+arithmetic conversions can yield any arithmetic type, including
+<code>long long</code>, <code>float</code>, <code>double</code>, or
+<code>unsigned long</code>, depending on the highest-ranking operand
+involved.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

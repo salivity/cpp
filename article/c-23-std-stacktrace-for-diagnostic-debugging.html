@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++23 std::stacktrace for Diagnostic Debugging - cpp</title>
+    <meta name="description" content="The introduction of the &lt;stacktrace&gt; library in C++23 brings standardized, native programmatic stack tracing to the language for the first time. This article explores how std::stacktrace enables developers to capture, inspect, and format execution call st">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-23-std-stacktrace-for-diagnostic-debugging">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++23 std::stacktrace for Diagnostic Debugging - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-23-std-stacktrace-for-diagnostic-debugging" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The introduction of the &lt;stacktrace&gt; library in C++23 brings standardized, native programmatic stack tracing to the language for the first time. This article explores how std::stacktrace enables developers to capture, inspect, and format execution call st" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c23-stdstacktrace-for-diagnostic-debugging">C++23
+std::stacktrace for Diagnostic Debugging</h1>
+<p>The introduction of the <code>&lt;stacktrace&gt;</code> library in
+C++23 brings standardized, native programmatic stack tracing to the
+language for the first time. This article explores how
+<code>std::stacktrace</code> enables developers to capture, inspect, and
+format execution call stacks directly within application code without
+relying on third-party libraries or platform-specific APIs. By
+integrating call-site information directly into error handling, logging,
+and assertion frameworks, C++23 substantially improves runtime
+diagnostics and debugging workflows.</p>
+<h3 id="the-problem-with-pre-c23-diagnostics">The Problem with Pre-C++23
+Diagnostics</h3>
+<p>Prior to C++23, obtaining a call stack during runtime required
+platform-dependent APIs—such as <code>backtrace()</code> on POSIX
+systems or <code>CaptureStackBackTrace()</code> alongside the DbgHelp
+library on Windows. Alternatively, developers had to rely on external
+dependencies like Boost.Stacktrace. This lack of standardization made
+portable diagnostic reporting difficult, often forcing developers to
+debug production crashes using post-mortem core dumps or external log
+parsers rather than handling diagnostics programmatically inside the
+running process.</p>
+<h3 id="capturing-call-stacks-with-stdstacktrace">Capturing Call Stacks
+with <code>std::stacktrace</code></h3>
+<p>C++23 solves this by introducing <code>std::basic_stacktrace</code>
+and its common alias <code>std::stacktrace</code> inside the
+<code>&lt;stacktrace&gt;</code> header. Capturing the current execution
+path requires only a single call to
+<code>std::stacktrace::current()</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stacktrace&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> log_failure<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>stacktrace trace <span class="op">=</span> <span class="bu">std::</span>stacktrace::current<span class="op">();</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>to_string<span class="op">(</span>trace<span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The <code>current()</code> factory function records a snapshot of the
+call stack at that exact point of execution. The resulting object acts
+as a standard sequence container of <code>std::stacktrace_entry</code>
+objects, allowing iteration and programmatic inspection of individual
+frames.</p>
+<h3 id="inspecting-stack-frames-programmatically">Inspecting Stack
+Frames Programmatically</h3>
+<p>A major diagnostic advantage is the ability to query individual stack
+frame metadata directly in code. Each <code>std::stacktrace_entry</code>
+provides member functions to retrieve source code details:</p>
+<ul>
+<li><code>description()</code>: Returns the demangled name of the
+function or symbol.</li>
+<li><code>source_file()</code>: Returns the file path where the call
+occurred.</li>
+<li><code>source_line()</code>: Returns the line number corresponding to
+the frame.</li>
+<li><code>native_handle()</code>: Provides the underlying
+implementation-defined representation (such as an instruction pointer
+address).</li>
+</ul>
+<p>Because these values can be evaluated as individual fields,
+diagnostic frameworks can filter, sanitize, or parse stack frames before
+writing them to structured logs (e.g., JSON output for log
+aggregators).</p>
+<h3 id="diagnostic-exception-handling">Diagnostic Exception
+Handling</h3>
+<p><code>std::stacktrace</code> significantly improves custom exception
+diagnostics. In standard C++, when an exception is caught, the stack has
+already unwound, making it impossible to determine the original call
+path that led to the throw. By capturing the trace inside the
+exception's constructor, the original throw site is preserved:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;exception&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stacktrace&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TracedException <span class="op">:</span> <span class="kw">public</span> <span class="bu">std::</span>exception <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string <span class="va">message_</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>stacktrace <span class="va">trace_</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    TracedException<span class="op">(</span><span class="bu">std::</span>string message<span class="op">,</span> <span class="bu">std::</span>stacktrace trace <span class="op">=</span> <span class="bu">std::</span>stacktrace::current<span class="op">())</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span> <span class="va">message_</span><span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>message<span class="op">)),</span> <span class="va">trace_</span><span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>trace<span class="op">))</span> <span class="op">{}</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="dt">char</span><span class="op">*</span> what<span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">message_</span><span class="op">.</span>c_str<span class="op">();</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="bu">std::</span>stacktrace<span class="op">&amp;</span> trace<span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">trace_</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Using default arguments, <code>std::stacktrace::current()</code>
+evaluates automatically at the throw site, ensuring developers receive
+accurate contextual backtraces wherever the exception is handled.</p>
+<h3 id="integration-with-stdformat">Integration with
+<code>std::format</code></h3>
+<p>C++23 also integrates stack traces directly into the
+<code>std::format</code> and <code>std::print</code> ecosystems. Both
+<code>std::stacktrace</code> and <code>std::stacktrace_entry</code> have
+built-in formatter specializations:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;print&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stacktrace&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> report_checkpoint<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>println<span class="op">(</span><span class="st">&quot;Current execution trace:</span><span class="sc">\n{}</span><span class="st">&quot;</span><span class="op">,</span> <span class="bu">std::</span>stacktrace::current<span class="op">());</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This formatting automatically resolves and demangles symbols when
+debugging symbols are available in the binary, producing clean and
+human-readable diagnostic messages.</p>
+<h3 id="performance-and-debugging-overhead">Performance and Debugging
+Overhead</h3>
+<p>Stack capturing separates the physical collection of instruction
+addresses from symbol resolution. Invoking
+<code>std::stacktrace::current()</code> primarily captures program
+counters, which is relatively fast. The more expensive
+operation—resolving symbols, demangling function names, and extracting
+source lines—occurs lazily when converting the trace to a string or
+querying specific entry functions. This separation allows systems to
+capture traces on non-fatal errors or critical paths without paying an
+immediate symbol-resolution performance penalty unless the diagnostic
+information is actively requested.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

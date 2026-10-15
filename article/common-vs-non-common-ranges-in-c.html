@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Common vs Non-Common Ranges in C++ - cpp</title>
+    <meta name="description" content="In modern C++ (introduced in C++20), the Ranges library categorizes iterable sequences primarily into common ranges and non-common ranges based on the types returned by their beginning and ending markers. A common range requires begin() and end() to yield">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/common-vs-non-common-ranges-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Common vs Non-Common Ranges in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/common-vs-non-common-ranges-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++ (introduced in C++20), the Ranges library categorizes iterable sequences primarily into common ranges and non-common ranges based on the types returned by their beginning and ending markers. A common range requires begin() and end() to yield" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="common-vs-non-common-ranges-in-c">Common vs Non-Common Ranges in
+C++</h1>
+<p>In modern C++ (introduced in C++20), the Ranges library categorizes
+iterable sequences primarily into common ranges and non-common ranges
+based on the types returned by their beginning and ending markers. A
+common range requires <code>begin()</code> and <code>end()</code> to
+yield the exact same type, maintaining backward compatibility with
+traditional iterator-pair designs. In contrast, a non-common range
+allows <code>end()</code> to return a distinct type known as a sentinel.
+This article examines the mechanical differences between these two
+models, why sentinels were introduced, and how to convert non-common
+ranges to common ranges when interfacing with legacy APIs.</p>
+<h2 id="the-core-difference-iterators-vs-sentinels">The Core Difference:
+Iterators vs. Sentinels</h2>
+<p>In pre-C++20 code, iterating over an element sequence required two
+iterators of the identical type:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Iterator<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span>Iterator begin<span class="op">,</span> Iterator end<span class="op">);</span></span></code></pre></div>
+<p>C++20 generalized this model. A range is now defined by an iterator
+returned by <code>begin()</code> and a <strong>sentinel</strong>
+returned by <code>end()</code>. The sentinel does not have to be an
+iterator; it only needs to support equality comparison (<code>==</code>
+and <code>!=</code>) with the iterator type to signal when iteration
+should terminate.</p>
+<h3 id="common-ranges">Common Ranges</h3>
+<p>A range <code>R</code> is a <strong>common range</strong> if its
+iterator type and sentinel type are identical. Formally, it satisfies
+the <code>std::ranges::common_range</code> concept:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">class</span> T<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">concept</span> common_range <span class="op">=</span> ranges<span class="op">::</span>range<span class="op">&lt;</span>T<span class="op">&gt;</span> <span class="op">&amp;&amp;</span> </span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>                       <span class="bu">std::</span>same_as<span class="op">&lt;</span>ranges<span class="op">::</span><span class="dt">iterator_t</span><span class="op">&lt;</span>T<span class="op">&gt;,</span> ranges<span class="op">::</span><span class="dt">sentinel_t</span><span class="op">&lt;</span>T<span class="op">&gt;&gt;;</span></span></code></pre></div>
+<p>All standard containers from C++98 to C++17 (such as
+<code>std::vector</code>, <code>std::list</code>,
+<code>std::array</code>, and <code>std::string</code>) are common ranges
+because their <code>.begin()</code> and <code>.end()</code> member
+functions return the same iterator type.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> vec<span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">};</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> it <span class="op">=</span> vec<span class="op">.</span>begin<span class="op">();</span>   <span class="co">// std::vector&lt;int&gt;::iterator</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> sent <span class="op">=</span> vec<span class="op">.</span>end<span class="op">();</span>   <span class="co">// std::vector&lt;int&gt;::iterator</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// decltype(it) is identical to decltype(sent) -&gt; Common Range</span></span></code></pre></div>
+<h3 id="non-common-ranges">Non-Common Ranges</h3>
+<p>A range is a <strong>non-common range</strong> when its sentinel type
+differs from its iterator type:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">decltype</span><span class="op">(</span><span class="bu">std::</span>ranges::begin<span class="op">(</span>r<span class="op">))</span> <span class="op">!=</span> <span class="kw">decltype</span><span class="op">(</span><span class="bu">std::</span>ranges::end<span class="op">(</span>r<span class="op">))</span></span></code></pre></div>
+<p>The sentinel serves purely as an endpoint predicate rather than an
+iterator that traverses or points to a distinct memory address.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> view <span class="op">=</span> <span class="bu">std::</span>views::iota<span class="op">(</span><span class="dv">0</span><span class="op">)</span> </span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>          <span class="op">|</span> <span class="bu">std::</span>views::take_while<span class="op">([](</span><span class="dt">int</span> n<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> n <span class="op">&lt;</span> <span class="dv">5</span><span class="op">;</span> <span class="op">});</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> it <span class="op">=</span> view<span class="op">.</span>begin<span class="op">();</span> <span class="co">// Returns an internal iota iterator</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> sent <span class="op">=</span> view<span class="op">.</span>end<span class="op">();</span> <span class="co">// Returns a sentinel containing the predicate</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co">// decltype(it) != decltype(sent) -&gt; Non-Common Range</span></span></code></pre></div>
+<h2 id="why-non-common-ranges-exist">Why Non-Common Ranges Exist</h2>
+<p>The separation of iterator and sentinel types provides significant
+performance and functional benefits:</p>
+<ol type="1">
+<li><strong>Elimination of Pre-computation (Lazy Evaluation):</strong>
+When reading a null-terminated C-string, traditional iterators require
+calculating <code>strlen()</code> beforehand to construct the end
+iterator. A sentinel simply checks if <code>*it == '\0'</code>, scanning
+the string in a single pass without prior traversal.</li>
+<li><strong>Infinite and Unbounded Sequences:</strong> Ranges like
+<code>std::views::iota(0)</code> can produce values indefinitely. A
+sentinel can pair with a runtime condition (e.g.,
+<code>std::views::take_while</code>) without needing a materialized
+ending element.</li>
+<li><strong>Optimized Code Generation:</strong> Sentinels often carry no
+state (empty structs), allowing compilers to optimize loop boundary
+checks better than state-heavy end iterators.</li>
+</ol>
+<h2 id="adapting-non-common-to-common-ranges">Adapting Non-Common to
+Common Ranges</h2>
+<p>Because legacy algorithms (such as <code>std::sort</code> or custom
+iterator-based templates) require both markers to have identical types,
+passing a non-common range directly to these functions results in a
+compilation error.</p>
+<p>To solve this, C++20 provides <code>std::views::common</code>. This
+range adaptor wraps a non-common range and converts it into a common
+range by producing a unified iterator type that internally knows how to
+check for the sentinel.</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;ranges&gt;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;algorithm&gt;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> is_even <span class="op">=</span> <span class="op">[](</span><span class="dt">int</span> i<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> i <span class="op">%</span> <span class="dv">2</span> <span class="op">==</span> <span class="dv">0</span><span class="op">;</span> <span class="op">};</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// take_while creates a non-common range</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> non_common <span class="op">=</span> <span class="bu">std::</span>views::iota<span class="op">(</span><span class="dv">0</span><span class="op">)</span> </span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>                    <span class="op">|</span> <span class="bu">std::</span>views::take_while<span class="op">([](</span><span class="dt">int</span> i<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> i <span class="op">&lt;</span> <span class="dv">10</span><span class="op">;</span> <span class="op">});</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// static_assert fails: non_common is not a common_range</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// static_assert(std::ranges::common_range&lt;decltype(non_common)&gt;);</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Convert to a common range</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> common_view <span class="op">=</span> non_common <span class="op">|</span> <span class="bu">std::</span>views::common<span class="op">;</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">static_assert</span><span class="op">(</span><span class="bu">std::</span>ranges::common_range<span class="op">&lt;</span><span class="kw">decltype</span><span class="op">(</span>common_view<span class="op">)&gt;);</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Now compatible with legacy iterator-pair algorithms</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> target<span class="op">;</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>    target<span class="op">.</span>insert<span class="op">(</span>target<span class="op">.</span>end<span class="op">(),</span> common_view<span class="op">.</span>begin<span class="op">(),</span> common_view<span class="op">.</span>end<span class="op">());</span></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="summary-comparison">Summary Comparison</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Attribute</th>
+<th style="text-align: left;">Common Range</th>
+<th style="text-align: left;">Non-Common Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Type Equality</strong></td>
+<td
+style="text-align: left;"><code>iterator_t&lt;R&gt; == sentinel_t&lt;R&gt;</code></td>
+<td
+style="text-align: left;"><code>iterator_t&lt;R&gt; != sentinel_t&lt;R&gt;</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Concept</strong></td>
+<td style="text-align: left;">Satisfies
+<code>std::ranges::common_range</code></td>
+<td style="text-align: left;">Satisfies <code>std::ranges::range</code>
+only</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Legacy Compatibility</strong></td>
+<td style="text-align: left;">Works with pre-C++20 iterator-pair
+APIs</td>
+<td style="text-align: left;">Requires C++20 ranges or
+<code>std::views::common</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Primary Use Case</strong></td>
+<td style="text-align: left;">Fixed, sized collections
+(<code>std::vector</code>, arrays)</td>
+<td style="text-align: left;">Lazy ranges, predicates, unbounded
+streams</td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

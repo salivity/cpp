@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C++ Unity Builds Speed Up Compilation Times - cpp</title>
+    <meta name="description" content="Unity builds—often referred to as jumbo builds—drastically decrease C++ compilation times by combining multiple source files into a single translation unit before passing them to the compiler. In standard C++ compilation models, each source file is compil">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-c-unity-builds-speed-up-compilation-times">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C++ Unity Builds Speed Up Compilation Times - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-c-unity-builds-speed-up-compilation-times" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Unity builds—often referred to as jumbo builds—drastically decrease C++ compilation times by combining multiple source files into a single translation unit before passing them to the compiler. In standard C++ compilation models, each source file is compil" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c-unity-builds-speed-up-compilation-times">How C++ Unity
+Builds Speed Up Compilation Times</h1>
+<p>Unity builds—often referred to as jumbo builds—drastically decrease
+C++ compilation times by combining multiple source files into a single
+translation unit before passing them to the compiler. In standard C++
+compilation models, each source file is compiled independently, creating
+enormous redundant overhead through repeated header parsing and template
+instantiations. By consolidating multiple <code>.cpp</code> files via
+<code>#include</code> directives into single compilation batches, unity
+builds minimize this redundancy, lower disk input/output, and relieve
+pressure on the linker, resulting in dramatic speedups for large-scale
+codebases.</p>
+<h3 id="the-problem-with-the-standard-compilation-model">The Problem
+with the Standard Compilation Model</h3>
+<p>In standard C++, every source file (<code>.cpp</code>) is treated as
+an isolated translation unit. If a project contains 500 source files
+that all include a standard library header like
+<code>&lt;vector&gt;</code> or a large system header like
+<code>&lt;windows.h&gt;</code>, the C++ preprocessor and compiler must
+parse and tokenize those identical header files 500 separate times.</p>
+<p>Because modern C++ relies heavily on header-only libraries, complex
+templates, and macro expansions, a typical 50-line <code>.cpp</code>
+file can easily expand into hundreds of thousands of lines of
+preprocessed code. Multiplying this expansion across hundreds or
+thousands of files creates a severe CPU and I/O bottleneck.</p>
+<h3 id="how-unity-builds-accelerate-compilation">How Unity Builds
+Accelerate Compilation</h3>
+<p>A unity build restructures the build process by generating "unity
+source files" that simply <code>#include</code> a group of smaller
+<code>.cpp</code> files. Instead of invoking the compiler 100 times for
+100 files, the compiler is invoked once on a single file that contains
+them all. This optimization improves build performance in several
+specific ways:</p>
+<h4 id="1-elimination-of-repeated-header-parsing">1. Elimination of
+Repeated Header Parsing</h4>
+<p>When files are grouped together, shared headers are included once per
+unity batch rather than once per source file. Standard header guards
+(<code>#ifndef</code> / <code>#pragma once</code>) ensure that complex
+header trees, tokenization, abstract syntax tree (AST) construction, and
+semantic validation occur only a fraction of the usual number of
+times.</p>
+<h4 id="2-deduplication-of-template-instantiations">2. Deduplication of
+Template Instantiations</h4>
+<p>Templates in C++ are instantiated during compile time within each
+translation unit that uses them. In standard builds, the same template
+specialization (such as <code>std::vector&lt;int&gt;</code>) is
+instantiated in multiple object files, only to be deduplicated later by
+the linker. Unity builds instantiate common templates only once per
+unified translation unit, saving significant CPU cycles during both
+compilation and linking.</p>
+<h4 id="3-reduced-compiler-invocations-and-process-overhead">3. Reduced
+Compiler Invocations and Process Overhead</h4>
+<p>Launching compiler processes, initializing internal data structures,
+and allocating process memory carries an operating system cost.
+Compiling fewer, larger translation units cuts down the number of
+process spawns and allows the compiler to reuse its own internal caches
+and allocators over larger bodies of code.</p>
+<h4 id="4-reduced-linker-pressure-and-object-file-io">4. Reduced Linker
+Pressure and Object File I/O</h4>
+<p>Instead of writing and reading thousands of distinct <code>.o</code>
+or <code>.obj</code> files to and from the disk, unity builds produce
+only a handful of larger object files. This cuts down total disk I/O and
+reduces the symbol table complexity the linker must resolve,
+accelerating link times.</p>
+<h3 id="considerations-and-trade-offs">Considerations and
+Trade-offs</h3>
+<p>While unity builds provide massive improvements for clean,
+full-project builds, they come with trade-offs:</p>
+<ul>
+<li><strong>Incremental Build Costs:</strong> Modifying a single
+<code>.cpp</code> file forces the compiler to recompile the entire unity
+translation unit it belongs to, which can degrade incremental build
+performance.</li>
+<li><strong>Namespace and Macro Collisions:</strong> Because internal
+linkage (e.g., <code>static</code> variables or anonymous namespaces)
+and unhygienic preprocessor macros are compiled into the same scope,
+naming collisions that do not occur in separate translation units can
+arise.</li>
+<li><strong>Memory Footprint:</strong> Compiling massive translation
+units demands more peak RAM from the compiler, requiring projects to
+partition unity batches into balanced sizes rather than merging an
+entire codebase into a single file.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

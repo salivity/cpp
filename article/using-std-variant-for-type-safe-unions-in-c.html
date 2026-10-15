@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using std::variant for Type-Safe Unions in C++ - cpp</title>
+    <meta name="description" content="Introduced in C++17, std::variant provides a modern, type-safe alternative to traditional C-style unions by representing a type-safe tagged union. This article explains the limitations and risks of classic C-style unions, examines how std::variant automat">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/using-std-variant-for-type-safe-unions-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using std::variant for Type-Safe Unions in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/using-std-variant-for-type-safe-unions-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++17, std::variant provides a modern, type-safe alternative to traditional C-style unions by representing a type-safe tagged union. This article explains the limitations and risks of classic C-style unions, examines how std::variant automat" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-stdvariant-for-type-safe-unions-in-c">Using std::variant
+for Type-Safe Unions in C++</h1>
+<p>Introduced in C++17, <code>std::variant</code> provides a modern,
+type-safe alternative to traditional C-style unions by representing a
+type-safe tagged union. This article explains the limitations and risks
+of classic C-style unions, examines how <code>std::variant</code>
+automatically manages object lifetimes and tracks active types, and
+demonstrates the core access patterns—including <code>std::get</code>,
+<code>std::get_if</code>, and <code>std::visit</code>—that eliminate
+undefined behavior when working with heterogeneous data.</p>
+<h3 id="the-limitations-of-traditional-c-style-unions">The Limitations
+of Traditional C-Style Unions</h3>
+<p>Traditional C-style unions allow multiple data types to occupy the
+same memory location, enabling memory optimization. However, they lack
+type awareness:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">union</span> Data <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> i<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> d<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> str<span class="op">[</span><span class="dv">16</span><span class="op">];</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>A raw union does not track which member is currently active. If a
+program writes to <code>Data::i</code> and subsequently reads from
+<code>Data::d</code>, the compiler permits the operation, resulting in
+type punning and undefined behavior. Furthermore, C-style unions cannot
+cleanly handle non-trivial C++ types (such as <code>std::string</code>
+or <code>std::vector</code>) because they do not automatically call
+constructors or destructors when active members change. The developer
+must manually invoke placement <code>new</code> and explicit
+destructors, introducing significant risk of memory leaks and memory
+corruption.</p>
+<h3 id="how-stdvariant-solves-these-issues">How
+<code>std::variant</code> Solves These Issues</h3>
+<p><code>std::variant</code> is a template class that holds a value from
+a fixed set of types defined at compile time. It acts as a "tagged
+union" by internally maintaining two components: a raw storage buffer
+sized to hold the largest type in the list, and a discrete discriminator
+(index) indicating which type is currently engaged.</p>
+<p>Key safety guarantees include:</p>
+<ol type="1">
+<li><strong>Automatic Lifetime Management</strong>: When a new value is
+assigned to a <code>std::variant</code>, it automatically calls the
+destructor of the currently held object before constructing the new one.
+When the <code>std::variant</code> itself goes out of scope, it cleans
+up whichever object is currently active.</li>
+<li><strong>Non-Trivial Type Support</strong>: Types with complex
+constructors, copy semantics, and move semantics are supported without
+manual intervention.</li>
+<li><strong>No Unchecked Access</strong>: Memory locations cannot be
+arbitrarily read as alternative types; all read operations validate the
+internal discriminator.</li>
+</ol>
+<h3 id="safe-access-patterns">Safe Access Patterns</h3>
+<p>C++ provides multiple mechanisms to access the data inside a
+<code>std::variant</code>, each designed to prevent runtime type
+mismatches.</p>
+<h4 id="checked-retrieval-with-stdget">Checked Retrieval with
+<code>std::get</code></h4>
+<p>The <code>std::get&lt;T&gt;</code> or
+<code>std::get&lt;Index&gt;</code> function retrieves the value stored
+inside the variant. If the requested type does not match the currently
+held type, it immediately throws a <code>std::bad_variant_access</code>
+exception rather than returning invalid data:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;variant&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>variant<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="bu">std::</span>string<span class="op">&gt;</span> data <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span> <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>get<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span>data<span class="op">);</span>          <span class="co">// Succeeds: prints 42</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>get<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">&gt;(</span>data<span class="op">);</span>  <span class="co">// Throws std::bad_variant_access</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">catch</span> <span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>bad_variant_access<span class="op">&amp;</span> e<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="st">&quot;Type mismatch: &quot;</span> <span class="op">&lt;&lt;</span> e<span class="op">.</span>what<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h4 id="non-throwing-inspection-with-stdget_if">Non-Throwing Inspection
+with <code>std::get_if</code></h4>
+<p>For code that avoids exceptions, <code>std::get_if&lt;T&gt;</code>
+takes a pointer to a <code>std::variant</code> and returns a pointer to
+the value if the type matches, or <code>nullptr</code> if it does
+not:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span><span class="at">const</span> <span class="dt">int</span><span class="op">*</span> val <span class="op">=</span> <span class="bu">std::</span>get_if<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(&amp;</span>data<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Integer value: &quot;</span> <span class="op">&lt;&lt;</span> <span class="op">*</span>val <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Variant does not contain an int.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h4 id="comprehensive-handling-with-stdvisit">Comprehensive Handling
+with <code>std::visit</code></h4>
+<p>The most idiomatic and compile-time-safe method for processing
+<code>std::variant</code> is <code>std::visit</code>. It uses a callable
+visitor (such as an overloaded lambda) to handle all possible types. The
+compiler enforces that every type declared in the variant can be handled
+by the visitor:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span><span class="op">...</span> Ts<span class="op">&gt;</span> <span class="kw">struct</span> overloaded <span class="op">:</span> Ts<span class="op">...</span> <span class="op">{</span> <span class="kw">using</span> Ts<span class="op">::</span><span class="kw">operator</span><span class="op">()...;</span> <span class="op">};</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span><span class="op">...</span> Ts<span class="op">&gt;</span> overloaded<span class="op">(</span>Ts<span class="op">...)</span> <span class="op">-&gt;</span> overloaded<span class="op">&lt;</span>Ts<span class="op">...&gt;;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>variant<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="dt">double</span><span class="op">,</span> <span class="bu">std::</span>string<span class="op">&gt;</span> item <span class="op">=</span> <span class="st">&quot;Hello&quot;</span><span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>visit<span class="op">(</span>overloaded <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">[](</span><span class="dt">int</span> arg<span class="op">)</span> <span class="op">{</span> <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;int: &quot;</span> <span class="op">&lt;&lt;</span> arg <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span> <span class="op">},</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">[](</span><span class="dt">double</span> arg<span class="op">)</span> <span class="op">{</span> <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;double: &quot;</span> <span class="op">&lt;&lt;</span> arg <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span> <span class="op">},</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">[](</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> arg<span class="op">)</span> <span class="op">{</span> <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;string: &quot;</span> <span class="op">&lt;&lt;</span> arg <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="op">},</span> item<span class="op">);</span></span></code></pre></div>
+<p>If a case is omitted from the visitor, compilation fails, ensuring
+that unhandled types cannot cause unexpected runtime states.</p>
+<h3 id="the-valueless-by-exception-guarantee">The "Valueless by
+Exception" Guarantee</h3>
+<p>In rare cases, if an exception is thrown during an in-place
+assignment or type transition, a <code>std::variant</code> can enter a
+state known as <code>valueless_by_exception()</code>. In this state, it
+holds no value. Calling <code>std::get</code> on a valueless variant
+throws <code>std::bad_variant_access</code>, and <code>std::visit</code>
+throws the same exception, preventing access to corrupted or
+uninitialized memory.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

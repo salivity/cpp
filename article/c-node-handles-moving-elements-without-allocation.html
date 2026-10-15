@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Node Handles: Moving Elements Without Allocation - cpp</title>
+    <meta name="description" content="Introduced in C++17, the node handle API enables developers to extract individual nodes directly from associative containers—such as std::set, std::map, std::unorderedset, and std::unorderedmap—and transfer them to another container without allocating or">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-node-handles-moving-elements-without-allocation">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Node Handles: Moving Elements Without Allocation - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-node-handles-moving-elements-without-allocation" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++17, the node handle API enables developers to extract individual nodes directly from associative containers—such as std::set, std::map, std::unorderedset, and std::unorderedmap—and transfer them to another container without allocating or" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-node-handles-moving-elements-without-allocation">C++ Node
+Handles: Moving Elements Without Allocation</h1>
+<p>Introduced in C++17, the node handle API enables developers to
+extract individual nodes directly from associative containers—such as
+<code>std::set</code>, <code>std::map</code>,
+<code>std::unordered_set</code>, and <code>std::unordered_map</code>—and
+transfer them to another container without allocating or deallocating
+memory. By decoupling an internal node from the container's balancing or
+hashing structure while preserving its allocated memory block, the node
+handle allows zero-copy, zero-allocation splicing of elements,
+significantly optimizing performance-critical workflows.</p>
+<h3 id="the-traditional-relocation-problem">The Traditional Relocation
+Problem</h3>
+<p>Prior to C++17, moving an element from one associative container to
+another required two distinct operations: inserting the element into the
+target container and erasing it from the source container.</p>
+<p>Even when using move semantics, associative containers are node-based
+structures where each entry requires a wrapper node containing
+bookkeeping metadata (such as red-black tree pointers or hash bucket
+links). Consequently, insertion always forced a dynamic allocation for a
+new node in the destination container, while the subsequent erasure
+deallocated the source node. This created unnecessary memory overhead
+and allocation latency, even if the payload itself was moved
+efficiently.</p>
+<h3 id="mechanics-of-node-extraction">Mechanics of Node Extraction</h3>
+<p>The node handle API resolves this by exposing the container's
+internal node directly. Using the <code>.extract()</code> member
+function, a node is unlinked from the source container's tree or bucket
+array without invoking its destructor or freeing its memory:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> node <span class="op">=</span> source_map<span class="op">.</span>extract<span class="op">(</span>key<span class="op">);</span></span></code></pre></div>
+<p>The resulting <code>node_type</code> object is a move-only wrapper
+that takes full ownership of the extracted node. While held in a node
+handle, the element is not part of any container, but its underlying
+value remains fully constructed in place.</p>
+<h3 id="zero-allocation-insertion">Zero-Allocation Insertion</h3>
+<p>Once a node handle is obtained, it can be inserted into a compatible
+destination container using an overload of the <code>.insert()</code>
+method:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>destination_map<span class="op">.</span>insert<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>node<span class="op">));</span></span></code></pre></div>
+<p>During this operation, the destination container adopts the existing
+memory block instead of requesting new memory from its allocator. It
+recalculates the necessary balancing pointers (for trees) or bucket
+positions (for hash tables) and links the node directly into its
+internal structure. If an insertion fails—such as when a key collision
+occurs in a unique associative container—the node handle remains valid
+and retains ownership of the uninserted node, preventing data loss and
+still avoiding deallocation.</p>
+<h3 id="container-splicing-with-merge">Container Splicing with
+<code>merge</code></h3>
+<p>For bulk operations, C++17 introduced the <code>.merge()</code>
+member function, which operationalizes the node handle mechanism
+automatically across entire containers:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>destination_map<span class="op">.</span>merge<span class="op">(</span>source_map<span class="op">);</span></span></code></pre></div>
+<p>The <code>.merge()</code> function iterates through the source
+container, extracting each node and relinking it into the destination
+container without any heap allocation. Any elements that cannot be
+inserted due to key collisions remain in the source container.</p>
+<h3 id="in-place-key-modification">In-Place Key Modification</h3>
+<p>Beyond inter-container transfers, node handles allow modifying keys
+within unique associative containers without reallocating. Normally,
+elements in containers like <code>std::set</code> or keys in
+<code>std::map</code> are immutable (<code>const</code>) to prevent
+corrupting the internal ordering. By extracting the node via a node
+handle, developers gain mutable access to the key through
+<code>node.key()</code>. The key can be altered safely while the node is
+detached, and reinserting the handle prompts the container to position
+the existing node into its new correct location with zero memory
+allocations.</p>
+<h3 id="requirements-and-compatibility">Requirements and
+Compatibility</h3>
+<p>To transfer nodes without allocation, containers must be
+compatible:</p>
+<ul>
+<li>Both containers must share the exact same node layout and element
+types.</li>
+<li>Both containers must use equivalent allocator types; if the
+allocators do not compare equal, the transfer cannot reuse the existing
+memory allocation.</li>
+<li>Transfers are permitted between equivalent unique and non-unique
+variants, such as moving a node directly from a <code>std::set</code>
+into a <code>std::multiset</code>.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

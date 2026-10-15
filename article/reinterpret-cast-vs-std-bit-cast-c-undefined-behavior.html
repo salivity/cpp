@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>reinterpret_cast vs std::bit_cast: C++ Undefined Behavior - cpp</title>
+    <meta name="description" content="In C++, converting the raw bit representation of an object from one type to another—known as type punning—has historically been prone to bugs and undefined behavior. While developers traditionally turned to reinterpretcast for this purpose, doing so often">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/reinterpret-cast-vs-std-bit-cast-c-undefined-behavior">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="reinterpret_cast vs std::bit_cast: C++ Undefined Behavior - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/reinterpret-cast-vs-std-bit-cast-c-undefined-behavior" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, converting the raw bit representation of an object from one type to another—known as type punning—has historically been prone to bugs and undefined behavior. While developers traditionally turned to reinterpretcast for this purpose, doing so often" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="reinterpret_cast-vs-stdbit_cast-c-undefined-behavior">reinterpret_cast
+vs std::bit_cast: C++ Undefined Behavior</h1>
+<p>In C++, converting the raw bit representation of an object from one
+type to another—known as type punning—has historically been prone to
+bugs and undefined behavior. While developers traditionally turned to
+<code>reinterpret_cast</code> for this purpose, doing so often violates
+C++ strict aliasing rules and alignment requirements, resulting in
+undefined behavior. With C++20, <code>std::bit_cast</code> was
+introduced to provide a standard-compliant, safe, and
+<code>constexpr</code>-capable mechanism to reinterpret the binary
+representation of a value without invoking undefined behavior.</p>
+<h3 id="the-problem-with-reinterpret_cast">The Problem with
+reinterpret_cast</h3>
+<p><code>reinterpret_cast</code> does not construct a new object or copy
+bits; instead, it reinterprets the existing pointer or reference type at
+compile time. When used for type punning (e.g., casting a pointer of one
+type to a pointer of an unrelated type and dereferencing it), it
+frequently triggers undefined behavior in two primary ways:</p>
+<ol type="1">
+<li><strong>Strict Aliasing Violations:</strong> The C++ standard
+mandates that two pointers of unrelated types cannot point to the same
+memory location, with narrow exceptions (such as <code>char*</code>,
+<code>unsigned char*</code>, or <code>std::byte*</code>). If you cast a
+<code>float*</code> to an <code>int*</code> and dereference it, you
+violate strict aliasing. Compilers optimize code based on the assumption
+that unrelated pointers do not alias each other; violating this
+assumption leads to unexpected optimizations, misordered memory reads,
+or corrupted program state.</li>
+<li><strong>Alignment Faults:</strong> Different types have different
+alignment requirements. If you use <code>reinterpret_cast</code> to
+convert a pointer to a type that has stricter alignment constraints than
+the source address guarantees, dereferencing the resulting pointer
+causes undefined behavior, which can trigger hardware-level exceptions
+on architectures that strictly enforce alignment.</li>
+</ol>
+<p>While <code>reinterpret_cast</code> is valid for converting integer
+types to pointer types, or converting between unrelated pointer types
+provided the pointer is cast back to the original type before
+dereferencing, it is not a safe tool for reading the bits of one type as
+another.</p>
+<h3 id="how-stdbit_cast-solves-undefined-behavior">How std::bit_cast
+Solves Undefined Behavior</h3>
+<p>Defined in the <code>&lt;bit&gt;</code> header in C++20,
+<code>std::bit_cast</code> is explicitly designed for bit-level type
+reinterpretation. Instead of reinterpreting memory addresses through
+pointer manipulation, <code>std::bit_cast</code> creates a new object of
+the destination type and copies the bit representation of the source
+object into it.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;bit&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstdint&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> f <span class="op">=</span> <span class="fl">1.0</span><span class="bu">f</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Safe, well-defined bit reinterpretation</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> i <span class="op">=</span> <span class="bu">std::</span>bit_cast<span class="op">&lt;</span><span class="bu">std::</span>uint32_t<span class="op">&gt;(</span>f<span class="op">);</span> </span></code></pre></div>
+<p><code>std::bit_cast</code> eliminates undefined behavior through
+strict compile-time checks:</p>
+<ul>
+<li><strong>Size Matching:</strong> The source and destination types
+must be of the exact same size
+(<code>sizeof(To) == sizeof(From)</code>). Mismatched sizes result in a
+compilation error.</li>
+<li><strong>Trivially Copyable:</strong> Both the source and destination
+types must be trivially copyable
+(<code>std::is_trivially_copyable_v&lt;T&gt;</code>). This prevents
+reinterpreting types that manage dynamic resources, have custom copy
+constructors, or contain virtual methods.</li>
+<li><strong>Value-Based Semantics:</strong> Because
+<code>std::bit_cast</code> acts like a standard-compliant
+<code>std::memcpy</code> on the value level rather than aliasing memory
+via references or pointers, it does not violate the strict aliasing
+rule.</li>
+<li><strong>Compile-Time Execution:</strong> Unlike
+<code>std::memcpy</code>, <code>std::bit_cast</code> is
+<code>constexpr</code>-qualified, allowing safe bit-level manipulation
+during compilation without generating runtime overhead or risking
+undefined behavior.</li>
+</ul>
+<h3 id="summary">Summary</h3>
+<p>The distinction regarding undefined behavior is clear: dereferencing
+a pointer converted via <code>reinterpret_cast</code> to perform type
+punning breaks strict aliasing and alignment rules, leading to undefined
+behavior. In contrast, <code>std::bit_cast</code> provides well-defined
+value-copy semantics enforced by compile-time constraints, making it the
+correct choice for reinterpreting bit representations in modern C++.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C++ Preprocessor Handles Recursive Macros - cpp</title>
+    <meta name="description" content="In the C++ compilation pipeline, the preprocessor prevents infinite compilation loops by explicitly disabling recursive macro expansion through a mechanism commonly referred to as macro &quot;painting&quot; or token marking. When a macro name is recognized and repl">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-c-preprocessor-handles-recursive-macros">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C++ Preprocessor Handles Recursive Macros - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-c-preprocessor-handles-recursive-macros" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C++ compilation pipeline, the preprocessor prevents infinite compilation loops by explicitly disabling recursive macro expansion through a mechanism commonly referred to as macro &quot;painting&quot; or token marking. When a macro name is recognized and repl" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c-preprocessor-handles-recursive-macros">How C++
+Preprocessor Handles Recursive Macros</h1>
+<p>In the C++ compilation pipeline, the preprocessor prevents infinite
+compilation loops by explicitly disabling recursive macro expansion
+through a mechanism commonly referred to as macro "painting" or token
+marking. When a macro name is recognized and replaced, that specific
+macro is marked as disabled for the duration of the scan and rescan of
+its replacement list. Consequently, self-referential or mutually
+recursive macros do not expand infinitely; instead, any nested
+occurrence of an active macro is left unchanged as a literal token in
+the output token stream.</p>
+<h3 id="the-role-of-macro-expansion-in-translation-phase-4">The Role of
+Macro Expansion in Translation Phase 4</h3>
+<p>The C++ compilation process is divided into distinct translation
+phases. Macro replacement occurs during Translation Phase 4, well before
+semantic analysis, type checking, or code generation take place. The
+preprocessor operates strictly on preprocessor tokens. Because it does
+not possess an execution stack or a dynamic evaluation engine, handling
+unbounded recursion without a safeguard would cause the compiler to run
+indefinitely or crash due to resource exhaustion.</p>
+<h3 id="the-macro-disabling-mechanism-painting-blue">The Macro Disabling
+Mechanism ("Painting Blue")</h3>
+<p>To prevent infinite expansion loops, the ISO C++ standard specifies
+an exact algorithm for rescanning replacement lists. When a macro is
+expanded:</p>
+<ol type="1">
+<li><strong>Identification and Replacement:</strong> The preprocessor
+identifies a macro name (and its arguments, if it is a function-like
+macro) and substitutes it with its replacement list.</li>
+<li><strong>Disabling Current Identifiers:</strong> The name of the
+macro currently being expanded is marked as "disabled" (historically
+termed "painted blue" in compiler design literature) within the context
+of that replacement list.</li>
+<li><strong>Rescanning:</strong> The resulting token sequence—including
+any adjacent tokens if concatenation (<code>##</code>) occurred—is
+rescanned from left to right for further macro names to expand.</li>
+<li><strong>Suppression of Recursive Calls:</strong> If the preprocessor
+encounters a disabled macro identifier during this rescan, it treats the
+identifier as a standard, unexpandable token and leaves it
+untouched.</li>
+<li><strong>Re-enabling:</strong> Once the preprocessor completes the
+expansion of that macro context and moves past the resulting tokens, the
+macro name is re-enabled for subsequent independent occurrences in the
+source file.</li>
+</ol>
+<h3 id="direct-vs-indirect-recursion">Direct vs. Indirect Recursion</h3>
+<p>The preprocessor applies this suppression logic to both direct and
+indirect (mutual) recursion.</p>
+<h4 id="direct-recursion">Direct Recursion</h4>
+<p>In direct recursion, a macro refers directly to itself:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define VALUE </span><span class="op">(</span><span class="dv">1</span><span class="pp"> </span><span class="op">+</span><span class="pp"> </span>VALUE<span class="op">)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> x <span class="op">=</span> VALUE<span class="op">;</span></span></code></pre></div>
+<p>During preprocessing:</p>
+<ol type="1">
+<li><p><code>VALUE</code> is replaced by
+<code>(1 + VALUE)</code>.</p></li>
+<li><p>The inner <code>VALUE</code> is marked disabled.</p></li>
+<li><p>The replacement list is rescanned. The inner <code>VALUE</code>
+is recognized, but because it is disabled, it is not expanded.</p></li>
+<li><p>The output emitted to Phase 5 is:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> x <span class="op">=</span> <span class="op">(</span><span class="dv">1</span> <span class="op">+</span> VALUE<span class="op">);</span></span></code></pre></div></li>
+</ol>
+<h4 id="indirect-recursion">Indirect Recursion</h4>
+<p>In mutual or indirect recursion, two or more macros reference each
+other cyclically:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#define A </span>B</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#define B </span>A</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> y <span class="op">=</span> A<span class="op">;</span></span></code></pre></div>
+<p>During preprocessing:</p>
+<ol type="1">
+<li><p><code>A</code> expands to <code>B</code>, and <code>A</code> is
+added to the disabled set.</p></li>
+<li><p><code>B</code> is scanned and expands to <code>A</code>, adding
+<code>B</code> to the disabled set alongside <code>A</code>.</p></li>
+<li><p>The resulting token <code>A</code> is rescanned. Because
+<code>A</code> is currently marked as disabled, expansion
+ceases.</p></li>
+<li><p>The output emitted to Phase 5 is:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> y <span class="op">=</span> A<span class="op">;</span></span></code></pre></div></li>
+</ol>
+<h3 id="implications-for-preprocessor-metaprogramming">Implications for
+Preprocessor Metaprogramming</h3>
+<p>Because true recursion is strictly forbidden by the language
+standard, libraries that perform advanced preprocessor metaprogramming
+(such as Boost.Preprocessor) cannot use traditional recursive calls.
+Instead, they simulate repetition and looping structures through
+techniques such as:</p>
+<ul>
+<li><strong>Table-based evaluation:</strong> Defining individual macros
+for fixed iteration depths (e.g., <code>REPEAT_1</code>,
+<code>REPEAT_2</code>, ..., <code>REPEAT_256</code>).</li>
+<li><strong>Deferred expansion:</strong> Using indirect evaluation
+macros (empty tokens inserted between macro names and argument lists) to
+delay the binding of arguments, allowing rescanning passes to re-trigger
+evaluation after a macro leaves its disabled state.</li>
+</ul>
+<p>By enforcing the disabled token rule during rescanning, the C++
+preprocessor guarantees that translation phase 4 always terminates,
+ensuring predictable behavior and deterministic build times across all
+standard-compliant toolchains.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

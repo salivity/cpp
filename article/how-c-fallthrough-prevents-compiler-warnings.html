@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C++ [[fallthrough]] Prevents Compiler Warnings - cpp</title>
+    <meta name="description" content="In C++, omitting a break statement inside a switch block causes execution to cascade into the subsequent case, a behavior known as fallthrough. Because unintentional fallthrough is a frequent source of logic bugs, modern compilers typically flag it with w">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-c-fallthrough-prevents-compiler-warnings">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C++ [[fallthrough]] Prevents Compiler Warnings - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-c-fallthrough-prevents-compiler-warnings" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, omitting a break statement inside a switch block causes execution to cascade into the subsequent case, a behavior known as fallthrough. Because unintentional fallthrough is a frequent source of logic bugs, modern compilers typically flag it with w" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c-fallthrough-prevents-compiler-warnings">How C++
+[[fallthrough]] Prevents Compiler Warnings</h1>
+<p>In C++, omitting a <code>break</code> statement inside a
+<code>switch</code> block causes execution to cascade into the
+subsequent <code>case</code>, a behavior known as fallthrough. Because
+unintentional fallthrough is a frequent source of logic bugs, modern
+compilers typically flag it with warning diagnostics such as
+<code>-Wimplicit-fallthrough</code>. The <code>[[fallthrough]]</code>
+attribute, introduced in C++17, provides a standardized way to inform
+the compiler that a fallthrough is intentional, suppressing these
+diagnostics while clarifying developer intent without introducing any
+runtime overhead.</p>
+<h2 id="the-problem-with-implicit-fallthrough">The Problem with Implicit
+Fallthrough</h2>
+<p>By default, the C++ language allows execution to flow from one switch
+case directly into the next unless interrupted by a control-flow
+statement like <code>break</code>, <code>return</code>, or
+<code>throw</code>. Consider the following example:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">switch</span> <span class="op">(</span>device_status<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> Status<span class="op">::</span>ResetRequired<span class="op">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        reset_hardware<span class="op">();</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Missing break: falls through to Status::Reinitialize</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> Status<span class="op">::</span>Reinitialize<span class="op">:</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        init_hardware<span class="op">();</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">default</span><span class="op">:</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>A compiler cannot determine whether the omission of
+<code>break</code> after <code>reset_hardware()</code> was deliberate or
+an oversight. To help developers avoid accidental defects, modern
+compilers enable diagnostic flags that emit warnings whenever control
+drops into another case without an explicit termination statement.
+Before C++17, suppressing these warnings required non-standard
+compiler-specific attributes, pragmas, or special code comments (such as
+<code>// FALLTHRU</code>) recognized only by specific static analysis
+tools.</p>
+<h2 id="how-fallthrough-suppresses-diagnostics">How [[fallthrough]]
+Suppresses Diagnostics</h2>
+<p>The <code>[[fallthrough]]</code> attribute operates entirely at
+compile time during semantic analysis. When the compiler analyzes
+control flow across a switch statement, it inspects basic blocks to
+ensure that paths reaching the end of a <code>case</code> terminate
+explicitly.</p>
+<p>If the compiler's diagnostic engine encounters the
+<code>[[fallthrough]]</code> attribute immediately before a subsequent
+<code>case</code> or <code>default</code> label, it marks the transition
+as intended. This satisfies the compiler's static analysis pass,
+effectively bypassing the warning emission step for that specific
+branch. Because the attribute purely conveys intent to the compiler, it
+generates no machine code.</p>
+<h2 id="proper-usage-and-syntax-rules">Proper Usage and Syntax
+Rules</h2>
+<p>The <code>[[fallthrough]]</code> attribute functions syntactically as
+a null statement and must be followed by a semicolon. It also has strict
+placement rules defined by the C++ standard:</p>
+<ol type="1">
+<li><strong>Must be inside a switch body:</strong> The attribute is only
+valid within the compound statement of a <code>switch</code>.</li>
+<li><strong>Must precede a label:</strong> It must be placed immediately
+before the next <code>case</code> or <code>default</code> label.</li>
+<li><strong>Must be on an active control path:</strong> It must be
+placed along a code path where execution could actually fall
+through.</li>
+</ol>
+<p>Here is the correct implementation:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">switch</span> <span class="op">(</span>device_status<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> Status<span class="op">::</span>ResetRequired<span class="op">:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        reset_hardware<span class="op">();</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="op">[[</span><span class="at">fallthrough</span><span class="op">]];</span> <span class="co">// Warning safely suppressed; intent is explicit</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">case</span> Status<span class="op">::</span>Reinitialize<span class="op">:</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        init_hardware<span class="op">();</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">default</span><span class="op">:</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>If <code>[[fallthrough]]</code> is placed where execution cannot fall
+through—such as immediately after a <code>break</code> statement or
+after the final <code>case</code> where no other label follows—the
+compiler will issue an error or warning indicating an ill-formed or
+meaningless attribute placement. This strictness prevents developers
+from misplacing the attribute and masking other unintended control-flow
+issues.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

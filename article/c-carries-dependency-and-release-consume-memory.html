@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ carries_dependency and Release-Consume Memory - cpp</title>
+    <meta name="description" content="This article examines how the [[carriesdependency]] attribute optimizes release-consume memory ordering paths in C++. It covers the mechanics of std::memoryorderconsume, the performance problem that occurs when dependency chains cross function boundaries,">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-carries-dependency-and-release-consume-memory">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ carries_dependency and Release-Consume Memory - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-carries-dependency-and-release-consume-memory" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article examines how the [[carriesdependency]] attribute optimizes release-consume memory ordering paths in C++. It covers the mechanics of std::memoryorderconsume, the performance problem that occurs when dependency chains cross function boundaries," />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-carries_dependency-and-release-consume-memory">C++
+carries_dependency and Release-Consume Memory</h1>
+<p>This article examines how the <code>[[carries_dependency]]</code>
+attribute optimizes release-consume memory ordering paths in C++. It
+covers the mechanics of <code>std::memory_order_consume</code>, the
+performance problem that occurs when dependency chains cross function
+boundaries, and how <code>[[carries_dependency]]</code> informs the
+compiler to preserve dependency tracking across these boundaries instead
+of emitting costly memory barrier instructions.</p>
+<h3 id="the-problem-release-consume-and-function-boundaries">The
+Problem: Release-Consume and Function Boundaries</h3>
+<p>In C++ concurrency, <code>std::memory_order_consume</code> is
+designed as a lighter-weight alternative to
+<code>std::memory_order_acquire</code>. While an acquire operation
+synchronizes all prior writes from the releasing thread, a consume
+operation only synchronizes writes that carry a data dependency to the
+loaded atomic variable.</p>
+<p>On weakly-ordered architectures like ARM and PowerPC, hardware
+naturally maintains data dependencies through register operations. A CPU
+will not reorder a load that depends on the value of a previous load.
+Consequently, an atomic read using <code>memory_order_consume</code> can
+theoretically be executed without generating an explicit hardware memory
+fence instruction, yielding higher performance than
+<code>memory_order_acquire</code>.</p>
+<p>However, the C++ compiler must formally trace this dependency chain
+from the atomic load to all dependent operations. When a dependent value
+is passed into a function or returned from one, separate compilation
+units and ABI boundaries break the compiler's visibility. Without
+explicit instruction, the compiler cannot guarantee that the function
+will maintain the dependency chain, nor can the caller guarantee it for
+return values. To avoid data races, the compiler is forced to
+conservatively insert an acquire fence, negating the performance
+benefits of consume ordering.</p>
+<h3 id="how-carries_dependency-solves-it">How
+<code>[[carries_dependency]]</code> Solves It</h3>
+<p>The <code>[[carries_dependency]]</code> attribute resolves this
+visibility issue by acting as an optimization hint and contract between
+callers and callees. It can be applied to:</p>
+<ol type="1">
+<li><strong>Function parameters:</strong> Signifies that the caller's
+dependency chain enters the function via the specified argument.</li>
+<li><strong>Function return values:</strong> Signifies that the
+dependency chain exits the function and propagates back to the
+caller.</li>
+</ol>
+<p>By explicitly annotating these interfaces, the developer tells the
+compiler that the data dependency is preserved across the function
+call.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;atomic&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Config <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> threshold<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> timeout<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>atomic<span class="op">&lt;</span>Config<span class="op">*&gt;</span> global_config<span class="op">{</span><span class="kw">nullptr</span><span class="op">};</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Informs the compiler that &#39;cfg&#39; carries a dependency from the caller</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_config<span class="op">([[</span><span class="at">carries_dependency</span><span class="op">]]</span> Config<span class="op">*</span> cfg<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>cfg<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Safe to read cfg-&gt;threshold without an explicit acquire fence</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">int</span> t <span class="op">=</span> cfg<span class="op">-&gt;</span>threshold<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ...</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="co">// Informs the compiler that the returned pointer carries a dependency</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="op">[[</span><span class="at">carries_dependency</span><span class="op">]]</span> Config<span class="op">*</span> fetch_config<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> global_config<span class="op">.</span>load<span class="op">(</span><span class="bu">std::</span>memory_order_consume<span class="op">);</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> run<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    Config<span class="op">*</span> cfg <span class="op">=</span> fetch_config<span class="op">();</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    process_config<span class="op">(</span>cfg<span class="op">);</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="compiler-optimization-mechanisms">Compiler Optimization
+Mechanisms</h3>
+<p>When <code>[[carries_dependency]]</code> is applied, the compiler
+optimizes code generation in two primary ways:</p>
+<ul>
+<li><strong>Eliminating Fence Instructions:</strong> On architectures
+with weak memory models (such as ARM or PowerPC), the compiler avoids
+emitting hardware memory barriers (e.g., <code>dmb</code> or
+<code>lwsync</code>). Instead, it relies on the CPU’s native dependency
+tracking by ensuring operations use the value loaded into specific
+registers.</li>
+<li><strong>Preserving Register Allocations:</strong> The compiler
+arranges code generation to preserve the hardware dependency chain. For
+example, if a pointer is loaded from an atomic variable, the compiler
+ensures that subsequent reads use an address calculation derived from
+the register holding that pointer, rather than reloading or speculating
+values.</li>
+</ul>
+<h3 id="practical-considerations">Practical Considerations</h3>
+<p>On strongly-ordered architectures like x86 and x86-64, loads are not
+reordered with subsequent loads at the hardware level, making acquire
+and consume operations functionally identical with zero-cost fences. The
+optimizations unlocked by <code>[[carries_dependency]]</code> are
+primarily realized on weakly-ordered architectures where explicit memory
+barriers introduce measurable overhead.</p>
+<p>It is worth noting that because tracking dependency chains across
+standard library functions and complex expressions is exceptionally
+difficult, many major C++ compilers temporarily treat
+<code>memory_order_consume</code> identically to
+<code>memory_order_acquire</code>. Nevertheless, using
+<code>[[carries_dependency]]</code> correctly documents dependency
+semantics and enables proper hardware-level dependency ordering in
+toolchains that fully support the consume model.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

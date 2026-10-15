@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::complex Works in C++ - cpp</title>
+    <meta name="description" content="This article provides an overview of the std::complex class template defined in the C++ &lt;complex&gt; header, explaining how the C++ Standard Library models mathematical complex numbers. It details the internal memory layout, template specializations, interop">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-complex-works-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::complex Works in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-complex-works-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the std::complex class template defined in the C++ &lt;complex&gt; header, explaining how the C++ Standard Library models mathematical complex numbers. It details the internal memory layout, template specializations, interop" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdcomplex-works-in-c">How std::complex Works in C++</h1>
+<p>This article provides an overview of the <code>std::complex</code>
+class template defined in the C++ <code>&lt;complex&gt;</code> header,
+explaining how the C++ Standard Library models mathematical complex
+numbers. It details the internal memory layout, template
+specializations, interoperability guarantees with C arrays and C99
+complex numbers, and the core interfaces used for initialization,
+component access, and arithmetic manipulation.</p>
+<h2 id="type-definition-and-specializations">Type Definition and
+Specializations</h2>
+<p>The C++ standard represents complex numbers—values of the form <span
+class="math inline">\(a + bi\)</span>, where <span
+class="math inline">\(a\)</span> is the real part, <span
+class="math inline">\(b\)</span> is the imaginary part, and <span
+class="math inline">\(i^2 = -1\)</span>—using the class template
+<code>std::complex&lt;T&gt;</code>. The ISO C++ standard specifies
+explicit specializations for the three fundamental floating-point
+types:</p>
+<ul>
+<li><code>std::complex&lt;float&gt;</code></li>
+<li><code>std::complex&lt;double&gt;</code></li>
+<li><code>std::complex&lt;long double&gt;</code></li>
+</ul>
+<p>While the primary template can technically be instantiated with
+custom types satisfying numeric requirements, standard compliance and
+full algorithmic support (such as transcendentals) are guaranteed
+primarily for these three floating-point types.</p>
+<h2 id="memory-layout-and-interoperability">Memory Layout and
+Interoperability</h2>
+<p>One of the defining design requirements of <code>std::complex</code>
+is its binary representation. The standard guarantees that for an object
+of type <code>std::complex&lt;T&gt;</code>, the real and imaginary parts
+are stored sequentially in memory:</p>
+<ol type="1">
+<li>The real component is stored first at index <code>0</code>.</li>
+<li>The imaginary component is stored immediately adjacent at index
+<code>1</code>.</li>
+</ol>
+<p>Because of this requirement:</p>
+<ul>
+<li>A <code>std::complex&lt;T&gt;*</code> can be safely cast or
+reinterpreted as an array of two elements <code>T[2]</code>.</li>
+<li>An array of <code>std::complex&lt;T&gt;</code> is laid out
+consecutively as alternating real and imaginary components
+(<code>real0, imag0, real1, imag1, ...</code>).</li>
+<li>The layout is strictly binary-compatible with the C99
+<code>float _Complex</code>, <code>double _Complex</code>, and
+<code>long double _Complex</code> types, as well as the C structure
+layout containing two consecutive elements of type <code>T</code>.</li>
+</ul>
+<p>This makes <code>std::complex</code> zero-overhead and directly
+compatible with high-performance linear algebra libraries (such as BLAS
+or LAPACK) without requiring data transformation.</p>
+<h2 id="construction-and-component-access">Construction and Component
+Access</h2>
+<p>Instances of <code>std::complex</code> can be initialized via
+constructors or user-defined literals introduced in C++14:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;complex&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Constructor initialization</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>complex<span class="op">&lt;</span><span class="dt">double</span><span class="op">&gt;</span> z1<span class="op">(</span><span class="fl">3.0</span><span class="op">,</span> <span class="fl">4.0</span><span class="op">);</span> <span class="co">// 3 + 4i</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Standard literal initialization (requires namespace std::complex_literals)</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> <span class="kw">namespace</span> <span class="bu">std::</span>complex_literals<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> z2 <span class="op">=</span> <span class="fl">3.0</span> <span class="op">+</span> <span class="fl">4.0</span><span class="bu">i</span><span class="op">;</span></span></code></pre></div>
+<p>Component access is provided through member and non-member
+functions:</p>
+<ul>
+<li><code>.real()</code> returns or sets the real part.</li>
+<li><code>.imag()</code> returns or sets the imaginary part.</li>
+<li>In C++20 and later, <code>real()</code> and <code>imag()</code> are
+also marked <code>constexpr</code>.</li>
+</ul>
+<h2 id="mathematical-operations">Mathematical Operations</h2>
+<p>The <code>&lt;complex&gt;</code> library provides complete operator
+overloads for standard arithmetic:</p>
+<ul>
+<li>Addition (<code>+</code>), subtraction (<code>-</code>),
+multiplication (<code>*</code>), and division (<code>/</code>) work for
+complex-complex pairs and mixed complex-scalar operations.</li>
+<li>Relational equality operators (<code>==</code>, <code>!=</code>)
+compare both components for equality.</li>
+</ul>
+<p>Additionally, standard mathematical functions are overloaded for
+<code>std::complex</code>:</p>
+<ul>
+<li><strong>Magnitude and Angle:</strong> <code>std::abs(z)</code>
+computes the magnitude (<span class="math inline">\(\sqrt{a^2 +
+b^2}\)</span>), <code>std::norm(z)</code> computes the squared magnitude
+(<span class="math inline">\(a^2 + b^2\)</span>), and
+<code>std::arg(z)</code> computes the phase angle.</li>
+<li><strong>Polar Representation:</strong>
+<code>std::polar(rho, theta)</code> constructs a complex number from
+magnitude and angle.</li>
+<li><strong>Conjugation:</strong> <code>std::conj(z)</code> yields <span
+class="math inline">\(a - bi\)</span>.</li>
+<li><strong>Transcendental Functions:</strong> Exponential, logarithmic,
+power, trigonometric, and hyperbolic functions (e.g.,
+<code>std::exp</code>, <code>std::log</code>, <code>std::sin</code>,
+<code>std::sqrt</code>) are implemented handling branch cuts defined by
+the ISO standard.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

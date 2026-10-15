@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding C++ memory_order_relaxed - cpp</title>
+    <meta name="description" content="In C++, std::memoryorderrelaxed is the weakest memory ordering constraint available in the atomic operations library, offering the highest performance at the expense of synchronization guarantees. This article explains what memoryorderrelaxed is, the prec">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/understanding-c-memory-order-relaxed">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding C++ memory_order_relaxed - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/understanding-c-memory-order-relaxed" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, std::memoryorderrelaxed is the weakest memory ordering constraint available in the atomic operations library, offering the highest performance at the expense of synchronization guarantees. This article explains what memoryorderrelaxed is, the prec" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-c-memory_order_relaxed">Understanding C++
+memory_order_relaxed</h1>
+<p>In C++, <code>std::memory_order_relaxed</code> is the weakest memory
+ordering constraint available in the atomic operations library, offering
+the highest performance at the expense of synchronization guarantees.
+This article explains what <code>memory_order_relaxed</code> is, the
+precise guarantees it provides—specifically atomicity and
+single-variable modification order—and what it explicitly avoids, such
+as cross-thread synchronization and ordering constraints on surrounding
+memory accesses.</p>
+<h2 id="what-is-memory_order_relaxed">What Is memory_order_relaxed?</h2>
+<p>When performing operations on <code>std::atomic</code> objects, C++
+requires you to specify a memory order (or it defaults to
+<code>std::memory_order_seq_cst</code>). The
+<code>memory_order_relaxed</code> model instructs the compiler and
+hardware that the atomic operation needs no synchronization with other
+memory operations. It treats the operation as an isolated atomic step
+without establishing a "happens-before" relationship between
+threads.</p>
+<h2 id="the-guarantees-provided">The Guarantees Provided</h2>
+<p>Despite being the weakest memory model,
+<code>memory_order_relaxed</code> provides critical safety guarantees
+that prevent undefined behavior:</p>
+<h3 id="1-atomicity">1. Atomicity</h3>
+<p>Every read, write, or read-modify-write operation marked with
+<code>memory_order_relaxed</code> is guaranteed to be atomic. This
+means:</p>
+<ul>
+<li>Values are never torn or partially written.</li>
+<li>There are no data races on the atomic variable itself.</li>
+<li>Concurrent reads and writes result in valid, fully formed
+values.</li>
+</ul>
+<h3 id="2-modification-order-consistency-coherence">2. Modification
+Order Consistency (Coherence)</h3>
+<p>All modifications to a single atomic variable occur in a single,
+total order called the <strong>modification order</strong>. Even under
+relaxed ordering:</p>
+<ul>
+<li>All threads agree on the relative order in which changes to that
+specific variable occurred.</li>
+<li>Once a thread reads a particular value of an atomic variable,
+subsequent reads by that same thread will never return an older value
+(read-read coherence).</li>
+<li>A write to an atomic variable cannot be overwritten by a write that
+happened earlier in the modification order (write-write coherence).</li>
+</ul>
+<h3 id="3-sequenced-before-consistency-within-the-same-thread">3.
+Sequenced-Before Consistency Within the Same Thread</h3>
+<p>Relaxed operations on the same thread still respect the
+sequenced-before rules of the language. A thread's own execution remains
+sequentially consistent with respect to its own program logic.</p>
+<h2 id="what-it-does-not-guarantee">What It Does Not Guarantee</h2>
+<p>Understanding relaxed ordering requires knowing what it explicitly
+leaves out:</p>
+<ul>
+<li><strong>No Synchronization Across Threads:</strong> A relaxed store
+does not synchronize with a relaxed load. It cannot be used to signal
+another thread that non-atomic data is ready to be read.</li>
+<li><strong>No Ordering Relative to Other Variables:</strong> The
+compiler and the CPU are free to reorder reads and writes around a
+relaxed atomic operation, provided those reorderings do not violate
+single-thread dependencies.</li>
+</ul>
+<p>For example, using a relaxed atomic variable as a flag:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Thread 1</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> <span class="dv">42</span><span class="op">;</span>                                    <span class="co">// Non-atomic store</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>ready<span class="op">.</span>store<span class="op">(</span><span class="kw">true</span><span class="op">,</span> <span class="bu">std::</span>memory_order_relaxed<span class="op">);</span> <span class="co">// Relaxed atomic store</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Thread 2</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>ready<span class="op">.</span>load<span class="op">(</span><span class="bu">std::</span>memory_order_relaxed<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="ot">assert</span><span class="op">(</span>data <span class="op">==</span> <span class="dv">42</span><span class="op">);</span> <span class="co">// This assertion can fail!</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this scenario, the CPU or compiler may reorder the assignment of
+<code>data</code> and <code>ready</code>, or the changes may become
+visible to Thread 2 out of order, leading to a data race on
+<code>data</code>.</p>
+<h2 id="typical-use-cases">Typical Use Cases</h2>
+<p>Relaxed operations are ideal when you need atomic manipulation of a
+value, but other memory operations do not depend on it:</p>
+<ul>
+<li><strong>Reference Counting Increments:</strong> Incrementing a
+reference count (such as in <code>std::shared_ptr</code>) typically only
+requires atomicity to ensure the count is accurate. Only the decrement
+requires release-acquire semantics to coordinate object
+destruction.</li>
+<li><strong>Metrics and Diagnostics:</strong> Incrementing global
+counters, tracking statistics, or recording operation frequencies where
+thread coordination is unnecessary.</li>
+<li><strong>Stop Tokens and Polling:</strong> Setting or checking simple
+independent flags that don't guard surrounding data.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

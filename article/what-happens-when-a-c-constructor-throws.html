@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Happens When a C++ Constructor Throws? - cpp</title>
+    <meta name="description" content="When an exception is thrown from an object constructor in C++, the object is considered to have never officially existed, meaning its destructor will not be executed. However, C++ guarantees that any base classes and member objects that were fully constru">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/what-happens-when-a-c-constructor-throws">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Happens When a C++ Constructor Throws? - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/what-happens-when-a-c-constructor-throws" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When an exception is thrown from an object constructor in C++, the object is considered to have never officially existed, meaning its destructor will not be executed. However, C++ guarantees that any base classes and member objects that were fully constru" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-happens-when-a-c-constructor-throws">What Happens When a
+C++ Constructor Throws?</h1>
+<p>When an exception is thrown from an object constructor in C++, the
+object is considered to have never officially existed, meaning its
+destructor will not be executed. However, C++ guarantees that any base
+classes and member objects that were fully constructed before the
+exception occurred are destroyed in the reverse order of their
+initialization. Understanding this mechanism is critical for proper
+resource management and avoiding memory leaks in modern C++
+programming.</p>
+<h2 id="the-object-never-officially-exists">The Object Never Officially
+Exists</h2>
+<p>In C++, an object's lifetime formally begins only after its
+constructor has successfully completed execution. If an exception is
+thrown inside the constructor body—or during the initialization of its
+member fields or base classes—the construction process is aborted.</p>
+<p>Because the object's lifetime never started, the compiler will never
+call the destructor of the class whose constructor failed.</p>
+<h2 id="automatic-destruction-of-initialized-sub-objects">Automatic
+Destruction of Initialized Sub-objects</h2>
+<p>Although the main object's destructor does not run, the C++ runtime
+handles sub-objects that have already been initialized:</p>
+<ul>
+<li><strong>Base Classes:</strong> Any base class sub-objects that
+completed construction will have their destructors called in the reverse
+order of their inheritance declaration.</li>
+<li><strong>Member Variables:</strong> Any non-static member variables
+whose construction succeeded before the throw will have their
+destructors called in the reverse order of their declaration in the
+class definition.</li>
+<li><strong>Failing Member:</strong> The member whose constructor threw
+the exception is cleaned up by its own internal exception-handling
+mechanisms; its destructor is not called.</li>
+<li><strong>Uninitialized Members:</strong> Any members declared after
+the point of failure are left untouched and their destructors are not
+invoked.</li>
+</ul>
+<h2 id="raw-pointers-and-resource-leaks">Raw Pointers and Resource
+Leaks</h2>
+<p>A major hazard arises when managing resources manually using raw
+pointers inside a constructor:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ResourceHolder <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span><span class="op">*</span> data1<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span><span class="op">*</span> data2<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    ResourceHolder<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        data1 <span class="op">=</span> <span class="kw">new</span> <span class="dt">int</span><span class="op">[</span><span class="dv">100</span><span class="op">];</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">// If an exception occurs here, data1 will leak</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">throw</span> <span class="bu">std::</span>runtime_error<span class="op">(</span><span class="st">&quot;Failure&quot;</span><span class="op">);</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        data2 <span class="op">=</span> <span class="kw">new</span> <span class="dt">int</span><span class="op">[</span><span class="dv">200</span><span class="op">];</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">~</span>ResourceHolder<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">delete</span><span class="op">[]</span> data1<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="kw">delete</span><span class="op">[]</span> data2<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>In the example above, because <code>~ResourceHolder()</code> never
+runs, <code>delete[] data1</code> is never executed, causing a memory
+leak.</p>
+<p>To prevent this, C++ relies on the <strong>RAII</strong> (Resource
+Acquisition Is Initialization) idiom. If <code>data1</code> and
+<code>data2</code> are wrapped in smart pointers such as
+<code>std::unique_ptr&lt;int[]&gt;</code>, the runtime automatically
+calls their destructors during stack unwinding, safely deallocating the
+memory.</p>
+<h2 id="dynamic-allocation-with-operator-new">Dynamic Allocation with
+<code>operator new</code></h2>
+<p>If an object is being allocated on the heap using the
+<code>new</code> operator and its constructor throws an exception:</p>
+<ol type="1">
+<li>The runtime automatically invokes the matching
+<code>operator delete</code> to reclaim the raw memory allocated for the
+object.</li>
+<li>The exception propagates out of the <code>new</code> expression to
+the caller.</li>
+</ol>
+<p>This ensures that the memory allocated by the <code>new</code>
+expression is not leaked, even though the object was never fully
+created.</p>
+<h2 id="function-try-blocks-in-constructors">Function-Try-Blocks in
+Constructors</h2>
+<p>Constructors can use function-level <code>try-catch</code> blocks to
+catch exceptions thrown during member initializer list execution or
+within the constructor body:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Example <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    Member m<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    Example<span class="op">()</span> <span class="cf">try</span> <span class="op">:</span> m<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Constructor body</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(...)</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Handle or log the error</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Key rules regarding constructor function-try-blocks include:</p>
+<ul>
+<li><strong>Mandatory Rethrow:</strong> You cannot absorb or suppress an
+exception in a constructor's function-try-block. If control reaches the
+end of the <code>catch</code> block without explicitly throwing an
+exception, the runtime implicitly rethrows the original exception.</li>
+<li><strong>Dead Members:</strong> Inside the <code>catch</code> block,
+all non-static members and base classes have already been destroyed.
+Attempting to access them results in undefined behavior.</li>
+<li><strong>Primary Use Case:</strong> These blocks are primarily used
+to log failures, transform exception types, or clean up non-object
+resources (such as raw OS handles) acquired prior to the throw.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

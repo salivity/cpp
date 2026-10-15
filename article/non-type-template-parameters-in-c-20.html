@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Non-Type Template Parameters in C++20 - cpp</title>
+    <meta name="description" content="This article explores Non-Type Template Parameters (NTTPs) in C++, explaining what they are, their historical limitations, and the major enhancements introduced in C++20. Readers will gain a clear understanding of how C++20 expands NTTP capabilities to su">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/non-type-template-parameters-in-c-20">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Non-Type Template Parameters in C++20 - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/non-type-template-parameters-in-c-20" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores Non-Type Template Parameters (NTTPs) in C++, explaining what they are, their historical limitations, and the major enhancements introduced in C++20. Readers will gain a clear understanding of how C++20 expands NTTP capabilities to su" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="non-type-template-parameters-in-c20">Non-Type Template
+Parameters in C++20</h1>
+<p>This article explores Non-Type Template Parameters (NTTPs) in C++,
+explaining what they are, their historical limitations, and the major
+enhancements introduced in C++20. Readers will gain a clear
+understanding of how C++20 expands NTTP capabilities to support
+floating-point values, user-defined class types (structural types), and
+compile-time string literals, enabling cleaner and more expressive
+compile-time metaprogramming.</p>
+<h3 id="what-are-non-type-template-parameters">What Are Non-Type
+Template Parameters?</h3>
+<p>In C++, templates typically accept types (such as <code>int</code>,
+<code>std::string</code>, or custom classes) using the
+<code>typename</code> or <code>class</code> keywords. A Non-Type
+Template Parameter (NTTP), by contrast, is a template parameter that
+represents a compile-time constant value rather than a type.</p>
+<p>Prior to C++20, the types permitted as NTTPs were strictly limited.
+Permissible NTTP types included:</p>
+<ul>
+<li>Integral types (e.g., <code>int</code>, <code>char</code>,
+<code>size_t</code>)</li>
+<li>Enumeration types</li>
+<li>Pointers and references to objects or functions with linkage</li>
+<li><code>std::nullptr_t</code></li>
+</ul>
+<p>The most common example of a traditional NTTP is the second parameter
+of <code>std::array</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="bu">std::</span>size_t N<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> array<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>array<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="dv">10</span><span class="op">&gt;</span> numbers<span class="op">;</span> <span class="co">// 10 is an NTTP</span></span></code></pre></div>
+<p>Historically, attempts to pass floating-point numbers, objects with
+complex state, or string literals directly as template arguments
+resulted in compilation errors.</p>
+<hr />
+<h3 id="how-c20-expanded-nttps">How C++20 Expanded NTTPs</h3>
+<p>C++20 significantly relaxed these restrictions by introducing support
+for floating-point types, structural class types, and custom
+compile-time strings.</p>
+<h4 id="1-floating-point-numbers-as-nttps">1. Floating-Point Numbers as
+NTTPs</h4>
+<p>C++20 permits floating-point types (<code>float</code>,
+<code>double</code>, <code>long double</code>) to serve directly as
+template parameters. This eliminates the need for workarounds such as
+passing ratios or scaled integers for compile-time scientific
+calculations.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="dt">double</span> Threshold<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> SensorFilter <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bool</span> isAbove<span class="op">(</span><span class="dt">double</span> value<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> value <span class="op">&gt;</span> Threshold<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>SensorFilter<span class="op">&lt;</span><span class="fl">0.75</span><span class="op">&gt;</span> filter<span class="op">;</span></span></code></pre></div>
+<h4 id="2-structural-class-types">2. Structural Class Types</h4>
+<p>The most profound addition to NTTPs in C++20 is the concept of
+<strong>structural types</strong>. An object of a class type can be used
+as a template argument if it qualifies as a structural type.</p>
+<p>A type is a structural type if it is:</p>
+<ul>
+<li>A scalar type, or</li>
+<li>An lvalue reference type, or</li>
+<li>A literal class type where:
+<ul>
+<li>All base classes and non-static data members are public and
+non-mutable, and</li>
+<li>The types of all bases and non-static data members are themselves
+structural types.</li>
+</ul></li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Point <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> x<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> y<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span>Point P<span class="op">&gt;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> render<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// P.x and P.y are accessible at compile time</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    render<span class="op">&lt;</span>Point<span class="op">{</span><span class="dv">10</span><span class="op">,</span> <span class="dv">20</span><span class="op">}&gt;();</span> <span class="co">// Valid in C++20</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Two template instantiations are considered identical if the bitwise
+or value-based equivalence of their structural arguments matches.</p>
+<h4 id="3-compile-time-string-literals">3. Compile-Time String
+Literals</h4>
+<p>A longstanding limitation of C++ templates was the inability to pass
+string literals directly into templates. Because C++20 allows structural
+class types as NTTPs, developers can define a literal wrapper class to
+accept and store string literals at compile time.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;algorithm&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstddef&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="bu">std::</span>size_t N<span class="op">&gt;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> FixedString <span class="op">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> data<span class="op">[</span>N<span class="op">];</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">constexpr</span> FixedString<span class="op">(</span><span class="at">const</span> <span class="dt">char</span> <span class="op">(&amp;</span>str<span class="op">)[</span>N<span class="op">])</span> <span class="op">{</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>copy_n<span class="op">(</span>str<span class="op">,</span> N<span class="op">,</span> data<span class="op">);</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span>FixedString S<span class="op">&gt;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> printTag<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// S.data contains the string at compile time</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    printTag<span class="op">&lt;</span><span class="st">&quot;SystemLogger&quot;</span><span class="op">&gt;();</span> <span class="co">// Valid in C++20</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h4 id="4-class-template-argument-deduction-ctad-for-nttps">4. Class
+Template Argument Deduction (CTAD) for NTTPs</h4>
+<p>C++20 also introduced the <code>auto</code> placeholder for NTTPs,
+allowing the compiler to deduce the argument's type directly at the call
+site.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">auto</span> Value<span class="op">&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> inspect<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Type and value are deduced at compile time</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>inspect<span class="op">&lt;</span><span class="dv">42</span><span class="op">&gt;();</span>      <span class="co">// Value is int</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>inspect<span class="op">&lt;</span><span class="ch">&#39;c&#39;</span><span class="op">&gt;();</span>     <span class="co">// Value is char</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>inspect<span class="op">&lt;</span><span class="fl">3.14</span><span class="op">&gt;();</span>    <span class="co">// Value is double (C++20)</span></span></code></pre></div>
+<hr />
+<h3 id="summary-of-impact">Summary of Impact</h3>
+<p>C++20 transforms NTTPs from simple integer and pointer placeholders
+into a versatile system that accepts rich value-based data structures.
+By supporting floating-point types, structural classes, and compile-time
+strings, C++20 removes decades-old metaprogramming workarounds,
+resulting in safer, more expressive, and readable compile-time APIs.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

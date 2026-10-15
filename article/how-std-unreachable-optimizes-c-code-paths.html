@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::unreachable Optimizes C++ Code Paths - cpp</title>
+    <meta name="description" content="Introduced in C++23, std::unreachable() provides a standardized mechanism to inform the compiler that a specific execution path can never be reached during valid program execution. By treating the arrival at this point as undefined behavior, the compiler">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-unreachable-optimizes-c-code-paths">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::unreachable Optimizes C++ Code Paths - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-unreachable-optimizes-c-code-paths" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++23, std::unreachable() provides a standardized mechanism to inform the compiler that a specific execution path can never be reached during valid program execution. By treating the arrival at this point as undefined behavior, the compiler" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdunreachable-optimizes-c-code-paths">How std::unreachable
+Optimizes C++ Code Paths</h1>
+<p>Introduced in C++23, <code>std::unreachable()</code> provides a
+standardized mechanism to inform the compiler that a specific execution
+path can never be reached during valid program execution. By treating
+the arrival at this point as undefined behavior, the compiler can safely
+assume that the path is dead code, allowing it to eliminate redundant
+runtime checks, simplify control flow graphs, and generate significantly
+more efficient assembly.</p>
+<h3 id="the-mechanism-behind-stdunreachable">The Mechanism Behind
+std::unreachable</h3>
+<p>At its core, <code>std::unreachable()</code> acts as an optimization
+hint embedded in the code flow. Defined in the
+<code>&lt;utility&gt;</code> header, the function has a straightforward
+definition: calling it results in undefined behavior.</p>
+<p>Because standard-conforming compilers assume that undefined behavior
+never occurs in valid C++ programs, the compiler works backward from
+this premise. If reaching an instruction would trigger undefined
+behavior unconditionally, the compiler deduces that the conditions
+required to reach that instruction must be mathematically or logically
+impossible within the defined rules of the program.</p>
+<p>Under the hood, standard library implementations map
+<code>std::unreachable()</code> directly to target-specific compiler
+intrinsics rather than generating function calls or runtime traps:</p>
+<ul>
+<li><strong>GCC and Clang:</strong> Lower to
+<code>__builtin_unreachable()</code></li>
+<li><strong>MSVC:</strong> Lowers to <code>__assume(false)</code></li>
+</ul>
+<p>These intrinsics do not generate executable machine instructions such
+as <code>abort()</code> or CPU traps. Instead, they interact directly
+with the compiler's intermediate representation (IR) during optimization
+passes.</p>
+<h3 id="impact-on-control-flow-and-code-generation">Impact on Control
+Flow and Code Generation</h3>
+<p>When the compiler constructs the control flow graph (CFG) during the
+compilation pipeline, <code>std::unreachable()</code> allows specific
+pruning operations:</p>
+<h4 id="1-dead-branch-elimination">1. Dead Branch Elimination</h4>
+<p>In branching logic, such as <code>switch</code> statements or chained
+<code>if-else</code> blocks, developers often encounter states that are
+logically impossible but cannot be statically proven impossible by the
+compiler's type system.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;utility&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">enum</span> <span class="kw">class</span> Color <span class="op">{</span> Red<span class="op">,</span> Green<span class="op">,</span> Blue <span class="op">};</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> get_priority<span class="op">(</span>Color c<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">switch</span> <span class="op">(</span>c<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> Color<span class="op">::</span>Red<span class="op">:</span>   <span class="cf">return</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> Color<span class="op">::</span>Green<span class="op">:</span> <span class="cf">return</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> Color<span class="op">::</span>Blue<span class="op">:</span>  <span class="cf">return</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>unreachable<span class="op">();</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Without <code>std::unreachable()</code>, the compiler must assume
+that an invalid enum value (such as one created via an explicit cast)
+could be passed. It would emit instructions to handle the fall-through,
+such as returning a dummy value, throwing an exception, or creating a
+default jump target. Placing <code>std::unreachable()</code> after the
+cases allows the compiler to omit bounds-checking code and jump tables
+entirely, generating straight-line conditional moves or direct table
+lookups.</p>
+<h4 id="2-range-analysis-and-value-propagation">2. Range Analysis and
+Value Propagation</h4>
+<p>Compilers perform value-range propagation to determine the possible
+values an integer or pointer can take at any given point in the program.
+Marking a branch as unreachable retroactively narrows the permissible
+values of the variables governing the branch condition.</p>
+<p>For example, if an integer is divided by an unknown value <span
+class="math inline">\(x\)</span>, and the branch where <span
+class="math inline">\(x == 0\)</span> contains
+<code>std::unreachable()</code>, the optimizer assumes <span
+class="math inline">\(x\)</span> cannot be zero. Consequently, it can
+safely reorder instructions, perform vectorization, or omit hardware
+checks for division-by-zero.</p>
+<h4 id="3-loop-simplification">3. Loop Simplification</h4>
+<p>In complex loops, placing <code>std::unreachable()</code> inside exit
+conditions that are theoretically reachable according to types, but
+impossible according to program logic, allows the compiler to unroll
+loops more aggressively, vectorize operations, or convert dynamic loops
+into fixed-iteration loops.</p>
+<h3 id="undefined-behavior-as-a-dual-edged-sword">Undefined Behavior as
+a Dual-Edged Sword</h3>
+<p>Because <code>std::unreachable()</code> operates via the mechanism of
+undefined behavior, violating the invariant—allowing control flow to
+actually hit <code>std::unreachable()</code>—leads to severe bugs. The
+optimizer may delete surrounding safety checks, cause execution to "fall
+through" into arbitrary adjacent memory, or reorder memory operations
+unpredictably.</p>
+<p>Unlike debug assertions (such as <code>assert()</code>),
+<code>std::unreachable()</code> does not perform condition checking at
+runtime and does not log diagnostic messages unless wrapped inside
+defensive macros during debug builds. Its sole purpose is to serve as an
+authoritative declaration to the optimizer's deduction engine.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

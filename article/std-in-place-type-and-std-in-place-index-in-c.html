@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::in_place_type and std::in_place_index in C++ - cpp</title>
+    <meta name="description" content="In modern C++, std::inplacetype and std::inplaceindex serve as disambiguation tags that enable direct, in-place construction of objects inside container-like wrappers such as std::variant, std::optional, and std::any. Introduced in C++17, these utility ta">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-in-place-type-and-std-in-place-index-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::in_place_type and std::in_place_index in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-in-place-type-and-std-in-place-index-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, std::inplacetype and std::inplaceindex serve as disambiguation tags that enable direct, in-place construction of objects inside container-like wrappers such as std::variant, std::optional, and std::any. Introduced in C++17, these utility ta" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stdin_place_type-and-stdin_place_index-in-c">std::in_place_type
+and std::in_place_index in C++</h1>
+<p>In modern C++, <code>std::in_place_type</code> and
+<code>std::in_place_index</code> serve as disambiguation tags that
+enable direct, in-place construction of objects inside container-like
+wrappers such as <code>std::variant</code>, <code>std::optional</code>,
+and <code>std::any</code>. Introduced in C++17, these utility tags allow
+developers to pass constructor arguments directly to the contained
+object instead of creating and copying or moving a temporary instance.
+This article explores how these tags work, why they are essential for
+performance and non-movable types, and how they resolve constructor
+ambiguities in variant types.</p>
+<h3 id="the-purpose-of-in-place-construction">The Purpose of In-Place
+Construction</h3>
+<p>When initializing a wrapper like <code>std::optional</code> or
+<code>std::variant</code>, passing a pre-constructed object requires
+that object to be either copied or moved into the wrapper's internal
+storage:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> data <span class="op">=</span> <span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">};</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>optional<span class="op">&lt;</span><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&gt;</span> opt<span class="op">(</span>data<span class="op">);</span> <span class="co">// Incurs a copy</span></span></code></pre></div>
+<p>To eliminate this overhead, C++ provides in-place construction.
+Passing an in-place tag informs the wrapper's constructor that the
+remaining arguments should be forwarded directly to the constructor of
+the contained type. This avoids temporaries, improves efficiency, and
+allows the initialization of non-copyable and non-movable types (such as
+<code>std::mutex</code>).</p>
+<h3 id="using-stdin_place_type">Using
+<code>std::in_place_type</code></h3>
+<p><code>std::in_place_type</code> is a tag template that specifies the
+exact type to construct inside the target wrapper. It is commonly used
+with <code>std::variant</code> to specify which alternative to
+instantiate, particularly when the type requires multiple constructor
+arguments.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;variant&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Directly constructs std::string with 5 occurrences of &#39;a&#39;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>variant<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="bu">std::</span>string<span class="op">,</span> <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&gt;</span> v<span class="op">(</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>in_place_type<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">&gt;,</span> <span class="dv">5</span><span class="op">,</span> <span class="ch">&#39;a&#39;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">);</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Without <code>std::in_place_type</code>, creating this variant would
+require constructing a temporary <code>std::string(5, 'a')</code> and
+moving it into the variant.</p>
+<p>Although <code>std::optional</code> typically uses the simpler
+<code>std::in_place</code> tag because it holds only one type,
+<code>std::in_place_type&lt;T&gt;</code> is also accepted.</p>
+<h3 id="using-stdin_place_index">Using
+<code>std::in_place_index</code></h3>
+<p><code>std::in_place_index</code> is a tag template that identifies
+the alternative in a <code>std::variant</code> by its zero-based
+position rather than its type.</p>
+<p>This tag is essential in scenarios where
+<code>std::in_place_type</code> cannot be used:</p>
+<ol type="1">
+<li><strong>Duplicate Types</strong>: A <code>std::variant</code> can
+contain multiple alternatives of the same type. In this case, specifying
+a type is ambiguous.</li>
+<li><strong>Ambiguous Conversions</strong>: When several alternatives
+can accept the provided constructor arguments, specifying the index
+removes any compiler ambiguity.</li>
+</ol>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;variant&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Variant containing duplicate types</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> DuplicateVariant <span class="op">=</span> <span class="bu">std::</span>variant<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">,</span> <span class="bu">std::</span>string<span class="op">&gt;;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Constructs the second std::string (index 1) directly in place</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    DuplicateVariant v<span class="op">(</span><span class="bu">std::</span>in_place_index<span class="op">&lt;</span><span class="dv">1</span><span class="op">&gt;,</span> <span class="st">&quot;Second Alternative&quot;</span><span class="op">);</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="summary-of-benefits">Summary of Benefits</h3>
+<ul>
+<li><strong>Performance</strong>: Arguments are forwarded directly to
+the target constructor, eliminating unnecessary copy and move
+operations.</li>
+<li><strong>Support for Immovable Types</strong>: Enables containers
+like <code>std::optional</code> and <code>std::variant</code> to hold
+types that disable both copy and move constructors.</li>
+<li><strong>Disambiguation</strong>: <code>std::in_place_type</code>
+clearly states the intended type for multi-argument constructors, while
+<code>std::in_place_index</code> solves ambiguity for variants with
+repeated or convertible types.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

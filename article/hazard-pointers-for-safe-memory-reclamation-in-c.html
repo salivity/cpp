@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hazard Pointers for Safe Memory Reclamation in C++ - cpp</title>
+    <meta name="description" content="Hazard pointers are a lock-free memory reclamation technique designed to solve the reader-reclaimer race condition in concurrent C++ applications. In multithreaded environments where lock-free data structures are modified dynamically, deleting a node whil">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/hazard-pointers-for-safe-memory-reclamation-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Hazard Pointers for Safe Memory Reclamation in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/hazard-pointers-for-safe-memory-reclamation-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Hazard pointers are a lock-free memory reclamation technique designed to solve the reader-reclaimer race condition in concurrent C++ applications. In multithreaded environments where lock-free data structures are modified dynamically, deleting a node whil" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="hazard-pointers-for-safe-memory-reclamation-in-c">Hazard
+Pointers for Safe Memory Reclamation in C++</h1>
+<p>Hazard pointers are a lock-free memory reclamation technique designed
+to solve the reader-reclaimer race condition in concurrent C++
+applications. In multithreaded environments where lock-free data
+structures are modified dynamically, deleting a node while another
+thread is still reading it leads to undefined behavior, data corruption,
+or segmentation faults. Hazard pointers provide a mechanism where
+reading threads temporarily "publish" the addresses of nodes they are
+currently accessing to a globally visible list. Writers wanting to
+remove a node mark it as retired rather than freeing it immediately,
+deferring deallocation until no active hazard pointers reference that
+memory.</p>
+<h3 id="the-problem-memory-reclamation-in-lock-free-code">The Problem:
+Memory Reclamation in Lock-Free Code</h3>
+<p>In concurrent data structures like lock-free stacks, queues, and
+linked lists, threads modify pointers using atomic operations like
+<code>std::atomic::compare_exchange_weak</code>. While updating pointers
+atomically ensures structural integrity, it does not solve the lifecycle
+problem of the removed node:</p>
+<ol type="1">
+<li>Thread A reads a shared pointer to Node X and prepares to access
+<code>Node X-&gt;next</code>.</li>
+<li>Thread B preempts Thread A, unlinks Node X from the structure, and
+immediately calls <code>delete Node X</code>.</li>
+<li>Thread A resumes and attempts to dereference
+<code>Node X-&gt;next</code>, accessing memory that has already been
+deallocated.</li>
+</ol>
+<p>Standard C++ smart pointers like <code>std::shared_ptr</code> solve
+this via reference counting, but atomic operations on
+<code>std::shared_ptr</code> can introduce substantial cache contention,
+high overhead, and can still be prone to race conditions if not
+manipulated via atomic utilities.</p>
+<h3 id="the-core-mechanics-of-hazard-pointers">The Core Mechanics of
+Hazard Pointers</h3>
+<p>The hazard pointer approach decouples structural modification from
+memory deallocation through four core phases:</p>
+<h4 id="1-allocation-and-publication">1. Allocation and Publication</h4>
+<p>Each reader thread owns one or more hazard pointer slots—typically
+implemented as <code>std::atomic&lt;T*&gt;</code> pointers within a
+globally visible array or list. Before dereferencing a node retrieved
+from a shared structure, the thread publishes the node's raw address to
+its hazard pointer slot:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>T<span class="op">*</span> ptr <span class="op">=</span> head<span class="op">.</span>load<span class="op">(</span><span class="bu">std::</span>memory_order_acquire<span class="op">);</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">do</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    hazard_ptr<span class="op">.</span>store<span class="op">(</span>ptr<span class="op">,</span> <span class="bu">std::</span>memory_order_release<span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    T<span class="op">*</span> current_head <span class="op">=</span> head<span class="op">.</span>load<span class="op">(</span><span class="bu">std::</span>memory_order_acquire<span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ptr <span class="op">==</span> current_head<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">break</span><span class="op">;</span> <span class="co">// Pointer successfully validated</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    ptr <span class="op">=</span> current_head<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">while</span> <span class="op">(</span><span class="kw">true</span><span class="op">);</span></span></code></pre></div>
+<h4 id="2-validation">2. Validation</h4>
+<p>Publishing a pointer is not enough because the node could have been
+unlinked and retired right before the hazard pointer was stored. The
+reading thread must perform a validation check: verifying that the
+shared pointer still matches the address stored in the hazard pointer.
+If the node was unlinked before the publication took effect, the thread
+clears the hazard pointer and retries.</p>
+<h4 id="3-retirement">3. Retirement</h4>
+<p>When a modifying thread unlinks a node from the global structure, it
+does not invoke <code>delete</code>. Instead, it adds the node's pointer
+to a thread-local retired list. Because other threads might still
+possess valid references to this node that were published before the
+unlinking, the node must remain valid in memory for the time being.</p>
+<h4 id="4-reclamation-and-scanning">4. Reclamation and Scanning</h4>
+<p>Once a thread's retired list reaches a predefined threshold, the
+thread triggers a reclamation scan:</p>
+<ol type="1">
+<li>The thread collects all active hazard pointers published by all
+threads into a local list.</li>
+<li>It sorts or hashes these pointers to allow fast lookups.</li>
+<li>It iterates through its retired list. If a retired node's address is
+found among the collected hazard pointers, it remains in the retired
+list. If the address is absent, no reading thread is accessing it, and
+it is safely deallocated using <code>delete</code>.</li>
+</ol>
+<h3 id="concurrency-and-memory-ordering-in-c">Concurrency and Memory
+Ordering in C++</h3>
+<p>Hazard pointers rely heavily on strict memory orderings defined in
+the C++ memory model:</p>
+<ul>
+<li><strong>Acquire-Release Semantics</strong>: When a thread publishes
+to its hazard pointer, it uses <code>std::memory_order_release</code>
+(or sequentially consistent ordering) to guarantee that any prior setup
+is visible. The reader reads the shared structure using
+<code>std::memory_order_acquire</code>.</li>
+<li><strong>Sequential Consistency</strong>: In typical implementations,
+the publication of the hazard pointer and the subsequent re-read of the
+structure's pointer must not be reordered by the compiler or the CPU. A
+<code>std::atomic_thread_fence(std::memory_order_seq_cst)</code> is
+frequently required between storing the hazard pointer and validating
+the node.</li>
+</ul>
+<h3 id="hazard-pointers-vs-alternative-reclamation-schemes">Hazard
+Pointers vs. Alternative Reclamation Schemes</h3>
+<ul>
+<li><strong>Epoch-Based Reclamation (EBR)</strong>: EBR tracks time
+intervals (epochs). It has lower runtime overhead than hazard pointers
+because threads do not write to shared memory on every node access.
+However, if a single thread stalls in an epoch, all memory reclamation
+across the entire system halts. Hazard pointers do not suffer from this;
+an unresponsive reader only prevents the deallocation of the specific
+nodes it holds in its hazard slots.</li>
+<li><strong>Reference Counting (<code>std::shared_ptr</code>)</strong>:
+Atomic reference counting writes to the node's shared control block on
+every read and write, creating high cache-coherence traffic. Hazard
+pointers write only to thread-local or pre-assigned memory slots,
+drastically reducing contention on shared cache lines.</li>
+</ul>
+<p>Hazard pointers, which have been formalized in C++26 under the
+<code>&lt;hazard_pointer&gt;</code> header, strike an optimal balance
+for high-performance concurrent code: they provide deterministic,
+non-blocking progress guarantees and bounded memory usage while allowing
+readers to proceed concurrently without acquisition of mutual-exclusion
+locks.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

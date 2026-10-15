@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C++ Unions Manage Overlapping Memory Storage - cpp</title>
+    <meta name="description" content="In C++, a union is a user-defined data type that allows multiple data members of different types to occupy the same contiguous memory location. This article covers how the compiler allocates and aligns memory for unions, the single-offset model used to ac">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-c-unions-manage-overlapping-memory-storage">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C++ Unions Manage Overlapping Memory Storage - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-c-unions-manage-overlapping-memory-storage" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, a union is a user-defined data type that allows multiple data members of different types to occupy the same contiguous memory location. This article covers how the compiler allocates and aligns memory for unions, the single-offset model used to ac" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c-unions-manage-overlapping-memory-storage">How C++ Unions
+Manage Overlapping Memory Storage</h1>
+<p>In C++, a union is a user-defined data type that allows multiple data
+members of different types to occupy the same contiguous memory
+location. This article covers how the compiler allocates and aligns
+memory for unions, the single-offset model used to access members, the
+rules governing member lifetimes, and modern alternatives such as
+<code>std::variant</code>.</p>
+<h2 id="sizing-and-alignment-of-union-memory">Sizing and Alignment of
+Union Memory</h2>
+<p>When a union is declared, the compiler allocates a single block of
+memory rather than separate space for each member. The size of this
+memory block is determined by two factors:</p>
+<ol type="1">
+<li><strong>Size of the Largest Member:</strong> The allocated memory
+must be at least as large as the largest data member defined in the
+union.</li>
+<li><strong>Alignment Requirement:</strong> The total size and the
+starting memory address must satisfy the strictest alignment requirement
+among all members. The compiler may add trailing padding bytes to ensure
+the total size is an exact multiple of this alignment requirement.</li>
+</ol>
+<p>For example:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">union</span> Data <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> c<span class="op">;</span>      <span class="co">// size: 1 byte, alignment: 1</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> i<span class="op">;</span>       <span class="co">// size: 4 bytes, alignment: 4</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> d<span class="op">;</span>    <span class="co">// size: 8 bytes, alignment: 8</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>In this case, <code>sizeof(Data)</code> is 8 bytes, and its alignment
+is 8 bytes, matching the requirements of <code>double</code>.</p>
+<h2 id="shared-base-address-offset-zero">Shared Base Address (Offset
+Zero)</h2>
+<p>Every member within a union shares the exact same starting memory
+address. Unlike a <code>struct</code> or <code>class</code>, where
+members are stored sequentially at increasing offsets, every member of a
+standard union begins at offset zero from the address of the union
+object.</p>
+<p>When you write to one member, the processor writes raw bytes to this
+memory block according to that member's binary representation. If you
+then assign a value to another member, the processor writes the new
+value over the exact same bytes, partially or completely overwriting the
+previous value.</p>
+<h2 id="active-members-and-undefined-behavior">Active Members and
+Undefined Behavior</h2>
+<p>A union can only hold one valid value at any given time, known as the
+<em>active member</em>. Writing to a member makes it active.</p>
+<p>In standard C++, reading from a member that is not the active member
+leads to undefined behavior. While some compilers allow this
+practice—known as <em>type punning</em>—as an extension, the C++
+standard strictly enforces the active member rule. If you need to
+reinterpret the binary representation of an object as another type in
+modern C++, you should use <code>std::bit_cast</code> (available in
+C++20) or <code>std::memcpy</code> rather than reading an inactive union
+member.</p>
+<h2 id="managing-non-trivial-types">Managing Non-Trivial Types</h2>
+<p>Since C++11, unions can contain non-trivial types (such as types with
+custom constructors, destructors, or copy assignments). When a union
+contains a non-trivial member, the compiler deletes the union's default
+constructors and destructor.</p>
+<p>To manage non-trivial types in a union, the programmer must
+explicitly handle object lifecycles:</p>
+<ul>
+<li><strong>Construction:</strong> Initialize the active member using
+placement <code>new</code>.</li>
+<li><strong>Destruction:</strong> Explicitly invoke the destructor of
+the active member before activating another member or before the union
+goes out of scope.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;new&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">union</span> NonTrivialUnion <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string str<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> num<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    NonTrivialUnion<span class="op">()</span> <span class="op">{</span> num <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">~</span>NonTrivialUnion<span class="op">()</span> <span class="op">{}</span> <span class="co">// Must be user-defined</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Usage:</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>NonTrivialUnion u<span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>u<span class="op">.</span>num <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="co">// Switch to string:</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="kw">new</span> <span class="op">(&amp;</span>u<span class="op">.</span>str<span class="op">)</span> <span class="bu">std::</span>string<span class="op">(</span><span class="st">&quot;Hello, World!&quot;</span><span class="op">);</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="co">// Clean up string before switching back or destructing:</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>u<span class="op">.</span>str<span class="op">.~</span>basic_string<span class="op">();</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>u<span class="op">.</span>num <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span></code></pre></div>
+<h2 id="modern-alternative-stdvariant">Modern Alternative:
+<code>std::variant</code></h2>
+<p>Because native unions do not track which member is currently active,
+they are prone to logic bugs and undefined behavior. C++17 introduced
+<code>std::variant</code>, a type-safe union that manages storage
+overlap while automatically tracking the active type, safely calling
+constructors and destructors, and throwing an exception or returning
+null if an inactive type is accessed.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

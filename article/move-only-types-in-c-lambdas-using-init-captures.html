@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Move-Only Types in C++ Lambdas Using Init-Captures - cpp</title>
+    <meta name="description" content="This article explains how C++14 generalized lambda capture, commonly known as init-capture, enables developers to capture move-only types inside closures. Prior to C++14, lambdas were restricted to capturing variables by copy or by reference, making it im">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/move-only-types-in-c-lambdas-using-init-captures">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Move-Only Types in C++ Lambdas Using Init-Captures - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/move-only-types-in-c-lambdas-using-init-captures" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how C++14 generalized lambda capture, commonly known as init-capture, enables developers to capture move-only types inside closures. Prior to C++14, lambdas were restricted to capturing variables by copy or by reference, making it im" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="move-only-types-in-c-lambdas-using-init-captures">Move-Only
+Types in C++ Lambdas Using Init-Captures</h1>
+<p>This article explains how C++14 generalized lambda capture, commonly
+known as init-capture, enables developers to capture move-only types
+inside closures. Prior to C++14, lambdas were restricted to capturing
+variables by copy or by reference, making it impossible to transfer
+ownership of types like <code>std::unique_ptr</code> or
+<code>std::future</code> directly into a closure. By introducing custom
+initialization expressions into the capture clause, init-captures allow
+objects to be moved into the closure object, solving lifetime and
+ownership challenges cleanly and efficiently.</p>
+<h3 id="the-limitation-in-c11">The Limitation in C++11</h3>
+<p>In C++11, lambdas support two primary capture modes:</p>
+<ul>
+<li><strong>Capture by value (<code>[x]</code>):</strong> Copies the
+variable into the closure object.</li>
+<li><strong>Capture by reference (<code>[&amp;x]</code>):</strong>
+Stores a reference to the variable inside the closure object.</li>
+</ul>
+<p>Move-only types (such as <code>std::unique_ptr</code>,
+<code>std::thread</code>, or <code>std::promise</code>) have deleted
+copy constructors. Attempting to capture them by value produces a
+compilation error because copy construction is required. Conversely,
+capturing them by reference does not transfer ownership. If the lambda
+outlives the scope in which the move-only object was defined—such as
+when dispatching a task to a background thread or an event queue—the
+captured reference dangles, leading to undefined behavior.</p>
+<h3 id="how-init-captures-work">How Init-Captures Work</h3>
+<p>C++14 introduced <strong>init-capture</strong> (generalized lambda
+capture), which allows you to define a new member variable inside the
+closure and initialize it with an arbitrary expression:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="op">[</span>capture_name <span class="op">=</span> expression<span class="op">](</span><span class="co">/* parameters */</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">/* body */</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The identifier to the left of the <code>=</code> becomes a member
+variable of the generated closure class. The expression to the right of
+the <code>=</code> is evaluated in the scope where the lambda is
+created.</p>
+<p>Because the right-hand side can be any valid expression, you can wrap
+a variable in <code>std::move()</code>. This casts the source object to
+an rvalue, invoking the move constructor rather than the copy
+constructor when initializing the closure's internal variable.</p>
+<h3 id="capturing-a-move-only-type-code-example">Capturing a Move-Only
+Type: Code Example</h3>
+<p>Consider managing a dynamically allocated resource via
+<code>std::unique_ptr</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;memory&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;utility&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> data <span class="op">=</span> <span class="bu">std::</span>make_unique<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span><span class="dv">42</span><span class="op">);</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Init-capture moves &#39;data&#39; into &#39;captured_data&#39; within the closure</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> task <span class="op">=</span> <span class="op">[</span>captured_data <span class="op">=</span> <span class="bu">std::</span>move<span class="op">(</span>data<span class="op">)]()</span> <span class="op">{</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Value: &quot;</span> <span class="op">&lt;&lt;</span> <span class="op">*</span>captured_data <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// &#39;data&#39; is now null because ownership was moved into the closure</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span>data<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Original pointer is null.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    task<span class="op">();</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this example:</p>
+<ol type="1">
+<li><code>std::move(data)</code> produces an rvalue reference to
+<code>data</code>.</li>
+<li><code>captured_data</code> is initialized using the move constructor
+of <code>std::unique_ptr&lt;int&gt;</code>.</li>
+<li>The original pointer <code>data</code> becomes
+<code>nullptr</code>.</li>
+<li>The closure now holds sole ownership of the allocated integer,
+ensuring the resource remains valid as long as the lambda object
+exists.</li>
+</ol>
+<h3 id="variable-shadowing">Variable Shadowing</h3>
+<p>The variable name inside the closure does not need to differ from the
+original variable name. You can write:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> task <span class="op">=</span> <span class="op">[</span>data <span class="op">=</span> <span class="bu">std::</span>move<span class="op">(</span>data<span class="op">)]()</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="op">*</span>data <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Here, the left <code>data</code> lives inside the closure’s scope,
+while the right <code>data</code> refers to the variable in the
+enclosing scope.</p>
+<h3 id="the-role-of-mutable">The Role of <code>mutable</code></h3>
+<p>By default, a lambda’s function call operator
+(<code>operator()</code>) is marked <code>const</code>. If you need to
+modify the captured move-only object—or move it out of the lambda into
+another function—the lambda must be declared <code>mutable</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;memory&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;utility&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="bu">std::</span>unique_ptr<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> ptr<span class="op">);</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> ptr <span class="op">=</span> <span class="bu">std::</span>make_unique<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span><span class="dv">100</span><span class="op">);</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> consumer <span class="op">=</span> <span class="op">[</span>ptr <span class="op">=</span> <span class="bu">std::</span>move<span class="op">(</span>ptr<span class="op">)]()</span> <span class="at">mutable</span> <span class="op">{</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Without &#39;mutable&#39;, std::move(ptr) would yield a const rvalue,</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="co">// preventing the non-const move constructor from executing.</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        process<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>ptr<span class="op">));</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    consumer<span class="op">();</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Adding <code>mutable</code> removes the <code>const</code> qualifier
+from the closure’s <code>operator()</code>, allowing move operations and
+mutating member function calls on captured objects.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

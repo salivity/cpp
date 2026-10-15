@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::future Manages Thread Communication in C++ - cpp</title>
+    <meta name="description" content="In modern C++, std::future serves as a core synchronization primitive that enables a thread to asynchronously receive a result or exception computed by another thread. Instead of requiring developers to manually manage low-level primitives like condition">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-future-manages-thread-communication-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::future Manages Thread Communication in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-future-manages-thread-communication-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, std::future serves as a core synchronization primitive that enables a thread to asynchronously receive a result or exception computed by another thread. Instead of requiring developers to manually manage low-level primitives like condition" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdfuture-manages-thread-communication-in-c">How std::future
+Manages Thread Communication in C++</h1>
+<p>In modern C++, <code>std::future</code> serves as a core
+synchronization primitive that enables a thread to asynchronously
+receive a result or exception computed by another thread. Instead of
+requiring developers to manually manage low-level primitives like
+condition variables, mutexes, and shared memory buffers,
+<code>std::future</code> encapsulates this communication channel through
+an internal construct known as the "shared state." This article explores
+how <code>std::future</code> coordinates with asynchronous providers
+such as <code>std::promise</code>, <code>std::packaged_task</code>, and
+<code>std::async</code> to ensure thread-safe data transfer,
+synchronization, and exception handling.</p>
+<h3 id="the-mechanism-of-the-shared-state">The Mechanism of the Shared
+State</h3>
+<p>At the heart of <code>std::future</code> is the shared state—a
+control block managed automatically by the C++ runtime. The consumer
+(the <code>std::future</code> instance) and the producer (such as a
+<code>std::promise</code> or an internal task handle) both hold
+references to this shared state.</p>
+<p>The shared state maintains:</p>
+<ul>
+<li>The status of the asynchronous operation (unready, ready, or
+abandoned).</li>
+<li>The storage space for the result or a
+<code>std::exception_ptr</code>.</li>
+<li>Synchronization mechanisms, typically implemented internally via a
+mutex and a condition variable, to wake up waiting threads when data
+becomes available.</li>
+</ul>
+<p>Because the shared state is reference-counted, it safely persists
+until both the producer and all associated consumer objects have
+released their handles, preventing race conditions during thread
+termination.</p>
+<h3 id="producers-and-data-delivery">Producers and Data Delivery</h3>
+<p>A <code>std::future</code> does not generate data on its own; it
+receives data from an asynchronous provider. C++ provides three primary
+ways to populate the shared state:</p>
+<ol type="1">
+<li><strong><code>std::promise</code></strong>: Offers explicit,
+fine-grained control. A worker thread can call
+<code>promise.set_value(data)</code> or
+<code>promise.set_exception(ptr)</code> to fulfill the contract and
+transition the shared state to the ready state.</li>
+<li><strong><code>std::packaged_task</code></strong>: Wraps a callable
+object (such as a function, lambda, or functor) and automatically
+forwards its return value or any uncaught exception to the associated
+<code>std::future</code>.</li>
+<li><strong><code>std::async</code></strong>: A high-level abstraction
+that runs a callable—often on a newly spawned thread or a runtime thread
+pool—and directly returns a <code>std::future</code> holding the pending
+result.</li>
+</ol>
+<h3 id="synchronization-blocking-and-polling">Synchronization, Blocking,
+and Polling</h3>
+<p>The consumer thread interacts with <code>std::future</code> to
+retrieve the operation's outcome using two main approaches:</p>
+<ul>
+<li><strong>Blocking Retrieval (<code>.get()</code>)</strong>: Calling
+<code>.get()</code> pauses the calling thread until the shared state is
+flagged as ready. Once ready, the value is returned (or moved) to the
+caller. Calling <code>.get()</code> invalidates the
+<code>std::future</code>, as it is a move-only object designed for
+single retrieval. If multiple threads must read the same result,
+<code>std::future::share()</code> can be used to generate a copyable
+<code>std::shared_future</code>.</li>
+<li><strong>Timed Waiting (<code>.wait()</code>,
+<code>.wait_for()</code>, <code>.wait_until()</code>)</strong>:
+Consumers can poll or wait with a timeout without immediately consuming
+the value. For example,
+<code>.wait_for(std::chrono::milliseconds(100))</code> returns a
+<code>std::future_status</code> (<code>ready</code>,
+<code>timeout</code>, or <code>deferred</code>), allowing a thread to
+perform other tasks while periodically checking the status of the worker
+thread.</li>
+</ul>
+<h3 id="exception-propagation">Exception Propagation</h3>
+<p>A major advantage of <code>std::future</code> over traditional thread
+communication mechanisms is seamless exception handling across thread
+boundaries. If an asynchronous operation throws an unhandled exception,
+the producer captures it using <code>std::current_exception()</code> and
+stores it in the shared state instead of a value. When the consumer
+thread eventually calls <code>.get()</code>, the runtime re-throws the
+stored exception in the context of the calling thread, allowing standard
+<code>try-catch</code> blocks to handle errors originating from separate
+threads.</p>
+<h3 id="destruction-and-lifecycle-behavior">Destruction and Lifecycle
+Behavior</h3>
+<p>The lifecycle of a <code>std::future</code> dictates specific
+synchronization behaviors. If a <code>std::promise</code> is destroyed
+before setting a value or exception, its shared state becomes broken,
+and the associated <code>std::future</code> will throw a
+<code>std::future_error</code> with the code
+<code>std::future_errc::broken_promise</code> upon calling
+<code>.get()</code>.</p>
+<p>Additionally, a <code>std::future</code> obtained specifically from a
+non-deferred <code>std::async</code> call has a unique destructor
+property: its destructor will block until the asynchronous task
+completes, ensuring that detached background operations do not cause
+undefined behavior upon exiting scope.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

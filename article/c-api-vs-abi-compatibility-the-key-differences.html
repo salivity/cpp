@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ API vs ABI Compatibility: The Key Differences - cpp</title>
+    <meta name="description" content="When updating the C++ language standard, compilers, or third-party libraries, developers must navigate two distinct levels of interoperability: Application Programming Interface (API) compatibility and Application Binary Interface (ABI) compatibility. Thi">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-api-vs-abi-compatibility-the-key-differences">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ API vs ABI Compatibility: The Key Differences - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-api-vs-abi-compatibility-the-key-differences" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When updating the C++ language standard, compilers, or third-party libraries, developers must navigate two distinct levels of interoperability: Application Programming Interface (API) compatibility and Application Binary Interface (ABI) compatibility. Thi" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-api-vs-abi-compatibility-the-key-differences">C++ API vs ABI
+Compatibility: The Key Differences</h1>
+<p>When updating the C++ language standard, compilers, or third-party
+libraries, developers must navigate two distinct levels of
+interoperability: Application Programming Interface (API) compatibility
+and Application Binary Interface (ABI) compatibility. This article
+defines both concepts, outlines the technical differences between them
+in C++, and explains why maintaining or breaking them poses unique
+challenges for software maintenance and performance.</p>
+<h3 id="what-is-api-compatibility">What is API Compatibility?</h3>
+<p>API compatibility concerns the source code level. An update is
+API-compatible (or source-compatible) if existing code can be recompiled
+against the updated library or compiler without generating compilation
+errors or changing program behavior.</p>
+<p>API compatibility guarantees that:</p>
+<ul>
+<li>Function names, signatures, and access qualifiers remain
+unchanged.</li>
+<li>Classes, namespaces, and templates retain their expected
+interfaces.</li>
+<li>Overload resolutions and type conversions resolve consistently with
+previous versions.</li>
+</ul>
+<p>If a library maintainer removes a public method, renames a type, or
+changes a parameter from <code>int</code> to <code>std::string</code>,
+they break API compatibility. Developers must manually edit their source
+code to fix the resulting compile-time errors.</p>
+<h3 id="what-is-abi-compatibility">What is ABI Compatibility?</h3>
+<p>ABI compatibility concerns the binary level. An update is
+ABI-compatible (or binary-compatible) if existing pre-compiled binaries
+(such as <code>.dll</code>, <code>.so</code>, or static <code>.a</code>
+files) can link and run successfully with the updated components without
+recompiling the original source code.</p>
+<p>ABI encompasses machine-level specifications, including:</p>
+<ul>
+<li><strong>Object Layout:</strong> The memory size, alignment, and
+internal byte offsets of non-static data members within a class or
+struct.</li>
+<li><strong>Name Mangling:</strong> How the compiler encodes function
+names, namespaces, and parameter types into symbol names for the
+linker.</li>
+<li><strong>Calling Conventions:</strong> How arguments are passed (via
+specific registers or the stack) and how return values are handled.</li>
+<li><strong>Vtable Layout:</strong> The structure and ordering of
+function pointers in the virtual table used for dynamic dispatch.</li>
+<li><strong>Exception Handling:</strong> The mechanisms and runtime
+metadata used to propagate and catch exceptions.</li>
+</ul>
+<p>If a library update alters any of these binary structures, running an
+older binary with the new library leads to undefined behavior, memory
+corruption, or runtime crashes.</p>
+<h3 id="key-differences-between-api-and-abi-in-c">Key Differences
+Between API and ABI in C++</h3>
+<p>While API ensures code compiles, ABI ensures already-compiled
+binaries execute correctly together. In C++, it is remarkably easy to
+preserve the API while completely breaking the ABI.</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Characteristic</th>
+<th style="text-align: left;">API Compatibility</th>
+<th style="text-align: left;">ABI Compatibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Domain</strong></td>
+<td style="text-align: left;">Source code</td>
+<td style="text-align: left;">Machine code / Binary files</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Enforced By</strong></td>
+<td style="text-align: left;">The Compiler</td>
+<td style="text-align: left;">The Linker and Dynamic Loader</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Break Resolution</strong></td>
+<td style="text-align: left;">Edit source code and recompile</td>
+<td style="text-align: left;">Recompile all dependent components</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Visibility</strong></td>
+<td style="text-align: left;">Compile-time failures</td>
+<td style="text-align: left;">Often silent runtime memory bugs or
+crashes</td>
+</tr>
+</tbody>
+</table>
+<h4 id="breaking-abi-without-breaking-api">Breaking ABI Without Breaking
+API</h4>
+<p>A common scenario in C++ is breaking binary compatibility without
+touching the public interface. For example, adding a private data member
+to a class:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Version 1.0</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Widget <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> process<span class="op">();</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Version 1.1</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Widget <span class="op">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> process<span class="op">();</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> priority<span class="op">;</span> <span class="co">// Added private member</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>This change does not break API compatibility; existing code using
+<code>Widget::process()</code> will compile cleanly. However, it breaks
+ABI compatibility because <code>sizeof(Widget)</code> has changed. A
+pre-compiled binary expecting an object of the original size will
+allocate insufficient memory or access members at incorrect offsets when
+interacting with code compiled against the updated definition.</p>
+<p>Similarly, changing the order of virtual functions in a class
+preserves source compatibility but shuffles the vtable indexes, causing
+binaries to call the wrong functions at runtime.</p>
+<h3 id="why-abi-vs-api-matters-in-c-evolution">Why ABI vs. API Matters
+in C++ Evolution</h3>
+<p>The C++ standard library maintainers and the ISO C++ Committee
+frequently face a trade-off between ABI stability and modern
+performance. Preserving ABI compatibility allows operating systems and
+large enterprise ecosystems to upgrade shared system libraries without
+forcing every application on the system to be recompiled.</p>
+<p>However, strict ABI stability prevents the adoption of better data
+structures, optimizations (such as passing small structs in CPU
+registers), and bug fixes inside standard types like
+<code>std::regex</code> or <code>std::string</code>. Breaking ABI
+enables maximum runtime efficiency and modernized designs, but it
+requires a coordinated recompilation of all interacting binaries across
+the entire software stack.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

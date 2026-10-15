@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Does std::forward Work in C++? - cpp</title>
+    <meta name="description" content="Perfect forwarding in C++ enables a generic wrapper function to accept arguments and pass them along to another target function while preserving their original value category, whether an lvalue or an rvalue, as well as their const qualifiers. Without perf">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-does-std-forward-work-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Does std::forward Work in C++? - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-does-std-forward-work-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Perfect forwarding in C++ enables a generic wrapper function to accept arguments and pass them along to another target function while preserving their original value category, whether an lvalue or an rvalue, as well as their const qualifiers. Without perf" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-does-stdforward-work-in-c">How Does std::forward Work in
+C++?</h1>
+<p>Perfect forwarding in C++ enables a generic wrapper function to
+accept arguments and pass them along to another target function while
+preserving their original value category, whether an lvalue or an
+rvalue, as well as their <code>const</code> qualifiers. Without perfect
+forwarding, arguments passed by name within a function body always
+evaluate as lvalues, causing unexpected deep copies instead of efficient
+moves. C++ achieves this through a combination of universal references
+(forwarding references), template argument deduction, reference
+collapsing rules, and the conditional casting mechanism provided by
+<code>std::forward</code>.</p>
+<h2 id="the-core-problem-in-generic-code">The Core Problem in Generic
+Code</h2>
+<p>In generic programming, wrapper functions often accept arguments to
+construct objects or delegate tasks. Consider a factory pattern or a
+logging wrapper:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> </span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>T create<span class="op">(</span>Arg arg<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> T<span class="op">(</span>arg<span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Passing parameters by value can incur expensive copies. If you
+instead pass by <code>const Arg&amp;</code>, temporary objects and
+rvalues cannot be moved, and non-const lvalues cannot be modified.
+Overloading for every possible permutation of <code>const</code> and
+non-const references quickly leads to an exponential explosion of code
+when a function accepts multiple arguments.</p>
+<p>Furthermore, even if an rvalue reference like
+<code>Arg&amp;&amp;</code> is accepted, the named parameter inside the
+function body itself is an lvalue. If passed directly to another
+function, it resolves to an lvalue overload, preventing move semantics
+unless cast explicitly.</p>
+<h2 id="forwarding-references-and-type-deduction">Forwarding References
+and Type Deduction</h2>
+<p>To solve this, C++11 introduced forwarding references (also called
+universal references). A forwarding reference takes the form
+<code>T&amp;&amp;</code>, where <code>T</code> is a deduced template
+parameter for that specific function call:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> </span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> wrapper<span class="op">(</span>T<span class="op">&amp;&amp;</span> arg<span class="op">);</span></span></code></pre></div>
+<p>When an argument is passed to <code>wrapper(T&amp;&amp;)</code>:</p>
+<ul>
+<li>If the caller passes an <strong>lvalue</strong> of type
+<code>X</code>, <code>T</code> is deduced as an lvalue reference:
+<code>X&amp;</code>. The parameter type becomes
+<code>X&amp; &amp;&amp;</code>.</li>
+<li>If the caller passes an <strong>rvalue</strong> of type
+<code>X</code>, <code>T</code> is deduced as the raw object type:
+<code>X</code>. The parameter type becomes
+<code>X&amp;&amp;</code>.</li>
+</ul>
+<h2 id="reference-collapsing-rules">Reference Collapsing Rules</h2>
+<p>Because C++ does not allow references to references directly in user
+code, the compiler applies reference collapsing during template
+instantiation according to strict rules:</p>
+<ul>
+<li><code>&amp;</code> with <code>&amp;</code> collapses to
+<code>&amp;</code></li>
+<li><code>&amp;</code> with <code>&amp;&amp;</code> collapses to
+<code>&amp;</code></li>
+<li><code>&amp;&amp;</code> with <code>&amp;</code> collapses to
+<code>&amp;</code></li>
+<li><code>&amp;&amp;</code> with <code>&amp;&amp;</code> collapses to
+<code>&amp;&amp;</code></li>
+</ul>
+<p>Applying these rules to the wrapper:</p>
+<ul>
+<li>Passing an <strong>lvalue</strong> (<code>X&amp;</code>):
+<code>X&amp; &amp;&amp;</code> collapses to <code>X&amp;</code> (an
+lvalue reference).</li>
+<li>Passing an <strong>rvalue</strong> (<code>X</code>):
+<code>X&amp;&amp;</code> remains <code>X&amp;&amp;</code> (an rvalue
+reference).</li>
+</ul>
+<p>This deduction ensures the function signature adapts dynamically to
+preserve the argument's reference type.</p>
+<h2 id="how-stdforward-works">How std::forward Works</h2>
+<p>While the deduced type retains knowledge of whether the caller
+supplied an lvalue or an rvalue, the parameter <code>arg</code> inside
+the function body is an entity with a name. By definition in C++, any
+expression consisting solely of a named variable has an lvalue value
+category.</p>
+<p><code>std::forward</code> restores the original value category
+through a conditional static cast. Its standard implementation resembles
+the following:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> </span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> T<span class="op">&amp;&amp;</span> forward<span class="op">(</span><span class="bu">std::</span>remove_reference_t<span class="op">&amp;</span> param<span class="op">)</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">static_cast</span><span class="op">(</span>param<span class="op">);</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> </span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> T<span class="op">&amp;&amp;</span> forward<span class="op">(</span><span class="bu">std::</span>remove_reference_t<span class="op">&amp;&amp;</span> param<span class="op">)</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">static_assert</span><span class="op">(!</span><span class="bu">std::</span>is_lvalue_reference_v<span class="op">,</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>                  <span class="st">&quot;Template argument must not be an lvalue reference for rvalue overload.&quot;</span><span class="op">);</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">static_cast</span><span class="op">(</span>param<span class="op">);</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="case-1-an-lvalue-was-passed-to-the-wrapper">Case 1: An Lvalue
+Was Passed to the Wrapper</h3>
+<ol type="1">
+<li>Caller passes an lvalue <code>w</code> of type
+<code>Widget</code>.</li>
+<li><code>T</code> is deduced as <code>Widget&amp;</code>.</li>
+<li>The wrapper receives <code>Widget&amp; arg</code>.</li>
+<li>Inside the wrapper, <code>std::forward(arg)</code> is called.</li>
+<li>Inside <code>std::forward</code>, the return type is
+<code>Widget&amp; &amp;&amp;</code>, which collapses to
+<code>Widget&amp;</code>.</li>
+<li><code>static_cast(arg)</code> returns an lvalue reference,
+preserving lvalue semantics.</li>
+</ol>
+<h3 id="case-2-an-rvalue-was-passed-to-the-wrapper">Case 2: An Rvalue
+Was Passed to the Wrapper</h3>
+<ol type="1">
+<li>Caller passes a temporary or moved value <code>Widget{}</code>.</li>
+<li><code>T</code> is deduced as <code>Widget</code>.</li>
+<li>The wrapper receives <code>Widget&amp;&amp; arg</code>.</li>
+<li>Inside the wrapper, <code>std::forward(arg)</code> is called.</li>
+<li>Inside <code>std::forward</code>, the return type is
+<code>Widget&amp;&amp;</code>.</li>
+<li><code>static_cast(arg)</code> casts the named lvalue
+<code>arg</code> back into an rvalue expression (xvalue), allowing
+downstream functions to move it.</li>
+</ol>
+<h2 id="practical-implementation-example">Practical Implementation
+Example</h2>
+<p>A standard application of perfect forwarding is in functions like
+<code>std::make_unique</code> or container emplace operations:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Resource <span class="op">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    Resource<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> name<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Copied name: &quot;</span> <span class="op">&lt;&lt;</span> name <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    Resource<span class="op">(</span><span class="bu">std::</span>string<span class="op">&amp;&amp;</span> name<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Moved name: &quot;</span> <span class="op">&lt;&lt;</span> name <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> </span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>unique_ptr make_resource<span class="op">(</span>Args<span class="op">&amp;&amp;...</span> args<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">std::</span>unique_ptr<span class="op">(</span><span class="kw">new</span> T<span class="op">(</span><span class="bu">std::</span>forward<span class="op">(</span>args<span class="op">)...));</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string text <span class="op">=</span> <span class="st">&quot;Persistent&quot;</span><span class="op">;</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calls the copy constructor because &#39;text&#39; is an lvalue</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> r1 <span class="op">=</span> make_resource<span class="op">(</span>text<span class="op">);</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calls the move constructor because a temporary is an rvalue</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> r2 <span class="op">=</span> make_resource<span class="op">(</span><span class="bu">std::</span>string<span class="op">(</span><span class="st">&quot;Temporary&quot;</span><span class="op">));</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By encoding the argument's category into the template parameter
+<code>Args</code> and using <code>std::forward(args)...</code>, each
+argument arrives at the <code>Resource</code> constructor in its
+original state without unnecessary allocations or duplicate wrapper
+overloads.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

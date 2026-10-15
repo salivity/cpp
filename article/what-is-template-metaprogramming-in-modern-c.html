@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is Template Metaprogramming in Modern C++? - cpp</title>
+    <meta name="description" content="Template metaprogramming (TMP) in modern C++ shifts computation, type deduction, and structural decision-making from runtime to compile time. Originally discovered as an accidental Turing-complete side effect of the template instantiation system, TMP has">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/what-is-template-metaprogramming-in-modern-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is Template Metaprogramming in Modern C++? - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/what-is-template-metaprogramming-in-modern-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Template metaprogramming (TMP) in modern C++ shifts computation, type deduction, and structural decision-making from runtime to compile time. Originally discovered as an accidental Turing-complete side effect of the template instantiation system, TMP has" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-template-metaprogramming-in-modern-c">What Is Template
+Metaprogramming in Modern C++?</h1>
+<p>Template metaprogramming (TMP) in modern C++ shifts computation, type
+deduction, and structural decision-making from runtime to compile time.
+Originally discovered as an accidental Turing-complete side effect of
+the template instantiation system, TMP has evolved into a deliberate and
+foundational design pillar of the language. Its primary objectives are
+to eliminate runtime overhead, enforce rigorous type safety before
+execution, generate boilerplate-free code, and enable expressive,
+zero-cost abstractions across complex software architectures.</p>
+<h2
+id="compile-time-computation-and-zero-cost-abstractions">Compile-Time
+Computation and Zero-Cost Abstractions</h2>
+<p>At its core, template metaprogramming enables algorithms to execute
+during compilation rather than while the program runs. Early C++ relied
+on template recursion and struct specialization to perform math or
+evaluate conditions. In modern standards, language features like
+<code>constexpr</code>, <code>consteval</code>, and fold expressions
+make compile-time computation direct and readable.</p>
+<p>By calculating values, lookup tables, and state transitions during
+compilation, developers eliminate execution overhead entirely. The
+generated binary contains the precomputed results embedded as constants,
+drastically reducing runtime latency without sacrificing code clarity or
+expressiveness.</p>
+<h2 id="static-type-safety-and-domain-constraints">Static Type Safety
+and Domain Constraints</h2>
+<p>Beyond numeric computation, metaprogramming operates extensively on
+types themselves. Through type traits and compile-time introspection,
+developers can inspect, transform, and validate types before a program
+compiles.</p>
+<p>Modern C++ formalizes this capability through
+<strong>Concepts</strong>. Concepts allow libraries to set strict
+requirements on template arguments, verifying properties such as
+copyability, arithmetic behavior, or specific interface compliance. If
+an invalid type is passed, the compiler catches the error immediately
+and outputs clean diagnostics rather than deeply nested template errors.
+This static verification ensures that generic components behave
+predictably and fail fast at build time.</p>
+<h2 id="policy-based-design-and-code-generation">Policy-Based Design and
+Code Generation</h2>
+<p>Template metaprogramming allows libraries to generate tailored code
+variants automatically. Instead of relying on runtime polymorphism
+through virtual function tables, TMP enables static polymorphism via
+patterns like the Curiously Recurring Template Pattern (CRTP).</p>
+<p>This strategy lets developers build modular, highly decoupled systems
+using policy-based design. A generic class can accept storage,
+threading, or serialization policies as template parameters, allowing
+the compiler to assemble specialized, highly optimized implementations
+inline. Dead paths are discarded using <code>if constexpr</code>,
+ensuring that unused features never add runtime branches or bloat the
+compiled binary.</p>
+<h2 id="foundation-for-standard-libraries-and-frameworks">Foundation for
+Standard Libraries and Frameworks</h2>
+<p>Modern C++ standard library utilities rely heavily on template
+metaprogramming to deliver safe, flexible, and efficient primitives:</p>
+<ul>
+<li><strong>Variant and Tuple types:</strong> <code>std::variant</code>,
+<code>std::tuple</code>, and <code>std::optional</code> manage
+heterogeneous collections and type-safe unions without dynamic memory
+allocation.</li>
+<li><strong>Smart pointers:</strong> <code>std::unique_ptr</code> uses
+custom deleters embedded directly into the type definition, avoiding
+runtime indirection.</li>
+<li><strong>Ranges and Views:</strong> The ranges library uses
+compile-time composition and iterator categories to chain data
+transformations with zero overhead.</li>
+</ul>
+<p>The ultimate purpose of template metaprogramming in modern C++ is to
+bridge the gap between high-level abstraction and low-level performance.
+By shifting validation, optimization, and code generation to the
+compiler, modern C++ ensures that expressive, generic architecture
+incurs no penalty at runtime.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

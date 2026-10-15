@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Temporary Lifetime Extension With Const References - cpp</title>
+    <meta name="description" content="In C++, temporary objects normally destruct at the end of the full-expression in which they are created. However, the C++ standard provides a mechanism where binding a temporary object to a const lvalue reference (or an rvalue reference) extends the tempo">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-temporary-lifetime-extension-with-const-references">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Temporary Lifetime Extension With Const References - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-temporary-lifetime-extension-with-const-references" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, temporary objects normally destruct at the end of the full-expression in which they are created. However, the C++ standard provides a mechanism where binding a temporary object to a const lvalue reference (or an rvalue reference) extends the tempo" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-temporary-lifetime-extension-with-const-references">C++
+Temporary Lifetime Extension With Const References</h1>
+<p>In C++, temporary objects normally destruct at the end of the
+full-expression in which they are created. However, the C++ standard
+provides a mechanism where binding a temporary object to a
+<code>const</code> lvalue reference (or an rvalue reference) extends the
+temporary's lifetime to match the lifetime of the reference itself. This
+article covers the specific conditions required for this extension to
+occur, how it applies to sub-objects, and the critical edge cases where
+lifetime extension fails.</p>
+<h3 id="core-conditions-for-lifetime-extension">Core Conditions for
+Lifetime Extension</h3>
+<p>For lifetime extension to take place, the temporary object must
+satisfy the following criteria:</p>
+<ol type="1">
+<li><p><strong>Direct Initialization of a Reference</strong>: The
+temporary must be directly bound to a reference to <code>const</code>
+(or a <code>const&amp;&amp;</code> / <code>&amp;&amp;</code> rvalue
+reference) during the reference's declaration.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> ref <span class="op">=</span> <span class="bu">std::</span>string<span class="op">(</span><span class="st">&quot;Hello&quot;</span><span class="op">);</span> <span class="co">// Lifetime extended to match &#39;ref&#39;</span></span></code></pre></div></li>
+<li><p><strong>Local Scope Association</strong>: The reference must be
+an automatic (local) variable, a namespace-scope variable, or a
+<code>static</code> variable. The temporary persists until the reference
+goes out of scope or the program terminates.</p></li>
+</ol>
+<h3 id="extension-with-sub-objects-and-member-access">Extension with
+Sub-Objects and Member Access</h3>
+<p>Lifetime extension recursively applies when referencing a sub-object
+of a temporary:</p>
+<ul>
+<li><p><strong>Direct Member Access</strong>: If a <code>const</code>
+reference binds to a public data member of a temporary class or
+aggregate, the lifetime of the entire containing temporary object is
+extended.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Pair <span class="op">{</span> <span class="dt">int</span> a<span class="op">;</span> <span class="bu">std::</span>string b<span class="op">;</span> <span class="op">};</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> ref <span class="op">=</span> Pair<span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="st">&quot;Data&quot;</span><span class="op">}.</span>b<span class="op">;</span> <span class="co">// Entire Pair object&#39;s lifetime is extended</span></span></code></pre></div></li>
+<li><p><strong>Array Elements</strong>: If an array temporary is
+indexed, binding a reference to an element extends the lifetime of the
+entire temporary array.</p></li>
+</ul>
+<h3 id="conditional-operator-exceptions">Conditional Operator
+Exceptions</h3>
+<p>When using the ternary conditional operator (<code>?:</code>), the
+lifetime of a temporary operand is extended if the conditional
+expression evaluates to that temporary and binds to a reference:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> ref <span class="op">=</span> condition <span class="op">?</span> <span class="bu">std::</span>string<span class="op">(</span><span class="st">&quot;A&quot;</span><span class="op">)</span> <span class="op">:</span> <span class="bu">std::</span>string<span class="op">(</span><span class="st">&quot;B&quot;</span><span class="op">);</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co">// Whichever temporary is selected has its lifetime extended to match &#39;ref&#39;</span></span></code></pre></div>
+<h3 id="situations-where-lifetime-extension-does-not-apply">Situations
+Where Lifetime Extension Does Not Apply</h3>
+<p>The C++ standard explicitly defines boundaries where lifetime
+extension does not occur, often leading to dangling references:</p>
+<ol type="1">
+<li><strong>Function Parameters</strong>: A temporary passed by
+<code>const&amp;</code> to a function has its lifetime extended only
+until the end of the full-expression evaluating the function call. It
+does not persist within the function beyond that call.</li>
+<li><strong>Function Return Values</strong>: Returning a reference to a
+temporary created inside a function does not extend the temporary's
+lifetime outside the function scope. The object is destroyed upon
+function exit, returning a dangling reference.</li>
+<li><strong>Class Member Initializers</strong>: Binding a temporary to a
+reference member within a constructor's member initializer list does not
+extend the temporary's lifetime to match the containing class instance.
+The temporary is destroyed immediately upon completion of the
+constructor, leaving the member reference dangling.</li>
+<li><strong>Dynamic Allocation (<code>new</code>)</strong>: In a
+<code>new</code> expression, binding a temporary to a reference member
+of the dynamically allocated object extends the temporary only until the
+end of the full-expression containing the <code>new</code> operator, not
+until the object is deleted.</li>
+<li><strong>Transitive Function Calls</strong>: If a temporary is passed
+to a function that returns a reference to that temporary, binding the
+result to a <code>const</code> reference does not extend the original
+temporary's lifetime; it destructs at the end of the statement.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

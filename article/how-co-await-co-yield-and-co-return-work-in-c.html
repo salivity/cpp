@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How co_await, co_yield, and co_return Work in C++ - cpp</title>
+    <meta name="description" content="C++20 introduced coroutines, enabling functions to suspend execution and resume later without blocking the underlying operating system thread. This non-preemptive multitasking model is driven by three core operators: coawait, coyield, and coreturn. Togeth">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-co-await-co-yield-and-co-return-work-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How co_await, co_yield, and co_return Work in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-co-await-co-yield-and-co-return-work-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="C++20 introduced coroutines, enabling functions to suspend execution and resume later without blocking the underlying operating system thread. This non-preemptive multitasking model is driven by three core operators: coawait, coyield, and coreturn. Togeth" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-co_await-co_yield-and-co_return-work-in-c">How co_await,
+co_yield, and co_return Work in C++</h1>
+<p>C++20 introduced coroutines, enabling functions to suspend execution
+and resume later without blocking the underlying operating system
+thread. This non-preemptive multitasking model is driven by three core
+operators: <code>co_await</code>, <code>co_yield</code>, and
+<code>co_return</code>. Together, these keywords dictate execution flow
+by passing control back and forth between the coroutine and its caller:
+<code>co_await</code> suspends execution until an operation finishes,
+<code>co_yield</code> returns an intermediate value before pausing, and
+<code>co_return</code> delivers a final value and terminates the
+coroutine's body.</p>
+<h3 id="the-coroutine-state-and-promise-object">The Coroutine State and
+Promise Object</h3>
+<p>When a function uses any of the three coroutine operators, the
+compiler transforms it into a state machine. Rather than executing on
+the standard call stack, the coroutine's local variables, parameters,
+and current point of execution are stored in a heap-allocated coroutine
+frame.</p>
+<p>The execution flow between the caller and the coroutine is
+coordinated by an internal customization point known as the
+<strong>Promise Object</strong>
+(<code>std::coroutine_traits&lt;...&gt;::promise_type</code>). Each
+keyword directly invokes methods on this promise object to alter the
+flow of control.</p>
+<hr />
+<h3
+id="co_await-conditional-suspension-and-resumption"><code>co_await</code>:
+Conditional Suspension and Resumption</h3>
+<p>The <code>co_await</code> operator pauses the coroutine until a
+specific condition is met, handing execution back to the caller or an
+event loop.</p>
+<p>When <code>co_await &lt;expr&gt;</code> is evaluated:</p>
+<ol type="1">
+<li>The expression is converted into an <strong>Awaiter</strong> object
+(via <code>operator co_await</code> or promise transformations).</li>
+<li>The awaiter's <code>await_ready()</code> method is invoked. If it
+returns <code>true</code>, execution continues immediately without
+suspension.</li>
+<li>If it returns <code>false</code>, the coroutine is suspended. The
+compiler saves local variables and registers into the coroutine
+frame.</li>
+<li>The awaiter's <code>await_suspend(handle)</code> is called:
+<ul>
+<li>If it returns <code>void</code>, control immediately returns to the
+caller or resumer.</li>
+<li>If it returns <code>false</code>, the coroutine is immediately
+resumed.</li>
+<li>If it returns another coroutine handle (symmetric transfer), control
+transfers directly to that coroutine.</li>
+</ul></li>
+<li>Once resumed from the outside (via <code>handle.resume()</code>),
+<code>await_resume()</code> executes, returning the result of the
+<code>co_await</code> expression and resuming linear execution.</li>
+</ol>
+<hr />
+<h3 id="co_yield-emitting-data-and-pausing"><code>co_yield</code>:
+Emitting Data and Pausing</h3>
+<p>The <code>co_yield</code> operator produces a sequence of values
+lazily, typically used in generators or data streams. It sends a value
+to the caller and pauses the coroutine until the caller requests the
+next item.</p>
+<p>Under the hood, <code>co_yield &lt;expr&gt;</code> is syntactic sugar
+for:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">co_await</span> promise<span class="op">.</span>yield_value<span class="op">(&lt;</span>expr<span class="op">&gt;);</span></span></code></pre></div>
+<p>The execution flow proceeds as follows:</p>
+<ol type="1">
+<li>The coroutine evaluates <code>&lt;expr&gt;</code> and passes it to
+<code>promise.yield_value()</code>.</li>
+<li>The promise object stores or processes the value so the consumer can
+access it.</li>
+<li><code>yield_value</code> returns an awaitable type (frequently
+<code>std::suspend_always</code>).</li>
+<li>The coroutine suspends itself, and control returns directly to the
+caller at the site of the resumption call (such as a generator’s
+iterator increment).</li>
+<li>The coroutine remains frozen until the consumer explicitly resumes
+it.</li>
+</ol>
+<hr />
+<h3 id="co_return-finalizing-execution"><code>co_return</code>:
+Finalizing Execution</h3>
+<p>The <code>co_return</code> operator marks the end of a coroutine's
+execution lifecycle. Unlike a standard <code>return</code> statement,
+<code>co_return</code> coordinates with the promise object to clean up
+resources and notify waiting entities that no more work will be
+done.</p>
+<p>When <code>co_return &lt;expr&gt;</code> (or <code>co_return;</code>)
+is encountered:</p>
+<ol type="1">
+<li>The compiler executes:
+<ul>
+<li><code>promise.return_value(&lt;expr&gt;)</code> if an expression is
+provided.</li>
+<li><code>promise.return_void()</code> if no expression is provided or
+the coroutine exits naturally.</li>
+</ul></li>
+<li>Local variables in the coroutine body are destroyed in reverse order
+of their construction.</li>
+<li>The coroutine executes
+<code>co_await promise.final_suspend()</code>.
+<ul>
+<li>If <code>final_suspend</code> returns
+<code>std::suspend_always</code>, the coroutine pauses in a completed
+state, keeping the coroutine frame alive so the caller can extract
+results or inspect state before destroying the handle explicitly.</li>
+<li>If <code>final_suspend</code> returns
+<code>std::suspend_never</code>, the coroutine frame is automatically
+destroyed immediately upon completion.</li>
+</ul></li>
+<li>Control returns to the resumer for the final time. Subsequent
+attempts to resume a completed coroutine result in undefined
+behavior.</li>
+</ol>
+<hr />
+<h3 id="summary-of-control-transfers">Summary of Control Transfers</h3>
+<ul>
+<li><strong>Calling/Resuming:</strong> Caller calls a coroutine or
+invokes <code>handle.resume()</code> <span
+class="math inline">\(\rightarrow\)</span> execution enters the
+coroutine frame.</li>
+<li><strong><code>co_await</code>:</strong> Coroutine checks condition
+<span class="math inline">\(\rightarrow\)</span> if pending, saves state
+and returns control to caller.</li>
+<li><strong><code>co_yield</code>:</strong> Coroutine writes a value
+<span class="math inline">\(\rightarrow\)</span> saves state and returns
+control to caller.</li>
+<li><strong><code>co_return</code>:</strong> Coroutine finishes <span
+class="math inline">\(\rightarrow\)</span> records final result, cleans
+up local variables, evaluates <code>final_suspend</code>, and
+halts.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

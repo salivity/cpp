@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Google Test Parameterized Tests and Fixtures in C++ - cpp</title>
+    <meta name="description" content="This article provides an architectural and practical overview of how the Google Test (gtest) framework implements test fixtures and parameterized unit tests in C++. It covers the core inheritance models, execution lifecycles, and macros that developers us">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/google-test-parameterized-tests-and-fixtures-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Google Test Parameterized Tests and Fixtures in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/google-test-parameterized-tests-and-fixtures-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an architectural and practical overview of how the Google Test (gtest) framework implements test fixtures and parameterized unit tests in C++. It covers the core inheritance models, execution lifecycles, and macros that developers us" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="google-test-parameterized-tests-and-fixtures-in-c">Google Test
+Parameterized Tests and Fixtures in C++</h1>
+<p>This article provides an architectural and practical overview of how
+the Google Test (gtest) framework implements test fixtures and
+parameterized unit tests in C++. It covers the core inheritance models,
+execution lifecycles, and macros that developers use to write reusable,
+maintainable test suites. Readers will learn the mechanics behind
+<code>TEST_F</code> and <code>TEST_P</code>, how data generators feed
+parameterized tests, and how Google Test isolates test state across
+multiple execution passes.</p>
+<h2 id="test-fixtures-in-google-test">Test Fixtures in Google Test</h2>
+<p>A test fixture allows you to reuse the same data configuration or
+setup across multiple distinct unit tests. Google Test implements
+fixtures through standard C++ object-oriented inheritance.</p>
+<h3 id="how-fixtures-work-under-the-hood">How Fixtures Work Under the
+Hood</h3>
+<p>To create a fixture, you inherit from the base class
+<code>::testing::Test</code>. Google Test creates a brand-new instance
+of your fixture class for every single test execution, ensuring complete
+test isolation and preventing side effects from leaking across
+tests.</p>
+<p>The fixture lifecycle consists of four main phases:</p>
+<ol type="1">
+<li><strong>Constructor</strong>: Sets up non-virtual initialization or
+allocates initial resources.</li>
+<li><strong><code>SetUp()</code></strong>: A virtual method executed
+immediately before the test body runs. This is where setup logic that
+can throw exceptions or depends on virtual function calls should
+live.</li>
+<li><strong>Test Body</strong>: The code contained within the
+<code>TEST_F</code> macro.</li>
+<li><strong><code>TearDown()</code></strong>: A virtual method executed
+immediately after the test finishes, used for resource cleanup.</li>
+<li><strong>Destructor</strong>: Cleans up remaining memory or
+resources.</li>
+</ol>
+<h3 id="fixture-implementation-example">Fixture Implementation
+Example</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;gtest/gtest.h&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;queue&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> QueueTestFixture <span class="op">:</span> <span class="kw">public</span> <span class="op">::</span>testing<span class="op">::</span>Test <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">protected</span><span class="op">:</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> SetUp<span class="op">()</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        q1<span class="op">.</span>push<span class="op">(</span><span class="dv">10</span><span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        q1<span class="op">.</span>push<span class="op">(</span><span class="dv">20</span><span class="op">);</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> TearDown<span class="op">()</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Clear state if necessary (destructors handle standard containers automatically)</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>queue<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> q0<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>queue<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> q1<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>TEST_F<span class="op">(</span>QueueTestFixture<span class="op">,</span> DefaultQueueIsEmpty<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    EXPECT_EQ<span class="op">(</span>q0<span class="op">.</span>size<span class="op">(),</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    EXPECT_TRUE<span class="op">(</span>q0<span class="op">.</span>empty<span class="op">());</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>TEST_F<span class="op">(</span>QueueTestFixture<span class="op">,</span> InitializedQueueHasElements<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    EXPECT_EQ<span class="op">(</span>q1<span class="op">.</span>size<span class="op">(),</span> <span class="dv">2</span><span class="op">);</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    EXPECT_EQ<span class="op">(</span>q1<span class="op">.</span>front<span class="op">(),</span> <span class="dv">10</span><span class="op">);</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The <code>TEST_F</code> macro (Test Fixture) binds the test logic to
+<code>QueueTestFixture</code>. Instead of deriving a subclass from
+<code>::testing::Test</code>, <code>TEST_F</code> expands into a new
+class that derives from your custom fixture, granting it access to
+<code>protected</code> members.</p>
+<hr />
+<h2 id="value-parameterized-testing">Value-Parameterized Testing</h2>
+<p>Value-parameterized tests allow you to test your code with multiple
+different data inputs without writing repetitive test cases. Google Test
+implements this through the
+<code>::testing::TestWithParam&lt;T&gt;</code> template class.</p>
+<h3 id="how-value-parameterization-works">How Value Parameterization
+Works</h3>
+<ol type="1">
+<li><strong>Inheritance</strong>: Your fixture inherits from
+<code>::testing::TestWithParam&lt;T&gt;</code>, where <code>T</code> can
+be any copyable type, including standard primitives, structs, or tuples.
+<code>TestWithParam&lt;T&gt;</code> internally inherits from
+<code>::testing::Test</code>.</li>
+<li><strong>Accessing Parameters</strong>: Inside the test body, the
+current value of the parameter is retrieved using the
+<code>GetParam()</code> method.</li>
+<li><strong>Definition</strong>: The test logic is registered using the
+<code>TEST_P</code> (Test Parameterized) macro.</li>
+<li><strong>Instantiation</strong>: The test suite is bound to a
+collection of parameters using
+<code>INSTANTIATE_TEST_SUITE_P</code>.</li>
+</ol>
+<h3 id="value-parameterized-implementation-example">Value-Parameterized
+Implementation Example</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;gtest/gtest.h&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> DivisionTestCase <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> numerator<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> denominator<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> expected_quotient<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> DivisionTest <span class="op">:</span> <span class="kw">public</span> <span class="op">::</span>testing<span class="op">::</span>TestWithParam<span class="op">&lt;</span>DivisionTestCase<span class="op">&gt;</span> <span class="op">{};</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>TEST_P<span class="op">(</span>DivisionTest<span class="op">,</span> HandlesIntegerDivision<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> DivisionTestCase<span class="op">&amp;</span> params <span class="op">=</span> GetParam<span class="op">();</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    EXPECT_EQ<span class="op">(</span>params<span class="op">.</span>numerator <span class="op">/</span> params<span class="op">.</span>denominator<span class="op">,</span> params<span class="op">.</span>expected_quotient<span class="op">);</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>INSTANTIATE_TEST_SUITE_P<span class="op">(</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    DivisionBatch<span class="op">,</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    DivisionTest<span class="op">,</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">::</span>testing<span class="op">::</span>Values<span class="op">(</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        DivisionTestCase<span class="op">{</span><span class="dv">10</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">5</span><span class="op">},</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        DivisionTestCase<span class="op">{</span><span class="dv">9</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">3</span><span class="op">},</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        DivisionTestCase<span class="op">{</span><span class="dv">20</span><span class="op">,</span> <span class="dv">4</span><span class="op">,</span> <span class="dv">5</span><span class="op">}</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">)</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div>
+<h3 id="parameter-generators">Parameter Generators</h3>
+<p>Google Test provides built-in generators to define parameter
+ranges:</p>
+<ul>
+<li><strong><code>::testing::Values(v1, v2, ...)</code></strong>:
+Explicit list of arbitrary values.</li>
+<li><strong><code>::testing::ValuesIn(container)</code> or
+<code>::testing::ValuesIn(begin, end)</code></strong>: Reads values from
+standard C++ containers or arrays.</li>
+<li><strong><code>::testing::Range(begin, end, step)</code></strong>:
+Generates a sequence of numeric values.</li>
+<li><strong><code>::testing::Bool()</code></strong>: Generates
+<code>true</code> and <code>false</code>.</li>
+<li><strong><code>::testing::Combine(gen1, gen2, ...)</code></strong>:
+Produces the Cartesian product of multiple generators as
+<code>std::tuple</code> types.</li>
+</ul>
+<hr />
+<h2 id="type-parameterized-testing">Type-Parameterized Testing</h2>
+<p>When logic needs to be verified across multiple C++ types (such as
+template classes), Google Test implements typed and type-parameterized
+tests.</p>
+<h3 id="typed-tests-typed_test">Typed Tests
+(<code>TYPED_TEST</code>)</h3>
+<p>Used when you know the explicit list of types at the time of writing
+the test.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;gtest/gtest.h&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;list&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SequentialContainerTest <span class="op">:</span> <span class="kw">public</span> <span class="op">::</span>testing<span class="op">::</span>Test <span class="op">{</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">protected</span><span class="op">:</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    T container<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> ContainerTypes <span class="op">=</span> <span class="op">::</span>testing<span class="op">::</span>Types<span class="op">&lt;</span><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;,</span> <span class="bu">std::</span>list<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&gt;;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>TYPED_TEST_SUITE<span class="op">(</span>SequentialContainerTest<span class="op">,</span> ContainerTypes<span class="op">);</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>TYPED_TEST<span class="op">(</span>SequentialContainerTest<span class="op">,</span> StartsEmpty<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    EXPECT_EQ<span class="op">(</span><span class="kw">this</span><span class="op">-&gt;</span>container<span class="op">.</span>size<span class="op">(),</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p><em>Note: In <code>TYPED_TEST</code>, member variables inherited from
+the template base class require the <code>this-&gt;</code> prefix to
+resolve template-dependent names correctly in C++.</em></p>
+<h3 id="type-parameterized-tests-typed_test_p">Type-Parameterized Tests
+(<code>TYPED_TEST_P</code>)</h3>
+<p>Used when the test pattern is defined in a library or reusable
+header, and the concrete type list is supplied later by external
+consumers using <code>REGISTER_TYPED_TEST_SUITE_P</code> and
+<code>INSTANTIATE_TYPED_TEST_SUITE_P</code>.</p>
+<hr />
+<h2 id="execution-mechanics-summary">Execution Mechanics Summary</h2>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+<col style="width: 20%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Base Class</th>
+<th style="text-align: left;">Test Definition Macro</th>
+<th style="text-align: left;">Instantiation Macro</th>
+<th style="text-align: left;">Accessor Method</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Standard Fixture</strong></td>
+<td style="text-align: left;"><code>::testing::Test</code></td>
+<td style="text-align: left;"><code>TEST_F(Fixture, Name)</code></td>
+<td style="text-align: left;">Automatic</td>
+<td style="text-align: left;">Direct member access</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Value Parameterized</strong></td>
+<td
+style="text-align: left;"><code>::testing::TestWithParam&lt;T&gt;</code></td>
+<td style="text-align: left;"><code>TEST_P(Fixture, Name)</code></td>
+<td
+style="text-align: left;"><code>INSTANTIATE_TEST_SUITE_P(...)</code></td>
+<td style="text-align: left;"><code>GetParam()</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Type Parameterized</strong></td>
+<td style="text-align: left;"><code>::testing::Test</code>
+(templated)</td>
+<td
+style="text-align: left;"><code>TYPED_TEST(Fixture, Name)</code></td>
+<td style="text-align: left;"><code>TYPED_TEST_SUITE(...)</code></td>
+<td style="text-align: left;"><code>TypeParam</code>,
+<code>this-&gt;</code></td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

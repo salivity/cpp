@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Traits Classes: Externalizing Type Properties - cpp</title>
+    <meta name="description" content="This article explores the concept of traits classes in C++, examining how they enable generic algorithms to access and customize type-specific characteristics at compile time. By decoupling implementation details and metadata from the types themselves, tr">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-traits-classes-externalizing-type-properties">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Traits Classes: Externalizing Type Properties - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-traits-classes-externalizing-type-properties" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the concept of traits classes in C++, examining how they enable generic algorithms to access and customize type-specific characteristics at compile time. By decoupling implementation details and metadata from the types themselves, tr" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-traits-classes-externalizing-type-properties">C++ Traits
+Classes: Externalizing Type Properties</h1>
+<p>This article explores the concept of traits classes in C++, examining
+how they enable generic algorithms to access and customize type-specific
+characteristics at compile time. By decoupling implementation details
+and metadata from the types themselves, traits classes allow developers
+to write flexible, high-performance templates that work seamlessly with
+both user-defined classes and fundamental types without requiring
+invasive modifications.</p>
+<h2 id="what-is-a-traits-class">What Is a Traits Class?</h2>
+<p>A traits class is a class template used to associate compile-time
+information—such as types, constants, or functions—with a given target
+type. Instead of requiring a type to define specific member variables,
+typedefs, or methods, a traits class serves as an external metadata
+provider. The C++ Standard Library relies heavily on this pattern in
+utilities like <code>std::iterator_traits</code>,
+<code>std::char_traits</code>, and the <code>&lt;type_traits&gt;</code>
+header.</p>
+<h2 id="why-externalize-type-properties">Why Externalize Type
+Properties?</h2>
+<p>In object-oriented programming, behavior and properties are typically
+bundled inside the class definition through inheritance and virtual
+functions. However, this approach fails in generic programming for
+several reasons:</p>
+<ul>
+<li><strong>Fundamental Types:</strong> Primitive types like
+<code>int</code>, <code>double</code>, and raw pointers
+(<code>T*</code>) cannot contain member definitions or inherit from base
+classes.</li>
+<li><strong>Third-Party Code:</strong> Modifying external or legacy
+libraries to add internal typedefs or interfaces is often impossible or
+undesirable.</li>
+<li><strong>Non-Intrusive Design:</strong> Generic algorithms should not
+dictate how unrelated domain types structure their internal
+interfaces.</li>
+</ul>
+<p>By externalizing properties, traits provide a non-intrusive mechanism
+to query or adapt type properties without altering the original
+types.</p>
+<h2 id="mechanics-of-a-traits-class">Mechanics of a Traits Class</h2>
+<p>Traits classes rely on template specialization. The implementation
+typically follows a three-step pattern:</p>
+<ol type="1">
+<li><strong>The Primary Template:</strong> Defines the default
+properties or fallback behavior for general types.</li>
+<li><strong>Template Specializations:</strong> Provides explicit or
+partial specializations for specific types (including primitives or
+pointers) that require tailored behavior.</li>
+<li><strong>Client Template Function/Class:</strong> Generic code
+accesses the properties through the traits template using compile-time
+expressions such as <code>Traits&lt;T&gt;::value</code> or
+<code>typename Traits&lt;T&gt;::member_type</code>.</li>
+</ol>
+<h3 id="practical-example">Practical Example</h3>
+<p>Consider a generic algorithm that needs to serialize data or
+determine an appropriate buffer size based on the type being
+processed.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Step 1: Primary template (default behavior)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> SerializationTraits <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="kw">constexpr</span> <span class="dt">size_t</span> fixed_size <span class="op">=</span> <span class="kw">sizeof</span><span class="op">(</span>T<span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="kw">constexpr</span> <span class="dt">bool</span> is_dynamic <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span> describe<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Fixed-size type of &quot;</span> <span class="op">&lt;&lt;</span> fixed_size <span class="op">&lt;&lt;</span> <span class="st">&quot; bytes.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="co">// Step 2: Specialization for dynamic types</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;&gt;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> SerializationTraits<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="kw">constexpr</span> <span class="dt">size_t</span> fixed_size <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="kw">constexpr</span> <span class="dt">bool</span> is_dynamic <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span> describe<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Dynamic-size string type.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="co">// Step 2b: Partial specialization for raw pointers</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> SerializationTraits<span class="op">&lt;</span>T<span class="op">*&gt;</span> <span class="op">{</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="kw">constexpr</span> <span class="dt">size_t</span> fixed_size <span class="op">=</span> <span class="kw">sizeof</span><span class="op">(</span>T<span class="op">*);</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="kw">constexpr</span> <span class="dt">bool</span> is_dynamic <span class="op">=</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span> describe<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Pointer to another type.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="co">// Step 3: Generic algorithm utilizing the traits</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> <span class="dt">inspect_type</span><span class="op">(</span><span class="at">const</span> T<span class="op">&amp;)</span> <span class="op">{</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>    SerializationTraits<span class="op">&lt;</span>T<span class="op">&gt;::</span>describe<span class="op">();</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> number <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string text <span class="op">=</span> <span class="st">&quot;Hello&quot;</span><span class="op">;</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span><span class="op">*</span> ptr <span class="op">=</span> <span class="op">&amp;</span>number<span class="op">;</span></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    <span class="dt">inspect_type</span><span class="op">(</span>number<span class="op">);</span> <span class="co">// Uses primary template</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    <span class="dt">inspect_type</span><span class="op">(</span>text<span class="op">);</span>   <span class="co">// Uses explicit specialization</span></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    <span class="dt">inspect_type</span><span class="op">(</span>ptr<span class="op">);</span>    <span class="co">// Uses partial specialization</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this implementation, the <code>inspect_type</code> template
+queries <code>SerializationTraits&lt;T&gt;</code> rather than
+<code>T</code> directly. This enables <code>int</code>, raw pointers,
+and <code>std::string</code> to be handled uniformly.</p>
+<h2 id="standard-library-examples">Standard Library Examples</h2>
+<h3 id="stditerator_traits"><code>std::iterator_traits</code></h3>
+<p>Before C++20 concepts, <code>std::iterator_traits</code> served as
+the backbone of algorithm dispatch in the Standard Template Library
+(STL). A generic algorithm like <code>std::advance</code> needs to know
+whether an iterator supports random access or only forward stepping. Raw
+pointers are valid iterators, but they cannot provide an internal
+<code>iterator_category</code> typedef. By partially specializing
+<code>std::iterator_traits&lt;T*&gt;</code>, the STL ensures that
+pointers and complex iterator classes expose identical metadata
+interfaces.</p>
+<h3 id="type_traits"><code>&lt;type_traits&gt;</code></h3>
+<p>Introduced in C++11, the <code>&lt;type_traits&gt;</code> library
+provides compile-time queries such as
+<code>std::is_integral&lt;T&gt;</code>,
+<code>std::is_floating_point&lt;T&gt;</code>, and
+<code>std::decay&lt;T&gt;</code>. These traits allow developers to
+inspect properties and perform conditional compilation using techniques
+like <code>std::enable_if</code> or C++17's
+<code>if constexpr</code>.</p>
+<h2 id="key-benefits-of-traits-classes">Key Benefits of Traits
+Classes</h2>
+<ul>
+<li><strong>Compile-Time Efficiency:</strong> All traits evaluations and
+specializations resolve during compilation, introducing zero runtime
+overhead.</li>
+<li><strong>Separation of Concerns:</strong> Type identities and
+algorithms remain decoupled from the structural representation of
+metadata.</li>
+<li><strong>Extensibility:</strong> Users can extend generic algorithms
+to work with new or external types simply by writing a new
+specialization for the corresponding traits template.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why C++ Stream Insertion Sets Failbit or Badbit - cpp</title>
+    <meta name="description" content="In C++, the stream insertion operator (&lt;&lt;) is responsible for formatting and sending data to an output stream such as std::cout or an instance of std::ofstream. While output operations fail far less frequently than input operations, unexpected device stat">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/why-c-stream-insertion-sets-failbit-or-badbit">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why C++ Stream Insertion Sets Failbit or Badbit - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/why-c-stream-insertion-sets-failbit-or-badbit" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, the stream insertion operator (&lt;&lt;) is responsible for formatting and sending data to an output stream such as std::cout or an instance of std::ofstream. While output operations fail far less frequently than input operations, unexpected device stat" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-c-stream-insertion-sets-failbit-or-badbit">Why C++ Stream
+Insertion Sets Failbit or Badbit</h1>
+<p>In C++, the stream insertion operator (<code>&lt;&lt;</code>) is
+responsible for formatting and sending data to an output stream such as
+<code>std::cout</code> or an instance of <code>std::ofstream</code>.
+While output operations fail far less frequently than input operations,
+unexpected device states, memory shortages, and formatting errors can
+cause the stream state to degrade. When an insertion operation fails,
+the runtime environment flags the stream by setting either
+<code>std::ios_base::failbit</code> or
+<code>std::ios_base::badbit</code>. This article explains the internal
+mechanics of output streams and details the specific technical
+conditions that trigger these two error states.</p>
+<h3 id="the-difference-between-failbit-and-badbit">The Difference
+Between failbit and badbit</h3>
+<p>Standard C++ streams maintain an internal state mask managed by
+<code>std::basic_ios</code>. Output failures are categorized into two
+severity levels:</p>
+<ul>
+<li><strong><code>failbit</code></strong>: Indicates a logical or
+formatting error. The stream's internal buffer is still intact, and
+further writes might succeed if the error condition is cleared.</li>
+<li><strong><code>badbit</code></strong>: Indicates a catastrophic,
+unrecoverable failure of the underlying stream buffer or physical
+transmission medium. The stream can no longer be trusted for subsequent
+write operations.</li>
+</ul>
+<h3 id="causes-of-badbit-during-stream-insertion">Causes of badbit
+During Stream Insertion</h3>
+<p>Setting <code>badbit</code> implies that the stream's structural
+integrity or communication pipeline has been compromised. The insertion
+operator sets <code>badbit</code> under the following conditions:</p>
+<h4 id="1-stream-buffer-write-failures">1. Stream Buffer Write
+Failures</h4>
+<p>Every high-level stream relies on an underlying
+<code>std::streambuf</code> object. When you call
+<code>stream &lt;&lt; value</code>, formatted characters are sent to the
+buffer via member functions like <code>sputc()</code> or
+<code>sputn()</code>. If the buffer's internal <code>overflow()</code>
+function fails and returns <code>std::char_traits::eof()</code>, the
+insertion operator detects that the physical write cannot be completed
+and sets <code>badbit</code>.</p>
+<p>Common real-world triggers include:</p>
+<ul>
+<li>Writing to a file on a storage device that has run out of disk
+space.</li>
+<li>Writing to an inter-process pipe or network socket that has closed
+prematurely (e.g., broken pipe / <code>SIGPIPE</code> equivalent).</li>
+<li>Writing to a hardware device that has been abruptly
+disconnected.</li>
+<li>Exceeding operating system file size quotas.</li>
+</ul>
+<h4 id="2-missing-or-null-stream-buffer">2. Missing or Null Stream
+Buffer</h4>
+<p>If a stream object has no associated buffer—which can occur if
+<code>stream.rdbuf(nullptr)</code> was executed or if dynamic buffer
+initialization failed—any attempt to invoke <code>&lt;&lt;</code> will
+immediately set <code>badbit</code>.</p>
+<h4 id="3-out-of-memory-errors-stdbad_alloc">3. Out-of-Memory Errors
+(std::bad_alloc)</h4>
+<p>Formatting output often requires temporary dynamic memory allocation
+(for instance, when writing to a <code>std::ostringstream</code> or
+converting complex types). If memory allocation fails and throws
+<code>std::bad_alloc</code>, the standard stream handles the exception
+by catching it internally and setting <code>badbit</code>.</p>
+<h4 id="4-exceptions-thrown-by-the-stream-buffer">4. Exceptions Thrown
+by the Stream Buffer</h4>
+<p>If an overridden <code>streambuf</code> throws an unhandled exception
+during a buffer write or synchronization operation, the standard stream
+wrapper intercepts the exception and marks the state with
+<code>badbit</code>.</p>
+<hr />
+<h3 id="causes-of-failbit-during-stream-insertion">Causes of failbit
+During Stream Insertion</h3>
+<p>Unlike the extraction operator (<code>&gt;&gt;</code>), which
+frequently sets <code>failbit</code> due to mismatched input types, the
+insertion operator rarely sets <code>failbit</code> on its own. However,
+it can still occur in specific scenarios:</p>
+<h4 id="1-locale-facet-failures">1. Locale Facet Failures</h4>
+<p>Formatting primitive data types (such as floating-point numbers,
+integers, dates, or currencies) delegates the task to the current
+locale's output facet (e.g., <code>std::num_put</code>,
+<code>std::time_put</code>). If an internal facet fails to translate or
+format a value—such as encountering an invalid character sequence or a
+malformed custom facet rule—it marks the output iterator as failed,
+causing the stream to set <code>failbit</code>.</p>
+<h4 id="2-logic-failures-in-custom-operator-overloads">2. Logic Failures
+in Custom operator&lt;&lt; Overloads</h4>
+<p>When developers define custom <code>operator&lt;&lt;</code> functions
+for user-defined classes, standard convention dictates using
+<code>setstate(std::ios_base::failbit)</code> if the domain logic
+considers the object invalid for serialization. For example, if an
+object containing an uninitialized or corrupt state is passed to
+<code>operator&lt;&lt;</code>, the custom function may manually set
+<code>failbit</code>.</p>
+<h4 id="3-output-attempt-on-a-previously-degraded-stream">3. Output
+Attempt on a Previously Degraded Stream</h4>
+<p>By default, the insertion operator creates an internal
+<code>std::basic_ostream::sentry</code> object at the start of the write
+call. If the stream is already in an error state (where
+<code>failbit</code> or <code>badbit</code> is already active), the
+<code>sentry</code> constructor evaluates to <code>false</code>,
+discarding the operation and ensuring the error state remains
+flagged.</p>
+<hr />
+<h3 id="detecting-and-handling-stream-failures">Detecting and Handling
+Stream Failures</h3>
+<p>To verify whether an insertion operation was successful, you can
+evaluate the stream in a boolean context or check its state
+explicitly:</p>
+<ul>
+<li><code>stream.fail()</code> returns <code>true</code> if either
+<code>failbit</code> or <code>badbit</code> is set.</li>
+<li><code>stream.bad()</code> returns <code>true</code> only if
+<code>badbit</code> is set.</li>
+<li><code>stream.rdstate()</code> returns the exact bitmask of the
+current state.</li>
+<li><code>stream.clear()</code> resets the state flags, allowing new
+operations if the underlying issue has been resolved.</li>
+</ul>
+<p>For critical I/O operations, streams can also be configured to throw
+standard exceptions on failure using
+<code>stream.exceptions(std::ios_base::failbit | std::ios_base::badbit)</code>.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

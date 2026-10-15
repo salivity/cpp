@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Exception Safety: Basic, Strong, and Nothrow - cpp</title>
+    <meta name="description" content="Exception safety in C++ refers to a set of contractual guarantees ensuring that software remains in a valid state and avoids resource leaks when an exception is thrown. This article explores the concept of exception safety and details the three primary le">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-exception-safety-basic-strong-and-nothrow">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Exception Safety: Basic, Strong, and Nothrow - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-exception-safety-basic-strong-and-nothrow" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Exception safety in C++ refers to a set of contractual guarantees ensuring that software remains in a valid state and avoids resource leaks when an exception is thrown. This article explores the concept of exception safety and details the three primary le" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-exception-safety-basic-strong-and-nothrow">C++ Exception
+Safety: Basic, Strong, and Nothrow</h1>
+<p>Exception safety in C++ refers to a set of contractual guarantees
+ensuring that software remains in a valid state and avoids resource
+leaks when an exception is thrown. This article explores the concept of
+exception safety and details the three primary levels recognized by the
+C++ standard—the basic guarantee, the strong guarantee, and the nothrow
+guarantee—explaining their requirements and practical implications in
+robust software design.</p>
+<h2 id="what-is-exception-safety">What Is Exception Safety?</h2>
+<p>Exception safety is the design principle that code should behave
+predictably when runtime errors interrupt normal execution. When a
+function throws an exception, standard execution terminates abruptly,
+unwinding the call stack. Without proper exception handling, this
+process can lead to dangling pointers, memory leaks, unreleased mutexes,
+or data structures left in broken, inconsistent states.</p>
+<p>Exception-safe code prevents these failures by relying on resource
+acquisition is initialization (RAII) and clearly defined program states.
+Rather than treating safety as an all-or-nothing property, C++
+categorizes exception safety into distinct levels, originally formalized
+by Dave Abrahams.</p>
+<h2 id="the-basic-guarantee">The Basic Guarantee</h2>
+<p>The basic guarantee is the baseline requirement for any well-designed
+C++ component. When an operation satisfies the basic guarantee:</p>
+<ul>
+<li><strong>No resources are leaked:</strong> All dynamically allocated
+memory, file descriptors, locks, and handles are properly released
+during stack unwinding.</li>
+<li><strong>Invariants are preserved:</strong> The state of all affected
+objects remains internally consistent and valid according to their class
+invariants.</li>
+<li><strong>State may change:</strong> Although objects are valid, their
+exact state may not match their pre-operation state. The caller can
+safely query, reassign, or destroy the object, but cannot assume the
+data inside it remains unaltered.</li>
+</ul>
+<p>If a standard container insertion fails under the basic guarantee,
+the container will not leak memory and will maintain its internal
+integrity, but some elements may have been shifted or moved.</p>
+<h2 id="the-strong-guarantee">The Strong Guarantee</h2>
+<p>The strong guarantee provides commit-or-rollback semantics, similar
+to a database transaction. When an operation satisfies the strong
+guarantee:</p>
+<ul>
+<li><strong>All-or-nothing execution:</strong> If the operation
+succeeds, all changes are committed. If an exception is thrown, the
+program state is rolled back exactly to what it was prior to the
+function call.</li>
+<li><strong>No side effects on failure:</strong> The caller can rely on
+the fact that no data was modified, added, or removed if an error
+occurred.</li>
+<li><strong>Full resource safety:</strong> No resources are leaked.</li>
+</ul>
+<p>This level is commonly implemented using the "copy-and-swap" idiom:
+the function performs modifications on a temporary copy, and once all
+potentially throwing operations succeed, it commits the changes using
+non-throwing swap operations.</p>
+<h2 id="the-nothrow-guarantee">The Nothrow Guarantee</h2>
+<p>The nothrow (or <code>noexcept</code>) guarantee is the strongest
+level of safety. It guarantees that an operation will never propagate an
+exception to the caller. Under this guarantee:</p>
+<ul>
+<li><strong>Guaranteed completion:</strong> The function will always
+complete successfully or handle all errors internally without letting an
+exception escape.</li>
+<li><strong>Critical language requirement:</strong> In modern C++,
+destructors, memory deallocation functions, move constructors, and swap
+functions should always provide the nothrow guarantee.</li>
+</ul>
+<p>If a function marked with the <code>noexcept</code> specifier throws
+an unhandled exception, <code>std::terminate</code> is invoked
+immediately, terminating the program. The nothrow guarantee forms the
+essential foundation that enables both the basic and strong guarantees
+to be implemented reliably elsewhere in the codebase.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

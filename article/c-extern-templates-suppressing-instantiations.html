@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Extern Templates: Suppressing Instantiations - cpp</title>
+    <meta name="description" content="Extern templates in C++ provide a mechanism to optimize compilation times and reduce object file sizes by explicitly controlling template instantiation across translation units. This article explains how the extern template syntax instructs the compiler t">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-extern-templates-suppressing-instantiations">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Extern Templates: Suppressing Instantiations - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-extern-templates-suppressing-instantiations" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Extern templates in C++ provide a mechanism to optimize compilation times and reduce object file sizes by explicitly controlling template instantiation across translation units. This article explains how the extern template syntax instructs the compiler t" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-extern-templates-suppressing-instantiations">C++ Extern
+Templates: Suppressing Instantiations</h1>
+<p>Extern templates in C++ provide a mechanism to optimize compilation
+times and reduce object file sizes by explicitly controlling template
+instantiation across translation units. This article explains how the
+<code>extern template</code> syntax instructs the compiler to suppress
+redundant code generation, explores the distinction between explicit
+declarations and definitions, and demonstrates how to implement this
+feature to improve build performance.</p>
+<h3 id="the-problem-implicit-template-instantiation">The Problem:
+Implicit Template Instantiation</h3>
+<p>In standard C++, function and class templates are usually defined
+entirely within header files. When a translation unit (a
+<code>.cpp</code> file plus its included headers) uses a template
+specialization, such as <code>std::vector&lt;int&gt;</code> or a custom
+<code>MyClass&lt;int&gt;</code>, the compiler implicitly instantiates
+the code for that specific type inside that translation unit's object
+file.</p>
+<p>When multiple translation units include the same header and
+instantiate the same template with the same template arguments, the
+compiler duplicates the identical machine code across all resulting
+<code>.o</code> or <code>.obj</code> files. Although the linker
+eventually discards these duplicate definitions to satisfy the One
+Definition Rule (ODR), generating, parsing, and optimizing redundant
+template code significantly inflates compilation times and disk usage
+during builds.</p>
+<h3 id="what-is-an-extern-template">What Is an Extern Template?</h3>
+<p>Introduced in C++11, an extern template allows developers to tell the
+compiler that a specific template instantiation is provided elsewhere.
+It uses the <code>extern</code> keyword followed by the template
+instantiation syntax:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">extern</span> <span class="kw">template</span> <span class="kw">class</span> MyClass<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">extern</span> <span class="kw">template</span> <span class="dt">void</span> processData<span class="op">&lt;</span><span class="dt">double</span><span class="op">&gt;(</span><span class="dt">double</span><span class="op">);</span></span></code></pre></div>
+<p>When the compiler encounters an <code>extern template</code>
+declaration, it treats the symbols associated with that specialization
+as external references rather than generating the definition locally. It
+assumes that another translation unit will supply the actual definition,
+suppressing the instantiation process in the current file.</p>
+<h3 id="how-extern-templates-suppress-instantiation">How Extern
+Templates Suppress Instantiation</h3>
+<p>The mechanism relies on pairing an <strong>explicit instantiation
+declaration</strong> (<code>extern template</code>) with an
+<strong>explicit instantiation definition</strong>
+(<code>template</code> without <code>extern</code>).</p>
+<ol type="1">
+<li><strong>Suppression in Consumers:</strong> When placed in a shared
+header file, the <code>extern template</code> directive signals to any
+file including that header that it should not generate code for that
+particular specialization. The compiler leaves the implementation
+undefined and emits undefined symbol references in the object file.</li>
+<li><strong>Definition in a Dedicated Source File:</strong> Exactly one
+translation unit must contain the explicit instantiation definition
+(omitting the <code>extern</code> keyword). The compiler compiles the
+template code for that specific type here once.</li>
+<li><strong>Resolution at Link Time:</strong> During the link stage, the
+linker matches the external references generated by the suppressed
+translation units to the single definition emitted by the dedicated
+source file.</li>
+</ol>
+<h3 id="practical-implementation">Practical Implementation</h3>
+<p>To implement extern templates, structure the template declaration,
+definition, and instantiation as follows:</p>
+<h4 id="1-the-header-file-vectorwrapperh">1. The Header File
+(<code>VectorWrapper.h</code>)</h4>
+<p>Provide the template definition, followed by the extern declarations
+for commonly used types:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#pragma once</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> VectorWrapper <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> add<span class="op">(</span><span class="at">const</span> T<span class="op">&amp;</span> item<span class="op">);</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    T get<span class="op">(</span><span class="dt">int</span> index<span class="op">)</span> <span class="at">const</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Extern template declarations: suppress instantiation across consumers</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="at">extern</span> <span class="kw">template</span> <span class="kw">class</span> VectorWrapper<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="at">extern</span> <span class="kw">template</span> <span class="kw">class</span> VectorWrapper<span class="op">&lt;</span><span class="dt">double</span><span class="op">&gt;;</span></span></code></pre></div>
+<h4 id="2-the-instantiation-source-file-vectorwrappercpp">2. The
+Instantiation Source File (<code>VectorWrapper.cpp</code>)</h4>
+<p>Include the header and provide explicit instantiation definitions for
+the types declared as <code>extern</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;VectorWrapper.h&quot;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Template member implementations</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> VectorWrapper<span class="op">&lt;</span>T<span class="op">&gt;::</span>add<span class="op">(</span><span class="at">const</span> T<span class="op">&amp;</span> item<span class="op">)</span> <span class="op">{</span> <span class="co">/* ... */</span> <span class="op">}</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>T VectorWrapper<span class="op">&lt;</span>T<span class="op">&gt;::</span>get<span class="op">(</span><span class="dt">int</span> index<span class="op">)</span> <span class="at">const</span> <span class="op">{</span> <span class="co">/* ... */</span> <span class="op">}</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Explicit instantiation definitions: generate code once here</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="kw">class</span> VectorWrapper<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="kw">class</span> VectorWrapper<span class="op">&lt;</span><span class="dt">double</span><span class="op">&gt;;</span></span></code></pre></div>
+<h4 id="3-the-consumer-source-files-maincpp-othercpp">3. The Consumer
+Source Files (<code>main.cpp</code>, <code>other.cpp</code>)</h4>
+<p>When consuming code uses these types, the compiler bypasses
+instantiation:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;VectorWrapper.h&quot;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    VectorWrapper<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> wrapper<span class="op">;</span> <span class="co">// Uses extern template; no local code generated</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    wrapper<span class="op">.</span>add<span class="op">(</span><span class="dv">42</span><span class="op">);</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="when-to-use-extern-templates">When to Use Extern Templates</h3>
+<p>Extern templates are most beneficial for heavy, complex templates
+that are instantiated with the same types across dozens or hundreds of
+translation units. By shifting compilation cost from an <span
+class="math inline">\(O(N)\)</span> operation (where <span
+class="math inline">\(N\)</span> is the number of translation units) to
+<span class="math inline">\(O(1)\)</span>, projects can achieve
+substantial reductions in build times and intermediate object file
+footprints.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

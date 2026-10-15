@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Private Inheritance: Implemented-in-Terms-Of - cpp</title>
+    <meta name="description" content="In C++, private inheritance is a mechanism used to establish an &quot;implemented-in-terms-of&quot; relationship between classes, allowing a derived class to reuse the implementation details of a base class without exposing its interface to clients. While object co">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-private-inheritance-implemented-in-terms-of">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Private Inheritance: Implemented-in-Terms-Of - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-private-inheritance-implemented-in-terms-of" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, private inheritance is a mechanism used to establish an &quot;implemented-in-terms-of&quot; relationship between classes, allowing a derived class to reuse the implementation details of a base class without exposing its interface to clients. While object co" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-private-inheritance-implemented-in-terms-of">C++ Private
+Inheritance: Implemented-in-Terms-Of</h1>
+<p>In C++, private inheritance is a mechanism used to establish an
+"implemented-in-terms-of" relationship between classes, allowing a
+derived class to reuse the implementation details of a base class
+without exposing its interface to clients. While object composition is
+the standard and preferred design pattern for representing
+"implemented-in-terms-of" relationships, private inheritance provides a
+strictly syntactic alternative tailored for specialized scenarios. This
+article explains the mechanics of private inheritance, how it differs
+from public inheritance, and the specific technical conditions under
+which it is necessary.</p>
+<h2 id="the-mechanics-of-private-inheritance">The Mechanics of Private
+Inheritance</h2>
+<p>When a class inherits privately from a base class, the access levels
+of the base class members change within the derived class:</p>
+<ul>
+<li>Public and protected members of the base class become private
+members of the derived class.</li>
+<li>Private members of the base class remain inaccessible.</li>
+<li>Implicit conversion from a derived class pointer or reference to a
+base class pointer or reference is disabled for the public; it is only
+permitted within member functions and friends of the derived class.</li>
+</ul>
+<p>Because public access to the base class interface is severed, private
+inheritance does not model an "is-a" relationship (the Liskov
+Substitution Principle). A <code>Derived</code> object cannot be passed
+to a function expecting a <code>Base</code> object. Instead, the derived
+class merely uses the code of the base class to implement its own logic,
+completely hiding the base class identity from the outside world.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Engine <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> start<span class="op">();</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Car is implemented in terms of Engine, not an Engine itself</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Car <span class="op">:</span> <span class="kw">private</span> Engine <span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> drive<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        start<span class="op">();</span> <span class="co">// Permitted: derived class can access public members of base</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> run<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    Car car<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    car<span class="op">.</span>drive<span class="op">();</span>  <span class="co">// OK</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// car.start(); // Compilation Error: &#39;start&#39; is private in Car</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="private-inheritance-vs-composition">Private Inheritance vs.
+Composition</h2>
+<p>Both composition (holding an instance of a class as a member
+variable) and private inheritance represent "implemented-in-terms-of."
+In idiomatic modern C++, the general rule is: <strong>prefer composition
+over inheritance, and use private inheritance only when strictly
+necessary.</strong></p>
+<p>Composition is cleaner, offers looser coupling, prevents namespace
+pollution, and allows runtime swapping of the internal implementation.
+However, composition cannot solve specific low-level object layout and
+language-access requirements.</p>
+<h2 id="when-private-inheritance-is-required">When Private Inheritance
+Is Required</h2>
+<p>Private inheritance is utilized over composition in three primary
+technical scenarios:</p>
+<h3 id="1-overriding-virtual-functions">1. Overriding Virtual
+Functions</h3>
+<p>If a class needs to use the functionality of a base class and must
+override its virtual functions, inheritance is mandatory. When you need
+to override these functions without exposing the base class's interface
+to external callers, private inheritance is the correct tool. This is
+common when using the Template Method pattern or working with
+event-handling frameworks.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Timer <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="op">~</span>Timer<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> start<span class="op">();</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> onTick<span class="op">()</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Hook to be overridden</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> GameLoop <span class="op">:</span> <span class="kw">private</span> Timer <span class="op">{</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> run<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        start<span class="op">();</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> onTick<span class="op">()</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Custom implementation executed on each tick</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="2-accessing-protected-members">2. Accessing Protected
+Members</h3>
+<p>If class <code>Derived</code> needs access to the
+<code>protected</code> member variables or member functions of class
+<code>Base</code>, containment via composition will not work. A composed
+member cannot access <code>protected</code> members of its internal
+object. Private inheritance grants access to these protected members
+while preventing external consumers from accessing them.</p>
+<h3 id="3-empty-base-optimization-ebo">3. Empty Base Optimization
+(EBO)</h3>
+<p>In C++, a standalone class with no non-static data members must still
+have a size of at least 1 byte to ensure distinct memory addresses for
+distinct objects. When an empty class is used as a member variable via
+composition, alignment requirements can increase the enclosing class's
+size by word boundaries (e.g., 4 to 8 bytes).</p>
+<p>Through Empty Base Optimization (EBO), a derived class that inherits
+from an empty base class pays zero size overhead for that base. Standard
+library components such as <code>std::vector</code> and smart pointers
+historically used private inheritance to hold stateless allocators and
+deleters with zero space cost. Note that C++20 introduced the
+<code>[[no_unique_address]]</code> attribute, which largely eliminates
+the need for private inheritance to achieve EBO in modern codebases.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

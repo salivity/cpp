@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Type-Safe Raw Memory with std::byte in C++ - cpp</title>
+    <meta name="description" content="Introduced in C++17, std::byte is a distinct type designed specifically to represent raw memory and object representations safely. Historically, developers relied on char, unsigned char, or uint8t to handle untyped memory, but these types introduce ambigu">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/type-safe-raw-memory-with-std-byte-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Type-Safe Raw Memory with std::byte in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/type-safe-raw-memory-with-std-byte-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++17, std::byte is a distinct type designed specifically to represent raw memory and object representations safely. Historically, developers relied on char, unsigned char, or uint8t to handle untyped memory, but these types introduce ambigu" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="type-safe-raw-memory-with-stdbyte-in-c">Type-Safe Raw Memory
+with std::byte in C++</h1>
+<p>Introduced in C++17, <code>std::byte</code> is a distinct type
+designed specifically to represent raw memory and object representations
+safely. Historically, developers relied on <code>char</code>,
+<code>unsigned char</code>, or <code>uint8_t</code> to handle untyped
+memory, but these types introduce ambiguity by conflating raw storage
+with numeric values and textual characters. <code>std::byte</code>
+eliminates this ambiguity by disabling arithmetic and character
+operations while retaining aliasing privileges and bitwise manipulation
+capabilities.</p>
+<h3 id="the-problem-with-legacy-types">The Problem with Legacy
+Types</h3>
+<p>Prior to C++17, raw buffers and memory blocks were typically typed as
+<code>char*</code> or <code>unsigned char*</code>. While this satisfied
+the language's aliasing rules, it created several type-safety
+issues:</p>
+<ul>
+<li><strong>Accidental Arithmetic:</strong> Because <code>char</code>
+and <code>unsigned char</code> are fundamental arithmetic types, the
+compiler allows operations like addition, subtraction, multiplication,
+and division on byte buffers. Raw memory has no mathematical value,
+making these operations conceptually invalid.</li>
+<li><strong>Character Semantics:</strong> Overloads treating
+<code>char</code> as text (such as
+<code>std::cout &lt;&lt; buffer[0]</code>) would print characters
+instead of raw hex or binary data, causing unintended formatting and
+runtime behavior.</li>
+<li><strong>Overload Ambiguity:</strong> Function interfaces taking
+<code>unsigned char*</code> cannot clearly express whether they expect
+an array of small integers, an ASCII/UTF-8 string, or a block of
+unformatted binary memory.</li>
+</ul>
+<h3 id="definition-and-core-mechanics">Definition and Core
+Mechanics</h3>
+<p>Defined in the <code>&lt;cstddef&gt;</code> header,
+<code>std::byte</code> is implemented as an explicit scoped enumeration
+over <code>unsigned char</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">enum</span> <span class="kw">class</span> byte <span class="op">:</span> <span class="dt">unsigned</span> <span class="dt">char</span> <span class="op">{};</span></span></code></pre></div>
+<p>Because it is an <code>enum class</code>, <code>std::byte</code> does
+not implicitly convert to or from integral types or other enumeration
+types. To create a <code>std::byte</code> from an integer, or to read it
+back as an integer, you must use explicit casting or the utility
+function <code>std::to_integer</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstddef&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>byte b<span class="op">{</span><span class="bn">0x3F</span><span class="op">};</span> <span class="co">// Explicit initialization</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// int i = b;      // Compilation error: no implicit conversion</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> i <span class="op">=</span> <span class="bu">std::</span>to_integer<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span>b<span class="op">);</span> <span class="co">// OK: explicit conversion</span></span></code></pre></div>
+<h3 id="restricted-bitwise-operations">Restricted Bitwise
+Operations</h3>
+<p>Unlike arithmetic types, raw bytes are meant for bit-level
+manipulation rather than calculation. C++ provides overloaded bitwise
+operators for <code>std::byte</code>, allowing only the operations that
+make conceptual sense on raw memory:</p>
+<ul>
+<li>Bitwise AND (<code>&amp;</code>, <code>&amp;=</code>)</li>
+<li>Bitwise OR (<code>|</code>, <code>|=</code>)</li>
+<li>Bitwise XOR (<code>^</code>, <code>^=</code>)</li>
+<li>Bitwise NOT (<code>~</code>)</li>
+<li>Shift operators (<code>&lt;&lt;</code>, <code>&gt;&gt;</code>,
+<code>&lt;&lt;=</code>, <code>&gt;&gt;=</code>)</li>
+</ul>
+<p>Arithmetic operations such as <code>+</code>, <code>-</code>,
+<code>*</code>, and <code>/</code> are not defined for
+<code>std::byte</code>. Attempting to add two <code>std::byte</code>
+instances results in a compile-time error, preventing accidental pointer
+offsets or invalid data transformations.</p>
+<h3 id="strict-aliasing-and-object-representation">Strict Aliasing and
+Object Representation</h3>
+<p>The C++ standard grants special status to <code>std::byte</code>
+under strict aliasing rules. Alongside <code>char</code> and
+<code>unsigned char</code>, a pointer to <code>std::byte</code> is
+legally allowed to alias any other object type.</p>
+<p>This exception allows developers to inspect, copy, or serialize the
+underlying object representation of any trivially copyable type through
+a <code>std::byte*</code> buffer without invoking undefined
+behavior:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Packet <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> value<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>Packet p<span class="op">{</span><span class="dv">42</span><span class="op">,</span> <span class="fl">3.14</span><span class="bu">f</span><span class="op">};</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="kw">auto</span><span class="op">*</span> raw_bytes <span class="op">=</span> <span class="kw">reinterpret_cast</span><span class="op">&lt;</span><span class="at">const</span> <span class="bu">std::</span>byte<span class="op">*&gt;(&amp;</span>p<span class="op">);</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Safely inspect raw memory byte by byte</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>byte first_byte <span class="op">=</span> raw_bytes<span class="op">[</span><span class="dv">0</span><span class="op">];</span></span></code></pre></div>
+<p>By providing defined aliasing access while restricting conversions
+and arithmetic operations, <code>std::byte</code> ensures that raw
+memory is treated purely as a collection of bits, catching misuse at
+compile time rather than through runtime errors.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

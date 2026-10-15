@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Performance Impact of Virtual Pointers in C++ - cpp</title>
+    <meta name="description" content="Introducing a virtual pointer (vptr) to an otherwise standard-layout C++ struct fundamentally changes how the compiler handles the type, resulting in both direct and indirect performance penalties. Adding a virtual member function or inheriting virtually">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/performance-impact-of-virtual-pointers-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Performance Impact of Virtual Pointers in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/performance-impact-of-virtual-pointers-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introducing a virtual pointer (vptr) to an otherwise standard-layout C++ struct fundamentally changes how the compiler handles the type, resulting in both direct and indirect performance penalties. Adding a virtual member function or inheriting virtually" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="performance-impact-of-virtual-pointers-in-c">Performance Impact
+of Virtual Pointers in C++</h1>
+<p>Introducing a virtual pointer (<code>vptr</code>) to an otherwise
+standard-layout C++ <code>struct</code> fundamentally changes how the
+compiler handles the type, resulting in both direct and indirect
+performance penalties. Adding a virtual member function or inheriting
+virtually forces the compiler to insert a hidden pointer to a virtual
+method table (<code>vtable</code>). This addition increases the object's
+memory footprint, degrades CPU cache locality, introduces indirection
+overhead during function calls, prevents compiler inlining, and strips
+the type of its standard-layout and trivial-copy guarantees.</p>
+<h3 id="increased-memory-footprint-and-alignment-padding">Increased
+Memory Footprint and Alignment Padding</h3>
+<p>The most immediate physical consequence of introducing a
+<code>vptr</code> is an increase in object size (<code>sizeof</code>).
+On 64-bit architectures, a pointer occupies 8 bytes (4 bytes on 32-bit
+systems).</p>
+<p>Because the <code>vptr</code> requires pointer-sized alignment,
+adding it can also introduce padding bytes depending on the alignment
+requirements of the other members. For example, a struct containing only
+two 4-byte integers changes from 8 bytes to 16 bytes on a 64-bit
+architecture. This doubling of size directly reduces the number of
+instances that can fit into a single 64-byte L1 CPU cache line, cutting
+cache capacity and increasing cache misses when iterating over arrays or
+contiguous vectors of these objects.</p>
+<h3 id="dynamic-dispatch-and-loss-of-inlining">Dynamic Dispatch and Loss
+of Inlining</h3>
+<p>When a function call is routed through a <code>vptr</code>, the
+compiler can no longer resolve the target address at compile time.
+Instead, it must generate machine code to perform dynamic dispatch:</p>
+<ol type="1">
+<li>Fetch the object's <code>vptr</code> from memory.</li>
+<li>Read the function pointer from the <code>vtable</code> at a fixed
+offset.</li>
+<li>Perform an indirect jump (<code>CALL</code>) to that address.</li>
+</ol>
+<p>This indirection stalls the CPU pipeline if the target address is not
+in the branch target buffer (BTB) or if the <code>vtable</code> itself
+has been evicted from the data cache. More critically, indirect function
+calls through a <code>vtable</code> cannot be easily inlined by the
+compiler. Inlining eliminates call overhead and exposes further
+optimizations—such as constant folding, loop unrolling, and dead code
+elimination—which are all lost when virtual functions are
+introduced.</p>
+<h3 id="loss-of-standard-layout-and-trivial-guarantees">Loss of
+Standard-Layout and Trivial Guarantees</h3>
+<p>In C++, an object with a <code>vptr</code> is no longer a
+standard-layout type (<code>std::is_standard_layout_v&lt;T&gt;</code>
+evaluates to <code>false</code>). This shift imposes several
+performance-critical limitations:</p>
+<ul>
+<li><strong>Trivial Copies and Moves:</strong> Standard-layout structs
+with trivial types can be bulk-copied using optimized CPU memory
+instructions (such as <code>std::memcpy</code> or vectorized SIMD
+instructions). Once a <code>vptr</code> is introduced, operations inside
+standard containers like <code>std::vector</code> during reallocations
+become non-trivial, requiring member-by-member operations or explicit
+move constructors.</li>
+<li><strong>Layout Unpredictability:</strong> In standard-layout types,
+the offset of the first data member is guaranteed to be zero. With a
+<code>vptr</code>, the implementation chooses where the pointer resides
+(usually at the very beginning of the object layout). This alters member
+offsets, complicates inter-language interoperability (e.g., C APIs), and
+prevents pointer casting optimizations.</li>
+<li><strong>Serialization and I/O:</strong> Standard-layout structs can
+be directly read from or written to network sockets and disks as flat
+binary blobs. Structs containing a <code>vptr</code> cannot be
+serialized raw, as the <code>vptr</code> holds a process-specific memory
+address. Overwriting an object's <code>vptr</code> via raw memory
+operations causes undefined behavior and segmentation faults upon the
+next virtual call.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C++ Range-Based for Loops Work Under the Hood - cpp</title>
+    <meta name="description" content="Range-based for loops, introduced in C++11, provide a clean and safe syntax for iterating over sequences, containers, and arrays. Under the hood, this construct does not introduce new runtime machinery; instead, it acts as syntactic sugar that the compile">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-c-range-based-for-loops-work-under-the-hood">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C++ Range-Based for Loops Work Under the Hood - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-c-range-based-for-loops-work-under-the-hood" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Range-based for loops, introduced in C++11, provide a clean and safe syntax for iterating over sequences, containers, and arrays. Under the hood, this construct does not introduce new runtime machinery; instead, it acts as syntactic sugar that the compile" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c-range-based-for-loops-work-under-the-hood">How C++
+Range-Based for Loops Work Under the Hood</h1>
+<p>Range-based <code>for</code> loops, introduced in C++11, provide a
+clean and safe syntax for iterating over sequences, containers, and
+arrays. Under the hood, this construct does not introduce new runtime
+machinery; instead, it acts as syntactic sugar that the compiler expands
+into a standard iterator-based <code>for</code> loop. By querying the
+beginning and end of a target sequence and stepping through elements
+using iterators and dereference operations, the compiler generates
+low-level iteration code identical to manual pointer or iterator
+arithmetic.</p>
+<h3 id="the-compiler-expansion">The Compiler Expansion</h3>
+<p>When the compiler encounters a range-based <code>for</code> loop
+written as:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span>range_declaration <span class="op">:</span> range_expression<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    loop_statement</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>It expands the code into an equivalent traditional iteration pattern.
+Conceptually, since C++17, the expansion looks like this:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span><span class="op">&amp;&amp;</span> __range <span class="op">=</span> range_expression<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> __begin <span class="op">=</span> begin_expr<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> __end <span class="op">=</span> end_expr<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(;</span> __begin <span class="op">!=</span> __end<span class="op">;</span> <span class="op">++</span>__begin<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        range_declaration <span class="op">=</span> <span class="op">*</span>__begin<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        loop_statement</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="key-under-the-hood-mechanisms">Key Under-the-Hood
+Mechanisms</h3>
+<ol type="1">
+<li><p><strong>Universal Reference and Lifetime
+Extension:</strong><br />
+The expression <code>auto&amp;&amp; __range = range_expression;</code>
+binds the container or sequence to a forwarding reference. If
+<code>range_expression</code> produces a temporary object (an rvalue),
+its lifetime is extended to the end of the entire loop construct,
+preventing immediate dangling references.</p></li>
+<li><p><strong>Resolving <code>begin()</code> and
+<code>end()</code>:</strong><br />
+The compiler determines <code>begin_expr</code> and
+<code>end_expr</code> based on the type of <code>__range</code>:</p>
+<ul>
+<li><strong>Raw Arrays:</strong> If <code>__range</code> is an array of
+known bounds, <code>begin_expr</code> becomes <code>__range</code> and
+<code>end_expr</code> becomes <code>__range + __bound</code>.</li>
+<li><strong>Member Functions:</strong> If the type of
+<code>__range</code> defines members named <code>begin()</code> and
+<code>end()</code>, the compiler calls <code>__range.begin()</code> and
+<code>__range.end()</code>.</li>
+<li><strong>Argument-Dependent Lookup (ADL):</strong> If member
+functions do not exist, the compiler looks for non-member
+<code>begin(__range)</code> and <code>end(__range)</code> functions in
+the associated namespaces via ADL.</li>
+</ul></li>
+<li><p><strong>Iterator Dereferencing and Incrementing:</strong><br />
+During each iteration, the loop creates <code>range_declaration</code>
+by dereferencing the current iterator (<code>*__begin</code>). The
+iterator is then advanced via the pre-increment operator
+(<code>++__begin</code>), and the loop continues until the condition
+<code>__begin != __end</code> evaluates to <code>false</code>.</p></li>
+</ol>
+<h3 id="evolution-across-c-standards">Evolution Across C++
+Standards</h3>
+<ul>
+<li><strong>C++11 and C++14:</strong> The types of <code>__begin</code>
+and <code>__end</code> were required to be identical.</li>
+<li><strong>C++17 Sentinels:</strong> C++17 relaxed the requirement for
+identical types, allowing <code>__begin</code> and <code>__end</code> to
+have different types. This enables the use of sentinel types, such as a
+null-terminator sentinel for C-strings, where the end condition is
+determined dynamically rather than precomputed.</li>
+<li><strong>C++20 Init-Statement:</strong> C++20 added an optional
+initialization statement:
+<code>for (init-statement; range_declaration : range_expression)</code>.
+This allows objects to be declared within the loop's outer scope,
+mitigating dangling reference bugs when chaining accessors on temporary
+objects.</li>
+</ul>
+<h3 id="performance-and-assembly-output">Performance and Assembly
+Output</h3>
+<p>Because range-based <code>for</code> loops are strictly a
+compile-time transformation, they incur zero runtime overhead compared
+to hand-written iterator or index-based loops. In optimized builds
+(<code>-O2</code> or <code>-O3</code>), compilers inline the iterator
+operations—such as <code>operator*</code>, <code>operator++</code>, and
+<code>operator!=</code>—resulting in identical machine instructions to
+raw pointer traversals.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

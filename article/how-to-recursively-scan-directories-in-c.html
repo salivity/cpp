@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Recursively Scan Directories in C++ - cpp</title>
+    <meta name="description" content="This article provides a comprehensive overview of directory iterators in C++, focusing specifically on how to use std::filesystem::recursivedirectoryiterator to traverse nested file systems. Introduced in C++17, the &lt;filesystem&gt; library standardizes file">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-to-recursively-scan-directories-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Recursively Scan Directories in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-to-recursively-scan-directories-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a comprehensive overview of directory iterators in C++, focusing specifically on how to use std::filesystem::recursivedirectoryiterator to traverse nested file systems. Introduced in C++17, the &lt;filesystem&gt; library standardizes file" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-recursively-scan-directories-in-c">How to Recursively
+Scan Directories in C++</h1>
+<p>This article provides a comprehensive overview of directory iterators
+in C++, focusing specifically on how to use
+<code>std::filesystem::recursive_directory_iterator</code> to traverse
+nested file systems. Introduced in C++17, the
+<code>&lt;filesystem&gt;</code> library standardizes file and path
+manipulation, eliminating the need for platform-specific APIs. Readers
+will learn the mechanics behind recursive directory iteration, see
+practical code examples, and discover essential techniques for handling
+file permissions, symbolic links, and error states.</p>
+<h3 id="understanding-directory-iterators-in-c">Understanding Directory
+Iterators in C++</h3>
+<p>The C++ <code>&lt;filesystem&gt;</code> library introduces two
+primary iterator types for traversing folders:
+<code>std::filesystem::directory_iterator</code> and
+<code>std::filesystem::recursive_directory_iterator</code>.</p>
+<ul>
+<li><strong><code>directory_iterator</code></strong>: Iterates only over
+the contents of a single directory, ignoring subdirectories.</li>
+<li><strong><code>recursive_directory_iterator</code></strong>: Iterates
+over a directory and automatically descends into subdirectories,
+enabling a full depth-first traversal of an entire file tree without
+requiring manual recursion logic.</li>
+</ul>
+<p>Both iterators yield <code>std::filesystem::directory_entry</code>
+objects, which contain paths and cached metadata attributes such as file
+size, modification time, and file type.</p>
+<h3 id="implementing-a-recursive-file-system-scan">Implementing a
+Recursive File System Scan</h3>
+<p>To recursively scan a directory, instantiate a
+<code>std::filesystem::recursive_directory_iterator</code> pointing to
+the target path and iterate through it using a standard range-based
+<code>for</code> loop.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;filesystem&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> fs <span class="op">=</span> <span class="bu">std::</span>filesystem<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> scanDirectory<span class="op">(</span><span class="at">const</span> fs<span class="op">::</span>path<span class="op">&amp;</span> targetPath<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span>fs<span class="op">::</span>exists<span class="op">(</span>targetPath<span class="op">)</span> <span class="op">||</span> <span class="op">!</span>fs<span class="op">::</span>is_directory<span class="op">(</span>targetPath<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="st">&quot;Invalid path provided.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="at">const</span> <span class="kw">auto</span><span class="op">&amp;</span> entry <span class="op">:</span> fs<span class="op">::</span>recursive_directory_iterator<span class="op">(</span>targetPath<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="at">const</span> <span class="kw">auto</span><span class="op">&amp;</span> path <span class="op">=</span> entry<span class="op">.</span>path<span class="op">();</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>entry<span class="op">.</span>is_regular_file<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>            <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;[FILE] &quot;</span> <span class="op">&lt;&lt;</span> path<span class="op">.</span>string<span class="op">()</span> </span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>                      <span class="op">&lt;&lt;</span> <span class="st">&quot; (&quot;</span> <span class="op">&lt;&lt;</span> entry<span class="op">.</span>file_size<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="st">&quot; bytes)</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span> <span class="cf">else</span> <span class="cf">if</span> <span class="op">(</span>entry<span class="op">.</span>is_directory<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>            <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;[DIR]  &quot;</span> <span class="op">&lt;&lt;</span> path<span class="op">.</span>string<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    scanDirectory<span class="op">(</span><span class="st">&quot;./sample_directory&quot;</span><span class="op">);</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="controlling-traversal-and-recursion-depth">Controlling Traversal
+and Recursion Depth</h3>
+<p>The <code>recursive_directory_iterator</code> provides member
+functions to monitor and manipulate the traversal process during
+runtime:</p>
+<ul>
+<li><strong><code>depth()</code></strong>: Returns the current recursion
+depth relative to the starting directory.</li>
+<li><strong><code>disable_recursion_pending()</code></strong>: Instructs
+the iterator not to descend into the directory entry currently pointed
+to, skipping that specific branch.</li>
+<li><strong><code>pop()</code></strong>: Immediately exits the current
+subdirectory level and moves back up to the parent directory.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="kw">auto</span> it <span class="op">=</span> fs<span class="op">::</span>recursive_directory_iterator<span class="op">(</span>targetPath<span class="op">);</span> </span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>     it <span class="op">!=</span> fs<span class="op">::</span>recursive_directory_iterator<span class="op">();</span> <span class="op">++</span>it<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Prevent entering directories named &quot;node_modules&quot; or &quot;.git&quot;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>it<span class="op">-&gt;</span>is_directory<span class="op">()</span> <span class="op">&amp;&amp;</span> it<span class="op">-&gt;</span>path<span class="op">().</span>filename<span class="op">()</span> <span class="op">==</span> <span class="st">&quot;node_modules&quot;</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        it<span class="op">.</span>disable_recursion_pending<span class="op">();</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Depth &quot;</span> <span class="op">&lt;&lt;</span> it<span class="op">.</span>depth<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="st">&quot;: &quot;</span> <span class="op">&lt;&lt;</span> it<span class="op">-&gt;</span>path<span class="op">().</span>string<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3
+id="handling-permissions-and-symlinks-with-iteration-options">Handling
+Permissions and Symlinks with Iteration Options</h3>
+<p>File systems frequently contain protected directories or symbolic
+link cycles that can cause traversals to fail or loop indefinitely. C++
+provides <code>std::filesystem::directory_options</code> bitmask flags
+to manage these behaviors:</p>
+<ol type="1">
+<li><strong><code>directory_options::skip_permission_denied</code></strong>:
+Instructs the iterator to ignore directories where read permission is
+denied instead of throwing a <code>std::filesystem_error</code>.</li>
+<li><strong><code>directory_options::follow_directory_symlink</code></strong>:
+Enables following symbolic links to other directories (disabled by
+default to prevent infinite cycles).</li>
+</ol>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>fs<span class="op">::</span>directory_options options <span class="op">=</span> fs<span class="op">::</span>directory_options<span class="op">::</span>skip_permission_denied<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="at">const</span> <span class="kw">auto</span><span class="op">&amp;</span> entry <span class="op">:</span> fs<span class="op">::</span>recursive_directory_iterator<span class="op">(</span>targetPath<span class="op">,</span> options<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> entry<span class="op">.</span>path<span class="op">().</span>string<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="error-handling-with-stderror_code">Error Handling with
+<code>std::error_code</code></h3>
+<p>For production environments where exceptions are undesirable or
+prohibited, the iterator supports an overload accepting a
+<code>std::error_code</code> reference. This captures runtime
+errors—such as vanishing files during iteration—without throwing
+exceptions:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>error_code ec<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>fs<span class="op">::</span>recursive_directory_iterator it<span class="op">(</span>targetPath<span class="op">,</span> options<span class="op">,</span> ec<span class="op">);</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="st">&quot;Initialization error: &quot;</span> <span class="op">&lt;&lt;</span> ec<span class="op">.</span>message<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="op">(</span>it <span class="op">!=</span> fs<span class="op">::</span>recursive_directory_iterator<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> it<span class="op">-&gt;</span>path<span class="op">().</span>string<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    it<span class="op">.</span>increment<span class="op">(</span>ec<span class="op">);</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ec<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="st">&quot;Iteration error: &quot;</span> <span class="op">&lt;&lt;</span> ec<span class="op">.</span>message<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        ec<span class="op">.</span>clear<span class="op">();</span> <span class="co">// Clear the error to continue processing</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By leveraging
+<code>std::filesystem::recursive_directory_iterator</code>, modern C++
+applications gain a cross-platform, robust, and highly configurable
+mechanism for deep directory traversal with minimal overhead.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

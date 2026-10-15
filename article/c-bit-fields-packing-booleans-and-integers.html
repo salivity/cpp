@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Bit Fields: Packing Booleans and Integers - cpp</title>
+    <meta name="description" content="In C++, bit fields allow developers to define structure or class members with explicit bit-widths, enabling efficient data packing of booleans and small integers. This article covers how bit fields work under the hood, demonstrates their syntax, highlight">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-bit-fields-packing-booleans-and-integers">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Bit Fields: Packing Booleans and Integers - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-bit-fields-packing-booleans-and-integers" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, bit fields allow developers to define structure or class members with explicit bit-widths, enabling efficient data packing of booleans and small integers. This article covers how bit fields work under the hood, demonstrates their syntax, highlight" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-bit-fields-packing-booleans-and-integers">C++ Bit Fields:
+Packing Booleans and Integers</h1>
+<p>In C++, bit fields allow developers to define structure or class
+members with explicit bit-widths, enabling efficient data packing of
+booleans and small integers. This article covers how bit fields work
+under the hood, demonstrates their syntax, highlights performance
+trade-offs, and explains when to use them for memory-constrained systems
+or low-level protocols.</p>
+<h3 id="what-are-bit-fields">What Are Bit Fields?</h3>
+<p>In standard C++, fundamental data types have minimum memory
+allocations defined by byte boundaries. For example, a standard
+<code>bool</code> typically occupies one full byte (8 bits) of memory,
+even though it only represents a binary state (0 or 1). Similarly, an
+<code>int</code> usually consumes 4 bytes (32 bits), regardless of
+whether it only stores values between 0 and 7.</p>
+<p>A bit field is a structure or class member declared with an explicit
+width in bits. By specifying the exact number of bits each variable
+requires, the compiler packs multiple fields into adjacent bits within
+the same memory word, significantly reducing the memory footprint.</p>
+<h3 id="syntax-and-example">Syntax and Example</h3>
+<p>To declare a bit field, follow the member name with a colon and the
+number of bits it should occupy.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> DeviceStatus <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> isPowerOn    <span class="op">:</span> <span class="dv">1</span><span class="op">;</span> <span class="co">// 1 bit: 0 to 1</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> isConnected  <span class="op">:</span> <span class="dv">1</span><span class="op">;</span> <span class="co">// 1 bit: 0 to 1</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> errorState   <span class="op">:</span> <span class="dv">2</span><span class="op">;</span> <span class="co">// 2 bits: 0 to 3</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">unsigned</span> <span class="dt">int</span> batteryLevel <span class="op">:</span> <span class="dv">4</span><span class="op">;</span> <span class="co">// 4 bits: 0 to 15</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>In standard layouts without bit fields, four separate variables would
+consume multiple bytes (often 8 to 16 bytes depending on padding and
+alignment). With bit fields, the sum of the bits is <span
+class="math inline">\(1 + 1 + 2 + 4 = 8\)</span> bits (1 byte). The
+entire <code>DeviceStatus</code> struct can fit within a single byte of
+memory.</p>
+<h3 id="how-data-packing-works">How Data Packing Works</h3>
+<p>Bit fields operate inside an underlying allocation unit, typically
+determined by the underlying type (such as <code>unsigned int</code> or
+<code>uint8_t</code>).</p>
+<ol type="1">
+<li><strong>Sequential Packing:</strong> The compiler places adjacent
+bit fields into the same storage unit as long as they fit.</li>
+<li><strong>Boundary Crossing:</strong> If a declared bit field exceeds
+the remaining bits in the current storage unit, the compiler moves it to
+the next unit, depending on the compiler's ABI rules.</li>
+<li><strong>Type Suitability:</strong> Bit fields should generally use
+integral or enumeration types, preferably unsigned types
+(<code>unsigned int</code>, <code>uint8_t</code>,
+<code>uint16_t</code>). Using signed types requires dedicating one bit
+to the sign, meaning a 1-bit signed field can only store values of
+<code>0</code> and <code>-1</code>.</li>
+</ol>
+<h3 id="key-limitations-and-considerations">Key Limitations and
+Considerations</h3>
+<p>While bit fields optimize memory consumption, they introduce specific
+engineering trade-offs:</p>
+<ul>
+<li><strong>No Address-of Operator:</strong> You cannot take the memory
+address of a bit field using the <code>&amp;</code> operator because CPU
+architectures address memory at byte boundaries, not individual bits.
+Consequently, you cannot bind a regular pointer or non-const reference
+to a bit field.</li>
+<li><strong>CPU Overhead:</strong> Accessing a bit field requires the
+CPU to execute bitwise masking and shifting instructions to read or
+write the data, which can introduce small computational overhead
+compared to directly accessing byte-aligned variables.</li>
+<li><strong>Implementation-Defined Layout:</strong> The ordering of bits
+(whether packed from lowest bit to highest, or vice versa) and alignment
+rules are determined by the compiler and system endianness. Bit fields
+should not be cast directly over raw network buffers or hardware
+registers unless the compiler's layout guarantees match the target
+specification.</li>
+<li><strong>Thread Safety:</strong> Modifying two distinct bit fields
+that share the same underlying storage unit concurrently from different
+threads causes a data race, as the CPU updates the entire containing
+word at once.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Pass by Value vs Const Reference Explained - cpp</title>
+    <meta name="description" content="In C++, passing an argument by value versus passing by const reference is primarily a distinction between ownership and observation. Passing by value creates an independent, isolated copy of the argument for the function to consume or modify without affec">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-pass-by-value-vs-const-reference-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Pass by Value vs Const Reference Explained - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-pass-by-value-vs-const-reference-explained" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, passing an argument by value versus passing by const reference is primarily a distinction between ownership and observation. Passing by value creates an independent, isolated copy of the argument for the function to consume or modify without affec" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-pass-by-value-vs-const-reference-explained">C++ Pass by Value
+vs Const Reference Explained</h1>
+<p>In C++, passing an argument by value versus passing by
+<code>const</code> reference is primarily a distinction between
+ownership and observation. Passing by value creates an independent,
+isolated copy of the argument for the function to consume or modify
+without affecting the caller. In contrast, passing by <code>const</code>
+reference provides an immutable alias to the original object, signaling
+that the function only intends to observe the data without taking
+ownership or incurring the performance cost of a copy.</p>
+<h3 id="semantic-ownership-and-independence">Semantic Ownership and
+Independence</h3>
+<p>When a function accepts a parameter by value
+(<code>void func(T x)</code>), it demands its own independent instance
+of <code>T</code>. Semantically, this implies:</p>
+<ul>
+<li><strong>Value Semantics:</strong> The function receives a complete
+copy of the data. Modifications made to <code>x</code> inside the
+function have zero effect on the caller's original object.</li>
+<li><strong>Ownership Transfer or Sinks:</strong> Passing by value is
+often used when the function intends to consume, store, or move the
+argument (such as initializing a member variable in a constructor via
+<code>std::move</code>).</li>
+<li><strong>Guaranteed Lifetime:</strong> The parameter's lifetime is
+bound directly to the local scope of the function, eliminating concerns
+about the caller destroying the object prematurely.</li>
+</ul>
+<h3 id="observation-and-lifetime-semantics">Observation and Lifetime
+Semantics</h3>
+<p>When a function accepts a parameter by <code>const</code> reference
+(<code>void func(const T&amp; x)</code>), it requests read-only access
+to an existing instance. Semantically, this implies:</p>
+<ul>
+<li><strong>Observation Only:</strong> The caller retains full
+ownership. The function promises not to mutate the object through that
+reference and merely inspects its state.</li>
+<li><strong>Non-Owning Reference:</strong> The function does not own the
+object. Storing a <code>const</code> reference beyond the function's
+execution is hazardous because it introduces the risk of dangling
+references if the caller's object falls out of scope.</li>
+<li><strong>Temporary Binding:</strong> A <code>const</code> reference
+can bind to temporary objects (rvalues). The compiler extends the
+temporary's lifetime to match the duration of the function call.</li>
+</ul>
+<h3 id="aliasing-and-side-effects">Aliasing and Side Effects</h3>
+<p>A subtle semantic difference involves pointer or reference
+aliasing.</p>
+<p>With <strong>pass by value</strong>, the local instance is completely
+isolated. Even if global state or another parameter points to the
+caller's original object, mutating that original object will not alter
+the local copy.</p>
+<p>With <strong>pass by const reference</strong>, <code>x</code> is an
+alias for the actual object in memory. While <code>x</code> itself
+cannot be modified directly, the underlying data might change during
+function execution if another non-const pointer or reference to the same
+object modifies it concurrently or through a reentrant function
+call.</p>
+<h3 id="practical-guidelines">Practical Guidelines</h3>
+<ul>
+<li><strong>Pass by Value:</strong> Use for cheap-to-copy types (such as
+fundamental types like <code>int</code>, <code>double</code>, or small
+structs like <code>std::pair&lt;int, int&gt;</code>) and for parameters
+that will be moved or copied internally anyway.</li>
+<li><strong>Pass by Const Reference:</strong> Use for non-trivial types
+(such as <code>std::string</code>, <code>std::vector</code>, or complex
+custom classes) where the function only needs to read the data,
+preventing the computational and memory overhead of unnecessary object
+duplication.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

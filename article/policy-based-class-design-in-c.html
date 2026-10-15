@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Policy-Based Class Design in C++ - cpp</title>
+    <meta name="description" content="Policy-based class design is a modern C++ design idiom that uses compile-time template metaprogramming to construct highly customizable and reusable architectural components. By decomposing complex types into orthogonal, interchangeable units called &quot;poli">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/policy-based-class-design-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Policy-Based Class Design in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/policy-based-class-design-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Policy-based class design is a modern C++ design idiom that uses compile-time template metaprogramming to construct highly customizable and reusable architectural components. By decomposing complex types into orthogonal, interchangeable units called &quot;poli" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="policy-based-class-design-in-c">Policy-Based Class Design in
+C++</h1>
+<p>Policy-based class design is a modern C++ design idiom that uses
+compile-time template metaprogramming to construct highly customizable
+and reusable architectural components. By decomposing complex types into
+orthogonal, interchangeable units called "policies," developers can
+assemble diverse behaviors without runtime overhead. This article
+explains the fundamentals of policy-based design, demonstrates how it
+solves the combinatorial explosion of class hierarchies, and illustrates
+how it achieves modular, zero-cost abstractions in C++.</p>
+<h3 id="what-is-policy-based-class-design">What Is Policy-Based Class
+Design?</h3>
+<p>Popularized by Andrei Alexandrescu in <em>Modern C++ Design</em>,
+policy-based design is a compile-time variant of the Strategy pattern.
+In traditional object-oriented programming, dynamic behavior is
+typically configured using runtime polymorphism via abstract base
+classes and virtual functions. While flexible, this approach incurs
+runtime costs such as virtual table lookups, heap allocation, and missed
+inlining opportunities.</p>
+<p>Policy-based design moves this assembly to compile time. In this
+paradigm:</p>
+<ul>
+<li>A <strong>Policy</strong> defines an interface (a set of types,
+functions, or member variables) that encapsulates a single behavioral
+aspect.</li>
+<li>A <strong>Policy Class</strong> is a concrete implementation of that
+policy.</li>
+<li>A <strong>Host Class</strong> is a class template that accepts one
+or more policy classes as template arguments and inherits from them or
+contains them.</li>
+</ul>
+<h3 id="overcoming-combinatorial-explosion">Overcoming Combinatorial
+Explosion</h3>
+<p>In conventional inheritance hierarchies, combining multiple optional
+behaviors requires an exponential number of derived classes. If a
+component has three distinct behavioral axes (e.g., storage strategy,
+thread safety, and logging), each with three variants, a pure
+inheritance hierarchy would require <span class="math inline">\(3 \times
+3 \times 3 = 27\)</span> subclasses to cover every combination.</p>
+<p>Policy-based design decouples these axes into independent template
+parameters. The host class simply acts as a scaffold:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> ThreadingPolicy<span class="op">,</span> <span class="kw">typename</span> StoragePolicy<span class="op">,</span> <span class="kw">typename</span> LoggingPolicy<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SmartResource <span class="op">:</span> <span class="kw">private</span> ThreadingPolicy<span class="op">,</span> <span class="kw">private</span> StoragePolicy<span class="op">,</span> <span class="kw">private</span> LoggingPolicy <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> execute<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        ThreadingPolicy<span class="op">::</span>lock<span class="op">();</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        LoggingPolicy<span class="op">::</span>log<span class="op">(</span><span class="st">&quot;Operation started&quot;</span><span class="op">);</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span><span class="op">*</span> data <span class="op">=</span> StoragePolicy<span class="op">::</span>get<span class="op">();</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Perform work on data...</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        LoggingPolicy<span class="op">::</span>log<span class="op">(</span><span class="st">&quot;Operation completed&quot;</span><span class="op">);</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        ThreadingPolicy<span class="op">::</span>unlock<span class="op">();</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Instead of defining dozens of specialized classes, developers define
+only nine distinct policy classes (three per axis). The compiler
+synthesizes whichever permutations are instantiated, eliminating
+boilerplate and maintenance overhead.</p>
+<h3 id="architectural-flexibility-through-orthogonality">Architectural
+Flexibility Through Orthogonality</h3>
+<p>The primary strength of policy-based architecture is orthogonality:
+policies are designed to be largely agnostic of one another. The host
+class coordinates policies, passing state between them or delegating
+tasks to their specialized member functions.</p>
+<ol type="1">
+<li><p><strong>Static Composition</strong>: Policies can be composed
+using multiple inheritance or containment. Inheriting from policies
+allows the host class to inherit policy interfaces directly, extending
+the host's public API conditionally based on the chosen policy.</p></li>
+<li><p><strong>Default Template Arguments</strong>: Host classes can
+provide sensible defaults for every policy, allowing consumers to
+override only the specific behaviors they wish to customize:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Threading <span class="op">=</span> SingleThreaded<span class="op">,</span> <span class="kw">typename</span> Storage <span class="op">=</span> HeapStorage<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Manager<span class="op">;</span></span></code></pre></div></li>
+<li><p><strong>Template Template Parameters</strong>: A host can accept
+unspecialized template templates, allowing the host to instantiate the
+policy with types only known internally to the host.</p></li>
+</ol>
+<h3 id="performance-and-safety-benefits">Performance and Safety
+Benefits</h3>
+<p>Because policy selection occurs entirely at compile time,
+policy-based architectures benefit from:</p>
+<ul>
+<li><strong>Zero Runtime Overhead</strong>: Function calls to policy
+methods can be aggressively inlined by the compiler, removing the call
+overhead associated with virtual dispatch.</li>
+<li><strong>Static Validation</strong>: Misconfigured policy
+combinations can be caught during compilation using static assertions
+(<code>static_assert</code>) or C++20 Concepts, ensuring that invalid
+behavioral combinations fail to build rather than causing runtime
+errors.</li>
+<li><strong>Enriched Type Safety</strong>: Different policy combinations
+result in completely distinct C++ types. This prevents subtle bugs, such
+as passing a non-thread-safe resource to an asynchronous worker
+requiring synchronization.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

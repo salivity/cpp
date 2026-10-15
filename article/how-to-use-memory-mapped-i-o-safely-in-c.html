@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Use Memory-Mapped I/O Safely in C++ - cpp</title>
+    <meta name="description" content="This article provides an overview of Memory-Mapped Input-Output (MMIO) and demonstrates how to safely access hardware registers using pointers in modern C++. You will learn how MMIO maps peripheral control registers directly into the CPU&#39;s memory space, w">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-to-use-memory-mapped-i-o-safely-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Use Memory-Mapped I/O Safely in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-to-use-memory-mapped-i-o-safely-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of Memory-Mapped Input-Output (MMIO) and demonstrates how to safely access hardware registers using pointers in modern C++. You will learn how MMIO maps peripheral control registers directly into the CPU&#39;s memory space, w" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-use-memory-mapped-io-safely-in-c">How to Use
+Memory-Mapped I/O Safely in C++</h1>
+<p>This article provides an overview of Memory-Mapped Input-Output
+(MMIO) and demonstrates how to safely access hardware registers using
+pointers in modern C++. You will learn how MMIO maps peripheral control
+registers directly into the CPU's memory space, why standard memory
+access assumptions fail when interacting with hardware, and how to use
+qualifiers, strict typing, and abstraction wrappers to ensure reliable
+and predictable communication with external devices.</p>
+<h2 id="what-is-memory-mapped-io">What is Memory-Mapped I/O?</h2>
+<p>Memory-Mapped Input-Output (MMIO) is a communication mechanism where
+the processor uses the same address space to access both physical memory
+(RAM) and hardware peripheral registers (such as GPIO, timers, UART, or
+SPI controllers). Instead of requiring specialized I/O instructions, the
+CPU reads from and writes to designated addresses to communicate with
+hardware.</p>
+<p>When a write operation targets an MMIO address, the bus controller
+directs the data to the peripheral's configuration or data registers
+rather than standard storage. Similarly, reading an MMIO address queries
+the current physical state of the peripheral, such as whether a packet
+has arrived or a pin is driven high.</p>
+<h2 id="the-challenge-with-standard-c-pointer-access">The Challenge with
+Standard C++ Pointer Access</h2>
+<p>In standard C++, the compiler operates under the "as-if" rule,
+optimizing memory reads and writes based on the assumption that memory
+holds state predictably and changes only via explicit program
+operations.</p>
+<p>When applied to MMIO, these standard optimizations introduce severe
+bugs:</p>
+<ul>
+<li><strong>Dead-Store Elimination:</strong> If code writes consecutive
+values to a register (e.g., toggling a pin low then high), the compiler
+may discard the first write, assuming it is redundant.</li>
+<li><strong>Redundant Read Elimination:</strong> If code polls a
+register in a <code>while</code> loop waiting for a hardware flag, the
+compiler may load the value once into a CPU register and reuse it
+infinitely, causing an infinite loop.</li>
+<li><strong>Instruction Reordering:</strong> The compiler or processor
+pipeline may reorder reads and writes for performance, potentially
+configuring a peripheral after enabling it.</li>
+</ul>
+<h2 id="ensuring-safe-access-using-c-pointers">Ensuring Safe Access
+Using C++ Pointers</h2>
+<p>To access MMIO addresses safely, C++ developers must account for
+hardware-induced side effects, ensure correct pointer typing, and
+enforce proper access patterns.</p>
+<h3 id="1-the-volatile-qualifier">1. The <code>volatile</code>
+Qualifier</h3>
+<p>The foundational tool for MMIO in C++ is the <code>volatile</code>
+keyword. Placing <code>volatile</code> on the target data type informs
+the compiler that the value at the address can change outside the
+program's control and that every read and write must produce an
+observable side effect.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstdint&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Define the MMIO register address</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">inline</span> <span class="kw">constexpr</span> <span class="bu">std::</span>uintptr_t UART0_BASE <span class="op">=</span> <span class="bn">0x4000&#39;0000</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">inline</span> <span class="kw">constexpr</span> <span class="bu">std::</span>uintptr_t UART_DATA_OFFSET <span class="op">=</span> <span class="bn">0x04</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Create a pointer to a volatile register</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span><span class="op">*</span> <span class="at">const</span> uart_data <span class="op">=</span> <span class="kw">reinterpret_cast</span><span class="op">&lt;</span><span class="at">volatile</span> <span class="bu">std::</span>uint32_t<span class="op">*&gt;(</span>UART0_BASE <span class="op">+</span> UART_DATA_OFFSET<span class="op">);</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Safe Write: Compiler will not optimize this away</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="op">*</span>uart_data <span class="op">=</span> <span class="bn">0xA5</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Safe Read: Always fetched directly from the hardware address</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>uint32_t received_byte <span class="op">=</span> <span class="op">*</span>uart_data<span class="op">;</span></span></code></pre></div>
+<p>In this pattern:</p>
+<ul>
+<li><code>volatile std::uint32_t*</code> means the data being pointed to
+is volatile.</li>
+<li>The trailing <code>const</code> (<code>auto* const</code>) ensures
+the pointer itself cannot be inadvertently redirected to another
+address.</li>
+</ul>
+<h3 id="2-preventing-undefined-behavior-and-alignment-issues">2.
+Preventing Undefined Behavior and Alignment Issues</h3>
+<p>Hardware registers require strict alignment (often 32-bit or 64-bit
+boundaries). Dereferencing an unaligned pointer leads to hardware faults
+on architectures like ARM Cortex-M.</p>
+<p>Always map registers using fixed-width integer types from
+<code>&lt;cstdint&gt;</code> (<code>std::uint32_t</code>,
+<code>std::uint16_t</code>, <code>std::uint8_t</code>) that match the
+exact bit width specified in the hardware datasheet. Avoid using raw
+types like <code>int</code> or <code>long</code>, which vary across
+toolchains and platforms.</p>
+<h3 id="3-encapsulating-registers-with-modern-c">3. Encapsulating
+Registers with Modern C++</h3>
+<p>Relying on raw pointer arithmetic throughout a codebase is
+error-prone. Modern C++ allows safe encapsulation using structured types
+or templated register drivers that enforce access permissions
+(read-only, write-only, read-write) at compile time.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstdint&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="bu">std::</span>uintptr_t Address<span class="op">,</span> <span class="kw">typename</span> T <span class="op">=</span> <span class="bu">std::</span>uint32_t<span class="op">&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> MmioRegister <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span> write<span class="op">(</span>T value<span class="op">)</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="op">*</span><span class="kw">reinterpret_cast</span><span class="op">&lt;</span><span class="at">volatile</span> T<span class="op">*&gt;(</span>Address<span class="op">)</span> <span class="op">=</span> value<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> T read<span class="op">()</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">*</span><span class="kw">reinterpret_cast</span><span class="op">&lt;</span><span class="at">const</span> <span class="at">volatile</span> T<span class="op">*&gt;(</span>Address<span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Define specific hardware registers by their physical address</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> StatusReg <span class="op">=</span> MmioRegister<span class="op">&lt;</span><span class="bn">0x40001000</span><span class="op">&gt;;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> ControlReg <span class="op">=</span> MmioRegister<span class="op">&lt;</span><span class="bn">0x40001004</span><span class="op">&gt;;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> configure_peripheral<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Reading status register</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">((</span>StatusReg<span class="op">::</span>read<span class="op">()</span> <span class="op">&amp;</span> <span class="bn">0x01</span><span class="op">)</span> <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Polling wait loop safely executed every iteration</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Writing to control register</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    ControlReg<span class="op">::</span>write<span class="op">(</span><span class="bn">0x02</span><span class="op">);</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This abstraction prevents unintended pointer modification, eliminates
+pointer arithmetic mistakes, and produces clean assembly identical to
+direct pointer access.</p>
+<h3 id="4-memory-ordering-and-barriers">4. Memory Ordering and
+Barriers</h3>
+<p>While <code>volatile</code> prevents the compiler from reordering
+MMIO reads and writes relative to other <code>volatile</code> accesses,
+it does not prevent out-of-order execution implemented by modern
+hardware memory buses and multi-core processors.</p>
+<p>When the execution order of operations relative to non-volatile
+memory matters—such as configuring a Direct Memory Access (DMA) buffer
+in RAM and then initiating the transfer via an MMIO write—a hardware
+memory barrier (such as
+<code>std::atomic_thread_fence(std::memory_order_seq_cst)</code> or
+architecture-specific barrier instructions like <code>__DMB()</code> on
+ARM) must be inserted between the operations to ensure all bus
+transactions complete in the intended sequence.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

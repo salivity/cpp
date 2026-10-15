@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Coroutine Allocation: Heap vs Stack Elision - cpp</title>
+    <meta name="description" content="This article explores how C++20 coroutines allocate their execution state, contrasting dynamic heap allocation with compiler-driven heap allocation elision (HALO). When a coroutine is invoked, it requires a coroutine frame to store its promise object, fun">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-coroutine-allocation-heap-vs-stack-elision">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Coroutine Allocation: Heap vs Stack Elision - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-coroutine-allocation-heap-vs-stack-elision" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how C++20 coroutines allocate their execution state, contrasting dynamic heap allocation with compiler-driven heap allocation elision (HALO). When a coroutine is invoked, it requires a coroutine frame to store its promise object, fun" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-coroutine-allocation-heap-vs-stack-elision">C++ Coroutine
+Allocation: Heap vs Stack Elision</h1>
+<p>This article explores how C++20 coroutines allocate their execution
+state, contrasting dynamic heap allocation with compiler-driven heap
+allocation elision (HALO). When a coroutine is invoked, it requires a
+coroutine frame to store its promise object, function arguments, local
+variables, and execution state across suspension points. While the
+language specification permits dynamic allocation via
+<code>operator new</code> to ensure frames outlive the caller,
+optimizing compilers can elide this allocation and embed the frame
+directly into the caller's stack frame when specific lifetime conditions
+are met.</p>
+<h2 id="the-coroutine-frame">The Coroutine Frame</h2>
+<p>Unlike standard functions that execute strictly within the bounds of
+a call stack, coroutines can suspend execution and resume later. To
+support this behavior, the compiler generates an internal data structure
+called the coroutine frame. This structure typically contains:</p>
+<ul>
+<li>The promise object defined by the coroutine's return type.</li>
+<li>Copies or moves of the coroutine's parameters.</li>
+<li>Local variables that persist across suspension points.</li>
+<li>Internal state tracking, such as the current suspension point index
+and register states.</li>
+</ul>
+<p>Because a coroutine may return control to its caller before its
+execution completes, its frame cannot always reside on the traditional
+call stack.</p>
+<h2 id="default-heap-allocation">Default Heap Allocation</h2>
+<p>By default, the compiler allocates the coroutine frame dynamically.
+When a coroutine is first called, the compiler synthesizes code to
+allocate the necessary memory before executing the user-written
+body.</p>
+<p>The allocation process follows a structured lookup:</p>
+<ol type="1">
+<li><strong>Custom Allocation:</strong> The compiler checks if the
+<code>promise_type</code> defines an overloaded
+<code>operator new</code>. If present, it uses this overload, optionally
+passing the coroutine's arguments to allow custom allocators or memory
+pools.</li>
+<li><strong>Global Allocation:</strong> If no custom
+<code>operator new</code> exists, the global
+<code>::operator new(std::size_t)</code> is called to allocate memory on
+the free store.</li>
+</ol>
+<p>Deallocation occurs when the coroutine reaches its final suspension
+point or is explicitly destroyed via its
+<code>std::coroutine_handle&lt;&gt;::destroy()</code>. The compiler
+invokes the corresponding <code>operator delete</code>, defined either
+within the <code>promise_type</code> or globally.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Conceptual compiler-generated code for coroutine entry</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span><span class="op">*</span> frame_ptr <span class="op">=</span> <span class="dt">promise_type</span><span class="op">::</span><span class="kw">operator</span> <span class="kw">new</span><span class="op">(</span>frame_size<span class="op">,</span> <span class="co">/* arguments */</span><span class="op">);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// ... construct promise, transfer arguments, begin execution ...</span></span></code></pre></div>
+<h2 id="heap-allocation-elision-optimization-halo">Heap Allocation
+Elision Optimization (HALO)</h2>
+<p>Dynamic allocation introduces runtime overhead that can degrade
+performance, especially in high-frequency operations like synchronous
+generators or immediate-completing tasks. To mitigate this, the C++
+standard allows—but does not mandate—Heap Allocation eLision
+Optimization (HALO).</p>
+<p>Under HALO, the compiler replaces dynamic allocation by allocating
+memory for the coroutine frame directly within the caller's stack frame,
+treating it essentially as a local variable.</p>
+<h3 id="conditions-for-elision">Conditions for Elision</h3>
+<p>For a compiler (such as Clang or GCC) to elide heap allocation, two
+primary conditions must be satisfied:</p>
+<ol type="1">
+<li><strong>Known Lifetime (Nested Lifetime):</strong> The lifetime of
+the coroutine must be strictly bounded by the lifetime of the caller.
+The coroutine must complete its execution and be destroyed before the
+caller's stack frame is popped.</li>
+<li><strong>Visibility and Inlining:</strong> The compiler must have
+visibility into the coroutine body and the promise mechanics at the call
+site. In practice, this requires the coroutine ramp function to be
+inlined into the caller so the compiler can prove the frame's lifetime
+guarantees.</li>
+</ol>
+<p>If the compiler cannot guarantee that the frame will be destroyed
+before the caller returns, it must fall back to dynamic heap allocation
+to avoid stack-use-after-return bugs.</p>
+<h3 id="stack-elision-mechanics">Stack Elision Mechanics</h3>
+<p>When HALO is applied:</p>
+<ul>
+<li>The compiler calculates the combined memory footprint of the caller
+and the coroutine frame.</li>
+<li>The frame memory is reserved on the stack via stack pointer
+adjustment at the entry of the caller.</li>
+<li>Calls to <code>operator new</code> and <code>operator delete</code>
+are eliminated entirely.</li>
+<li>The coroutine handle operates on the stack-allocated memory address
+without any changes to the coroutine's internal logic.</li>
+</ul>
+<h2 id="overriding-and-controlling-allocation">Overriding and
+Controlling Allocation</h2>
+<p>Developers can influence how allocation takes place through custom
+promise definitions:</p>
+<ul>
+<li><strong>Custom Memory Arenas:</strong> By overloading
+<code>operator new</code> within the <code>promise_type</code>, you can
+route allocations to pre-allocated buffers, ring buffers, or arena
+allocators, avoiding global free-store contention even when HALO
+fails.</li>
+<li><strong>Enforcing Lifetime Guarantees:</strong> Designing coroutines
+that are destroyed synchronously within the invoking scope (e.g.,
+standard generator patterns consumed via range-based <code>for</code>
+loops) maximizes the likelihood that the compiler's optimizer
+successfully performs stack elision.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

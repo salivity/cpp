@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::atomic_flag in C++: Lock-Free Boolean Flags - cpp</title>
+    <meta name="description" content="std::atomicflag is an atomic boolean primitive in C++ designed to provide ultra-low-overhead synchronization between threads. Unlike other atomic types defined in &lt;atomic&gt;, std::atomicflag is the only type explicitly guaranteed by the C++ standard to be s">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-atomic-flag-in-c-lock-free-boolean-flags">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::atomic_flag in C++: Lock-Free Boolean Flags - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-atomic-flag-in-c-lock-free-boolean-flags" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="std::atomicflag is an atomic boolean primitive in C++ designed to provide ultra-low-overhead synchronization between threads. Unlike other atomic types defined in &lt;atomic&gt;, std::atomicflag is the only type explicitly guaranteed by the C++ standard to be s" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stdatomic_flag-in-c-lock-free-boolean-flags">std::atomic_flag in
+C++: Lock-Free Boolean Flags</h1>
+<p><code>std::atomic_flag</code> is an atomic boolean primitive in C++
+designed to provide ultra-low-overhead synchronization between threads.
+Unlike other atomic types defined in <code>&lt;atomic&gt;</code>,
+<code>std::atomic_flag</code> is the only type explicitly guaranteed by
+the C++ standard to be strictly lock-free across all conforming
+implementations. This article explains how <code>std::atomic_flag</code>
+interfaces directly with hardware-level atomic instructions, how its
+minimal set of operations operates, and how it is used to implement
+foundational concurrency constructs like spinlocks without relying on
+operating system mutexes.</p>
+<h3 id="the-guaranteed-lock-free-design">The Guaranteed Lock-Free
+Design</h3>
+<p>Standard atomic types, such as <code>std::atomic&lt;bool&gt;</code>
+or <code>std::atomic&lt;int&gt;</code>, may internally fall back to
+lock-based emulation (such as an internal mutex table) if the underlying
+target architecture lacks suitable hardware instructions.</p>
+<p><code>std::atomic_flag</code> avoids this uncertainty. The C++
+standard mandates that <code>std::atomic_flag</code> must never employ
+locks. It represents a minimal 1-bit state: it is either set (true) or
+clear (false). By restricting functionality to a bare minimum, C++
+guarantees that the compiler can map operations on
+<code>std::atomic_flag</code> directly to dedicated CPU-level atomic
+instructions.</p>
+<h3 id="hardware-level-instruction-mapping">Hardware-Level Instruction
+Mapping</h3>
+<p>Modern CPU architectures provide hardware-assisted atomic
+instructions to modify memory while preventing race conditions from
+cache hierarchies and multi-core access. <code>std::atomic_flag</code>
+leverages these CPU capabilities directly:</p>
+<ul>
+<li><strong>x86/x64 Architecture:</strong> On x86 processors, modifying
+an <code>std::atomic_flag</code> typically compiles down to the
+<code>XCHG</code> (exchange) instruction with a register or memory
+operand, or a <code>BTS</code> (bit test and set) instruction prefixed
+with <code>LOCK</code>. The <code>XCHG</code> instruction on x86
+inherently asserts the processor's bus lock or cache-line lock protocol,
+guaranteeing that no other core can read or write that cache line during
+the operation.</li>
+<li><strong>ARM Architecture:</strong> On modern ARM processors (ARMv8
+and later), atomic flag operations translate to instructions like
+<code>LDREX</code>/<code>STREX</code> (load-linked/store-conditional
+pairs) or modern atomic swap instructions like <code>SWP</code>
+(introduced with ARMv8.1 Large System Extensions). These instructions
+monitor exclusive memory access at the hardware cache controller
+level.</li>
+</ul>
+<p>Because these operations are handled entirely within the CPU's memory
+bus and cache coherency protocols (such as MESI/MOESI), they execute
+without invoking system calls or operating system scheduling
+routines.</p>
+<h3 id="core-operations-and-memory-ordering">Core Operations and Memory
+Ordering</h3>
+<p>Historically (prior to C++20), <code>std::atomic_flag</code> offered
+only two fundamental operations to ensure maximum hardware
+portability:</p>
+<ol type="1">
+<li><strong><code>test_and_set()</code></strong>: Atomically reads the
+current flag value, sets it to <code>true</code>, and returns the
+previous value.</li>
+<li><strong><code>clear()</code></strong>: Atomically resets the flag
+value to <code>false</code>.</li>
+</ol>
+<p>Both functions accept a <code>std::memory_order</code> argument. This
+allows developers to fine-tune memory barriers and CPU instruction
+reordering:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;atomic&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>atomic_flag flag <span class="op">=</span> ATOMIC_FLAG_INIT<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Set the flag and retrieve the previous state</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">bool</span> previous_state <span class="op">=</span> flag<span class="op">.</span>test_and_set<span class="op">(</span><span class="bu">std::</span>memory_order_acquire<span class="op">);</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Reset the flag</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>flag<span class="op">.</span>clear<span class="op">(</span><span class="bu">std::</span>memory_order_release<span class="op">);</span></span></code></pre></div>
+<p>Using <code>std::memory_order_acquire</code> on the setting operation
+prevents subsequent memory reads and writes from being reordered before
+the flag acquisition. Using <code>std::memory_order_release</code>
+ensures that preceding reads and writes are committed to memory before
+the flag is cleared.</p>
+<h3 id="implementing-a-basic-spinlock">Implementing a Basic
+Spinlock</h3>
+<p>Because <code>std::atomic_flag</code> maps to atomic test-and-set
+hardware instructions, its primary use case is creating simple,
+high-performance spinlocks for low-contention critical sections:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;atomic&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Spinlock <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>atomic_flag lock_flag <span class="op">=</span> ATOMIC_FLAG_INIT<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> lock<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Busy-wait until the flag is successfully acquired</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">while</span> <span class="op">(</span>lock_flag<span class="op">.</span>test_and_set<span class="op">(</span><span class="bu">std::</span>memory_order_acquire<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Optional: Pause CPU pipeline to reduce power and bus contention</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>            <span class="pp">#if defined(</span><span class="ot">__x86_64__</span><span class="pp">) || defined(_M_X64)</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>            <span class="fu">__builtin_ia32_pause</span><span class="op">();</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>            <span class="pp">#endif</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> unlock<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        lock_flag<span class="op">.</span>clear<span class="op">(</span><span class="bu">std::</span>memory_order_release<span class="op">);</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>In this implementation, the <code>test_and_set</code> loop continues
+until it successfully transitions the flag from unset to set,
+guaranteeing exclusive access to the calling thread.</p>
+<h3 id="c20-enhancements">C++20 Enhancements</h3>
+<p>C++20 expanded <code>std::atomic_flag</code> to make it more
+versatile while preserving its lock-free guarantee:</p>
+<ul>
+<li><strong><code>test()</code></strong>: Reads the current value of the
+flag without modifying it, reducing unnecessary cache coherency traffic
+compared to repeatedly calling <code>test_and_set()</code>.</li>
+<li><strong><code>wait()</code> and <code>notify_one()</code> /
+<code>notify_all()</code></strong>: Enables blocking synchronization. A
+thread can pause execution until the flag changes value, allowing the
+operating system to sleep the thread rather than wasting CPU cycles
+spinning continuously.</li>
+<li><strong>Default Initialization</strong>: The initialization macro
+<code>ATOMIC_FLAG_INIT</code> is no longer mandatory in C++20;
+<code>std::atomic_flag</code> is initialized to the cleared state by
+default.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

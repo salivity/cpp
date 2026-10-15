@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding Dependent Names and Typename in C++ - cpp</title>
+    <meta name="description" content="In C++ template programming, the compiler encounters identifiers whose definitions depend on the template arguments supplied at instantiation. This article explains what dependent names are, the syntactic ambiguities they introduce during the initial comp">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/understanding-dependent-names-and-typename-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding Dependent Names and Typename in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/understanding-dependent-names-and-typename-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++ template programming, the compiler encounters identifiers whose definitions depend on the template arguments supplied at instantiation. This article explains what dependent names are, the syntactic ambiguities they introduce during the initial comp" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-dependent-names-and-typename-in-c">Understanding
+Dependent Names and Typename in C++</h1>
+<p>In C++ template programming, the compiler encounters identifiers
+whose definitions depend on the template arguments supplied at
+instantiation. This article explains what dependent names are, the
+syntactic ambiguities they introduce during the initial compilation
+phase, and why the <code>typename</code> disambiguator is required by
+the C++ standard to instruct the compiler to treat a dependent qualified
+name as a type rather than an object or expression.</p>
+<h2 id="what-is-a-dependent-name">What is a Dependent Name?</h2>
+<p>A dependent name is any identifier inside a template whose meaning or
+existence depends directly or indirectly on a template parameter. These
+names cannot be fully resolved when the template is first parsed because
+the exact template arguments are unknown until instantiation.</p>
+<p>Names in templates fall into two categories:</p>
+<ul>
+<li><strong>Non-dependent names:</strong> Names that do not rely on
+template parameters (such as <code>int</code>, <code>std::string</code>,
+or local variables with fixed types). The compiler resolves these during
+phase one of template compilation.</li>
+<li><strong>Dependent names:</strong> Names that rely on template
+parameters, such as <code>T::value</code>, <code>T::iterator</code>, or
+<code>std::vector&lt;T&gt;::size_type</code>.</li>
+</ul>
+<p>Because C++ uses a two-phase name lookup model, the compiler checks
+the template for general syntax errors during phase one (definition
+time), but defers resolving dependent names until phase two
+(instantiation time), when concrete types are substituted for
+<code>T</code>.</p>
+<h2 id="the-parsing-ambiguity-problem">The Parsing Ambiguity
+Problem</h2>
+<p>C++ is not a context-free grammar; the compiler must know whether an
+identifier represents a type or a non-type (such as a variable,
+constant, or function) to construct an Abstract Syntax Tree (AST)
+correctly during phase one.</p>
+<p>Consider the following line inside a template:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    T<span class="op">::</span>SubType <span class="op">*</span> ptr<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Without knowing what <code>T</code> is, the expression
+<code>T::SubType * ptr;</code> has two valid syntactic
+interpretations:</p>
+<ol type="1">
+<li><strong>A pointer declaration:</strong> If <code>T::SubType</code>
+is a type, this declares a variable named <code>ptr</code> that points
+to a <code>T::SubType</code>.</li>
+<li><strong>A multiplication expression:</strong> If
+<code>T::SubType</code> is a static member variable or enum constant,
+this multiplies <code>T::SubType</code> by a variable named
+<code>ptr</code> declared in an outer scope.</li>
+</ol>
+<p>Because the compiler must parse and validate syntax before
+instantiating the template, it cannot wait to see what <code>T</code>
+is. To resolve this ambiguity, the C++ standard specifies a default
+rule: <strong>any dependent qualified name is assumed to be a non-type
+(a value or member function) unless explicitly stated
+otherwise.</strong></p>
+<h2 id="why-the-typename-disambiguator-is-required">Why the
+<code>typename</code> Disambiguator is Required</h2>
+<p>Because the compiler assumes dependent names refer to values,
+attempting to declare a pointer or create an object using
+<code>T::SubType</code> results in a compilation error. The
+<code>typename</code> keyword acts as a mandatory disambiguator,
+instructing the compiler to parse the identifier as a type.</p>
+<p>The corrected code requires <code>typename</code> prefixing the
+dependent qualified name:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">typename</span> T<span class="op">::</span>SubType<span class="op">*</span> ptr<span class="op">;</span> <span class="co">// Informs the compiler that SubType is a type</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>A common example occurs when accessing nested types within standard
+library containers:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Container<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> printFirst<span class="op">(</span><span class="at">const</span> Container<span class="op">&amp;</span> c<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Requires typename because Container::const_iterator depends on Container</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">typename</span> Container<span class="op">::</span>const_iterator it <span class="op">=</span> c<span class="op">.</span>begin<span class="op">();</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>it <span class="op">!=</span> c<span class="op">.</span>end<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">// ...</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Without <code>typename</code>, the compiler treats
+<code>Container::const_iterator</code> as a static data member, causing
+a syntax failure when parsing the variable declaration.</p>
+<h2 id="modern-c-and-c20-contextual-improvements">Modern C++ and C++20
+Contextual Improvements</h2>
+<p>Prior to C++20, developers were required to place
+<code>typename</code> before dependent types almost everywhere, even in
+contexts where the identifier could only reasonably be parsed as a
+type.</p>
+<p>C++20 introduced P0634R3, which relaxes the requirement in contexts
+where non-type names are syntactically impossible. In C++20 and later,
+you do not need <code>typename</code> in:</p>
+<ul>
+<li><code>using</code> type aliases:
+<code>using Type = T::SubType;</code></li>
+<li><code>new</code> expressions: <code>new T::SubType;</code></li>
+<li>Base class specifiers:
+<code>template &lt;typename T&gt; struct Derived : T::Base {};</code></li>
+<li>Trailing return types:
+<code>auto func() -&gt; T::SubType;</code></li>
+</ul>
+<p>However, inside function bodies and expressions where an operation
+could be interpreted as arithmetic or variable manipulation, the
+<code>typename</code> prefix remains strictly required.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

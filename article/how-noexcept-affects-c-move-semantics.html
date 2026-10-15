@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How noexcept Affects C++ Move Semantics - cpp</title>
+    <meta name="description" content="In modern C++, the noexcept specifier plays a crucial role in enabling optimizations associated with move semantics, particularly within Standard Template Library (STL) containers. Marking move constructors and move assignment operators as noexcept inform">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-noexcept-affects-c-move-semantics">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How noexcept Affects C++ Move Semantics - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-noexcept-affects-c-move-semantics" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, the noexcept specifier plays a crucial role in enabling optimizations associated with move semantics, particularly within Standard Template Library (STL) containers. Marking move constructors and move assignment operators as noexcept inform" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-noexcept-affects-c-move-semantics">How noexcept Affects C++
+Move Semantics</h1>
+<p>In modern C++, the <code>noexcept</code> specifier plays a crucial
+role in enabling optimizations associated with move semantics,
+particularly within Standard Template Library (STL) containers. Marking
+move constructors and move assignment operators as <code>noexcept</code>
+informs the compiler and the standard library that these operations are
+guaranteed not to throw exceptions. Without this specifier, containers
+such as <code>std::vector</code> will fall back to using expensive copy
+operations during reallocations to maintain the strong exception safety
+guarantee, directly negating the performance benefits of move
+semantics.</p>
+<h3 id="the-strong-exception-safety-guarantee">The Strong Exception
+Safety Guarantee</h3>
+<p>The C++ standard library adheres to the strong exception safety
+guarantee for many container operations: if an operation throws an
+exception, the state of the program remains exactly as it was before the
+operation began (a commit-or-rollback guarantee).</p>
+<p>When a <code>std::vector</code> runs out of capacity and needs to
+grow, it allocates a larger memory block and transfers its existing
+elements from the old buffer to the new one.</p>
+<ul>
+<li>If an element's <strong>copy constructor</strong> throws during this
+transfer, the operation can be aborted. The original elements in the old
+buffer remain untouched, allowing the vector to destroy the partially
+constructed new buffer and restore its original state.</li>
+<li>If an element's <strong>move constructor</strong> throws, the source
+object in the old buffer has already been modified or partially hollowed
+out. A rollback is impossible, meaning the strong exception guarantee
+would be violated.</li>
+</ul>
+<h3 id="the-role-of-stdmove_if_noexcept">The Role of
+<code>std::move_if_noexcept</code></h3>
+<p>To prevent state corruption while attempting to maximize performance,
+the standard library uses the utility function
+<code>std::move_if_noexcept</code>.</p>
+<p>During operations like dynamic resizing or reallocation:</p>
+<ol type="1">
+<li>The container inspects the element type using type traits like
+<code>std::is_nothrow_move_constructible</code>.</li>
+<li>If the move constructor is declared <code>noexcept</code>,
+<code>std::move_if_noexcept</code> casts the object to an rvalue
+reference, triggering move construction.</li>
+<li>If the move constructor is <strong>not</strong> declared
+<code>noexcept</code> and the type is copy-constructible,
+<code>std::move_if_noexcept</code> casts the object to a
+<code>const</code> lvalue reference, forcing a copy operation
+instead.</li>
+</ol>
+<h3 id="performance-consequences">Performance Consequences</h3>
+<p>Omitting <code>noexcept</code> on move constructors and move
+assignment operators introduces a silent performance penalty. While your
+custom class might implement an efficient move constructor that
+transfers raw pointers or resource handles, containers will ignore it
+during reallocations if the compiler cannot verify that it is
+non-throwing.</p>
+<p>For example:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> HeavyData <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span><span class="op">*</span> data<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_t</span> size<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Without noexcept: std::vector reallocations will COPY this object</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    HeavyData<span class="op">(</span>HeavyData<span class="op">&amp;&amp;</span> other<span class="op">);</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// With noexcept: std::vector reallocations will MOVE this object</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    HeavyData<span class="op">(</span>HeavyData<span class="op">&amp;&amp;</span> other<span class="op">)</span> <span class="kw">noexcept</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>In the first signature,
+<code>std::vector&lt;HeavyData&gt;::push_back</code> will execute a deep
+copy of every element whenever the vector expands. In the second
+signature, the vector executes cheap pointer swaps.</p>
+<h3 id="best-practices">Best Practices</h3>
+<p>To ensure move semantics function as intended throughout the C++
+standard library:</p>
+<ol type="1">
+<li><strong>Mark Move Operations <code>noexcept</code>:</strong> Always
+explicitly mark custom move constructors and move assignment operators
+as <code>noexcept</code> when resource transfers cannot throw.</li>
+<li><strong>Conditional <code>noexcept</code> for Templates:</strong>
+When writing generic code or template classes, use conditional
+<code>noexcept</code> specifiers (e.g.,
+<code>noexcept(std::is_nothrow_move_constructible_v&lt;T&gt;)</code>) to
+propagate the guarantee based on member types.</li>
+<li><strong>Prefer Compiler-Generated Moves:</strong> Defaulted move
+operations (<code>= default</code>) are automatically deduced as
+<code>noexcept</code> if all sub-objects and base classes have
+non-throwing move operations.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Are C++ Core Language Defect Reports? - cpp</title>
+    <meta name="description" content="This article explores C++ Core Language Defect Reports (DRs), detailing their definition, necessity, and the procedural framework the ISO C++ committee employs to eliminate ambiguities and technical errors from the language specification. It examines the">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/what-are-c-core-language-defect-reports">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Are C++ Core Language Defect Reports? - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/what-are-c-core-language-defect-reports" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores C++ Core Language Defect Reports (DRs), detailing their definition, necessity, and the procedural framework the ISO C++ committee employs to eliminate ambiguities and technical errors from the language specification. It examines the" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-are-c-core-language-defect-reports">What Are C++ Core
+Language Defect Reports?</h1>
+<p>This article explores C++ Core Language Defect Reports (DRs),
+detailing their definition, necessity, and the procedural framework the
+ISO C++ committee employs to eliminate ambiguities and technical errors
+from the language specification. It examines the responsibilities of the
+Core Working Group (CWG) and explains the lifecycle of a defect from
+initial identification to retroactive standardization across compiler
+implementations.</p>
+<h3 id="understanding-core-language-defect-reports">Understanding Core
+Language Defect Reports</h3>
+<p>The ISO C++ standard is an extensive, highly technical document
+defining the syntax, constraints, and semantics of the C++ programming
+language. Given the immense complexity of C++, edge cases inevitably
+arise where the standard text is contradictory, underspecified, or
+inadvertently invalidates valid code.</p>
+<p>When such an error or omission is identified in the core language—as
+opposed to the standard library—it is tracked as a Core Language Issue.
+When the committee formally agrees that the text fails to express the
+intended design or produces an unintended ambiguity, the issue is
+classified as a Defect Report (DR). A DR represents a formal
+acknowledgment that the published standard contains an error requiring
+correction.</p>
+<h3 id="the-role-of-the-core-working-group-cwg">The Role of the Core
+Working Group (CWG)</h3>
+<p>Within the ISO C++ committee (WG21), work is divided across various
+subgroups. The Core Working Group (CWG) is responsible for the core
+language specification (Clauses 4 through 15 of the ISO standard),
+distinct from the Library Working Group (LWG). The CWG evaluates
+reported issues, determines standardizing intent, and crafts precise
+mathematical and legal wording to rectify problems without breaking
+existing code.</p>
+<h3 id="the-process-of-resolving-ambiguities">The Process of Resolving
+Ambiguities</h3>
+<p>The ISO committee follows a systematic pipeline to process defects
+and clarify the language standard:</p>
+<ol type="1">
+<li><strong>Submission and Triage:</strong> Issues can be submitted by
+compiler implementers, committee members, or standard users. Each issue
+receives an issue number and an initial status in the CWG Issues List.
+It is reviewed to ensure it is within the CWG scope and not a new
+language feature request.</li>
+<li><strong>Evaluation:</strong> The CWG analyzes the issue to determine
+its validity. If the standard already provides a definitive answer, the
+issue is categorized as <em>NAD</em> (Not A Defect). If the issue
+represents a legitimate gap or conflict, it moves to active status.</li>
+<li><strong>Determining Intent:</strong> The committee evaluates how
+real-world compilers (such as GCC, Clang, and MSVC) currently handle the
+construct, investigates the original historical intent behind the
+language feature, and weighs the impact of various interpretations on
+backward compatibility and safety.</li>
+<li><strong>Drafting Precise Wording:</strong> Once a consensus on
+intent is reached, dedicated wording experts author specific textual
+changes to the standard specification to remove ambiguity.</li>
+<li><strong>Plenary Approval:</strong> The proposed resolution is
+brought before the full WG21 committee during a plenary vote. If passed,
+the issue achieves <em>WP</em> (Working Paper) status, indicating the
+changes are formally committed to the working draft of the upcoming
+standard.</li>
+</ol>
+<h3 id="retroactive-nature-of-defect-reports">Retroactive Nature of
+Defect Reports</h3>
+<p>Unlike new language features, which apply only to future standard
+releases, resolutions to Defect Reports are generally treated as
+retroactive. When the committee resolves an ambiguity through a DR, the
+resolution represents how the language was always intended to behave.
+Compiler vendors typically apply the resolution to all supported
+language modes (e.g., applying a fix resolved in C++23 retroactively to
+their C++14, C++17, and C++20 compilation modes). This retroactive
+application ensures unified compiler behavior and preserves predictable
+program semantics across evolving standard revisions.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

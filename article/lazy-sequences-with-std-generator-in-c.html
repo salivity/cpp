@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lazy Sequences with std::generator in C++ - cpp</title>
+    <meta name="description" content="Introduced in C++23, std::generator provides a standard, vocabulary-type interface for producing synchronous, lazy sequences using C++20 coroutines. This article explains how std::generator operates under the hood, detailing the interaction between its co">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/lazy-sequences-with-std-generator-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Lazy Sequences with std::generator in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/lazy-sequences-with-std-generator-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++23, std::generator provides a standard, vocabulary-type interface for producing synchronous, lazy sequences using C++20 coroutines. This article explains how std::generator operates under the hood, detailing the interaction between its co" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="lazy-sequences-with-stdgenerator-in-c">Lazy Sequences with
+std::generator in C++</h1>
+<p>Introduced in C++23, <code>std::generator</code> provides a standard,
+vocabulary-type interface for producing synchronous, lazy sequences
+using C++20 coroutines. This article explains how
+<code>std::generator</code> operates under the hood, detailing the
+interaction between its coroutine promise type, suspension points, and
+iterator protocol to evaluate elements on demand while maintaining
+minimal memory overhead and full compatibility with the C++ Ranges
+library.</p>
+<h2 id="the-foundation-coroutine-mechanics">The Foundation: Coroutine
+Mechanics</h2>
+<p>Traditional C++ functions execute to completion and return a single
+value, discarding their stack frames upon return. C++20 coroutines alter
+this control flow by allowing functions to suspend execution and resume
+later, storing their local state inside a dynamically or elastically
+allocated coroutine frame.</p>
+<p>A function becomes a coroutine as soon as it contains any of the
+three coroutine keywords: <code>co_await</code>, <code>co_return</code>,
+or <code>co_yield</code>. The
+<code>std::generator&lt;Ref, Value&gt;</code> template, defined in the
+<code>&lt;generator&gt;</code> header, acts as the return type for
+coroutines designed specifically to produce values synchronously on
+request.</p>
+<h2 id="how-stdgenerator-leverages-the-promise-type">How
+<code>std::generator</code> Leverages the Promise Type</h2>
+<p>Every coroutine relies on an associated promise object defined by its
+return type—in this case, <code>std::generator::promise_type</code>. The
+compiler interacts with this promise type at designated lifecycle
+hooks:</p>
+<ol type="1">
+<li><strong>Lazy Initialization (<code>initial_suspend</code>)</strong>:
+When a <code>std::generator</code>-returning function is invoked, it
+does not immediately execute user code. Instead, its
+<code>initial_suspend()</code> method returns
+<code>std::suspend_always</code>. This immediately suspends the
+coroutine at its initial boundary and returns the
+<code>std::generator</code> object to the caller. No elements are
+computed until the caller actively requests one.</li>
+<li><strong>Value Capture (<code>yield_value</code>)</strong>: When the
+coroutine encounters <code>co_yield expr</code>, the compiler translates
+this expression into <code>co_await promise.yield_value(expr)</code>.
+The promise stores an address or reference to the evaluated expression
+inside the coroutine frame and returns a suspension point.</li>
+<li><strong>Execution Suspension</strong>: Upon yielding, execution
+suspends, and control transfers back to the consumer. The consumer reads
+the value directly from the promise object without performing
+unnecessary copies.</li>
+<li><strong>Completion (<code>return_void</code>)</strong>: Once the
+coroutine reaches <code>co_return</code> or drops off the end of the
+function body, <code>return_void()</code> is called, setting the
+coroutine's state to "done."</li>
+</ol>
+<h2 id="the-iterator-protocol-and-resumption">The Iterator Protocol and
+Resumption</h2>
+<p>The bridge between C++ ranges and coroutine suspension is the
+<code>std::generator::iterator</code>.</p>
+<p>When a consumer calls <code>generator.begin()</code>, the generator
+resumes the coroutine via its underlying
+<code>std::coroutine_handle</code>. Execution proceeds until the first
+<code>co_yield</code> is hit, where it suspends. The iterator
+dereference operator (<code>*it</code>) accesses the value stored in the
+promise during that yield.</p>
+<p>Advancing the iterator (<code>++it</code>) invokes
+<code>handle.resume()</code>. The coroutine picks up directly after the
+previous <code>co_yield</code> point, executes until the next
+<code>co_yield</code>, and suspends again. If the coroutine finishes,
+the iterator becomes equal to <code>generator.end()</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;generator&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>generator<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> fibonacci<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> a <span class="op">=</span> <span class="dv">0</span><span class="op">,</span> b <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">while</span> <span class="op">(</span><span class="kw">true</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">co_yield</span> a<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> next <span class="op">=</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        a <span class="op">=</span> b<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        b <span class="op">=</span> next<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Generates values strictly on demand</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> val <span class="op">:</span> fibonacci<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(</span>val <span class="op">&gt;</span> <span class="dv">20</span><span class="op">)</span> <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> val <span class="op">&lt;&lt;</span> <span class="ch">&#39; &#39;</span><span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="recursive-flattening-and-nested-yields">Recursive Flattening and
+Nested Yields</h2>
+<p>A major performance feature of <code>std::generator</code> is
+built-in support for nested generator calls via
+<code>co_yield std::ranges::elements_of(...)</code>.</p>
+<p>In naive coroutine implementations, yielding from a nested coroutine
+incurs a chain of suspensions and resumptions proportional to the
+recursion depth, leading to quadratic overhead (<span
+class="math inline">\(O(N^2)\)</span>). <code>std::generator</code>
+solves this by symmetrically transferring control directly between
+nested coroutine handles inside the promise type, flattening recursive
+traversals (such as tree walks) into linear time (<span
+class="math inline">\(O(N)\)</span>) without deep stack growth.</p>
+<h2 id="memory-and-performance-characteristics">Memory and Performance
+Characteristics</h2>
+<ul>
+<li><strong>Memory Efficiency</strong>: Because values are computed
+lazily, <code>std::generator</code> avoids materializing sequences into
+memory buffers (e.g., <code>std::vector</code>), reducing space
+complexity to <span class="math inline">\(O(1)\)</span> for sequence
+tracking.</li>
+<li><strong>Allocation Elision</strong>: While coroutines allocate a
+frame on the heap, modern compilers can optimize this allocation away
+through Coroutine Elision (HALO—Heap Allocation of Lookup and
+Overallocation) if the generator's lifetime is bounded and strictly
+nested within the caller's stack frame.</li>
+<li><strong>Range Integration</strong>: <code>std::generator</code>
+models <code>std::ranges::input_range</code>, allowing seamless
+composition with standard range adaptors like
+<code>std::views::take</code>, <code>std::views::transform</code>, and
+<code>std::views::filter</code>.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

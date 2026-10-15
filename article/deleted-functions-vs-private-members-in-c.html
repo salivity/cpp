@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deleted Functions vs Private Members in C++ - cpp</title>
+    <meta name="description" content="In modern C++, developers frequently need to restrict access to specific functions, such as preventing object copying or disallowing certain type conversions. Historically, this was achieved by declaring a member function as private and leaving it undefin">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/deleted-functions-vs-private-members-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Deleted Functions vs Private Members in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/deleted-functions-vs-private-members-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, developers frequently need to restrict access to specific functions, such as preventing object copying or disallowing certain type conversions. Historically, this was achieved by declaring a member function as private and leaving it undefin" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="deleted-functions-vs-private-members-in-c">Deleted Functions vs
+Private Members in C++</h1>
+<p>In modern C++, developers frequently need to restrict access to
+specific functions, such as preventing object copying or disallowing
+certain type conversions. Historically, this was achieved by declaring a
+member function as <code>private</code> and leaving it undefined (or
+unexported), whereas C++11 introduced explicitly deleted functions using
+the <code>= delete</code> specifier. While both techniques prevent
+unauthorized execution, they differ fundamentally in how they interact
+with overload resolution, access control, compiler diagnostics, and
+internal class privileges.</p>
+<h3 id="overload-resolution-and-error-generation">Overload Resolution
+and Error Generation</h3>
+<p>The primary functional difference lies in the sequence of compiler
+phases: overload resolution occurs before access control checks.</p>
+<p>When a function is declared <code>private</code> but left unexported
+or undefined:</p>
+<ol type="1">
+<li>The compiler includes the private function in the candidate set
+during overload resolution.</li>
+<li>If it is the best match, the compiler selects it.</li>
+<li>The compiler then evaluates access control. If the call site lacks
+access rights, compilation halts with an access violation error.</li>
+</ol>
+<p>When a function is marked <code>= delete</code>:</p>
+<ol type="1">
+<li>The function remains a viable candidate in overload resolution.</li>
+<li>If it provides the best match, overload resolution selects it.</li>
+<li>The compiler immediately evaluates the deletion status and produces
+a compilation error stating that the deleted function cannot be
+referenced.</li>
+</ol>
+<p>This distinction is crucial when preventing unwanted implicit
+conversions. For example, if an overloaded method accepts an
+<code>int</code> and a deleted overload accepts a <code>double</code>,
+passing a <code>double</code> resolves to the deleted overload and fails
+immediately. If the <code>double</code> overload were simply private,
+external callers would trigger an access error rather than falling back
+to <code>int</code>, but within the class or its friends, the function
+might still be mistakenly called and lead to a linker error.</p>
+<h3 id="member-and-friend-access">Member and Friend Access</h3>
+<p>An unexported private member does not protect against invocation from
+within the class itself or from declared <code>friend</code>
+entities:</p>
+<ul>
+<li><strong>Private and Undefined:</strong> Member functions and friends
+can still legally attempt to call the private function. Because the
+function is intentionally left without an export or definition, the
+failure is deferred to the linker, yielding an "undefined reference" or
+unresolved external symbol error rather than a direct compilation
+failure.</li>
+<li><strong>Explicitly Deleted (<code>= delete</code>):</strong>
+Deletion is absolute. Neither member functions nor friends can call an
+explicitly deleted function. Any attempt to invoke it results in an
+immediate compile-time error, ensuring full consistency across the
+entire codebase.</li>
+</ul>
+<h3 id="diagnostic-clarity-and-intent">Diagnostic Clarity and
+Intent</h3>
+<p>Compiler diagnostics differ substantially between the two
+mechanisms:</p>
+<ul>
+<li>Using <code>= delete</code> communicates explicit design intent to
+the compiler. Diagnostic messages explicitly report that the code
+attempted to invoke a deleted function, often highlighting the exact
+line where <code>= delete</code> was declared.</li>
+<li>Private, unexported functions report access violations (e.g.,
+"function is private within this context") for external callers, or
+missing symbols at link time for internal callers, obscuring the design
+intent that the operation is fundamentally invalid.</li>
+</ul>
+<h3 id="scope-of-application">Scope of Application</h3>
+<p>Deleted functions possess broader functional utility than access
+specifiers:</p>
+<ul>
+<li><strong>Non-Member Functions:</strong> Free functions and
+namespace-scope functions can be explicitly deleted (e.g., to prevent
+specific argument type conversions), whereas <code>private</code> access
+is restricted exclusively to class members.</li>
+<li><strong>Function Template Specialization:</strong> Specific template
+instantiations can be deleted to disable problematic types while keeping
+the primary template enabled for all other types. Private access cannot
+selectively disable template specializations in this manner.</li>
+</ul>
+<h3 id="impact-on-type-traits">Impact on Type Traits</h3>
+<p>Type traits inspect the validity of operations at compile time:</p>
+<ul>
+<li>Classes with explicitly deleted special member functions (such as
+copy constructors or copy assignment operators) correctly update type
+traits such as <code>std::is_copy_constructible</code> and
+<code>std::is_copy_assignable</code> to evaluate to
+<code>false</code>.</li>
+<li>Private special member functions in older C++ standards often
+complicated SFINAE contexts and introspection traits, whereas deleted
+definitions integrate natively with modern template metaprogramming and
+concept constraints.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

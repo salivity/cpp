@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::enable_shared_from_this Prevents Double Deletion - cpp</title>
+    <meta name="description" content="In C++, managing object lifetimes with std::sharedptr relies on a shared control block that tracks reference counts. When a member function attempts to create a new std::sharedptr directly from the raw this pointer, it mistakenly creates a second, indepen">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-enable-shared-from-this-prevents-double-deletion">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::enable_shared_from_this Prevents Double Deletion - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-enable-shared-from-this-prevents-double-deletion" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, managing object lifetimes with std::sharedptr relies on a shared control block that tracks reference counts. When a member function attempts to create a new std::sharedptr directly from the raw this pointer, it mistakenly creates a second, indepen" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdenable_shared_from_this-prevents-double-deletion">How
+std::enable_shared_from_this Prevents Double Deletion</h1>
+<p>In C++, managing object lifetimes with <code>std::shared_ptr</code>
+relies on a shared control block that tracks reference counts. When a
+member function attempts to create a new <code>std::shared_ptr</code>
+directly from the raw <code>this</code> pointer, it mistakenly creates a
+second, independent control block for the same underlying object,
+inevitably leading to undefined behavior and double deletion. Inheriting
+from <code>std::enable_shared_from_this</code> prevents this fatal flaw
+by enabling an object to produce new <code>std::shared_ptr</code>
+instances that alias the existing control block, ensuring accurate
+reference counting across the program.</p>
+<h3 id="the-problem-naive-pointer-wrapping">The Problem: Naive Pointer
+Wrapping</h3>
+<p>When an object is managed by a <code>std::shared_ptr</code>, memory
+management is handled by an allocated control block containing the
+reference counts (strong and weak) alongside the deleter.</p>
+<p>Consider what happens if an object tries to pass ownership of itself
+using the <code>this</code> pointer:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Bad <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>shared_ptr<span class="op">&lt;</span>Bad<span class="op">&gt;</span> get_ptr<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">std::</span>shared_ptr<span class="op">&lt;</span>Bad<span class="op">&gt;(</span><span class="kw">this</span><span class="op">);</span> <span class="co">// Creates a new control block!</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> original <span class="op">=</span> <span class="bu">std::</span>make_shared<span class="op">&lt;</span>Bad<span class="op">&gt;();</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> duplicate <span class="op">=</span> original<span class="op">-&gt;</span>get_ptr<span class="op">();</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this scenario:</p>
+<ol type="1">
+<li><code>std::make_shared&lt;Bad&gt;()</code> allocates the
+<code>Bad</code> object and Control Block A (use count: 1).</li>
+<li>Calling <code>get_ptr()</code> invokes the
+<code>std::shared_ptr</code> constructor with a raw <code>Bad*</code>.
+The constructor has no knowledge of Control Block A, so it allocates
+Control Block B (use count: 1).</li>
+<li>When <code>duplicate</code> goes out of scope, Control Block B
+decrements to 0 and deletes the <code>Bad</code> instance.</li>
+<li>When <code>original</code> subsequently goes out of scope, Control
+Block A decrements to 0 and attempts to delete the already-freed
+<code>Bad</code> instance. This causes a double deletion runtime
+crash.</li>
+</ol>
+<h3 id="the-mechanism-of-stdenable_shared_from_this">The Mechanism of
+std::enable_shared_from_this</h3>
+<p><code>std::enable_shared_from_this&lt;T&gt;</code> solves this
+problem using the Curiously Recurring Template Pattern (CRTP).
+Internally, the base class contains a private
+<code>std::weak_ptr&lt;T&gt;</code> member, often referred to as
+<code>weak_this</code>.</p>
+<h4 id="1-internal-initialization">1. Internal Initialization</h4>
+<p>When a <code>std::shared_ptr&lt;T&gt;</code> is constructed with a
+raw pointer to an object that derives from
+<code>std::enable_shared_from_this&lt;T&gt;</code>, the constructor
+detects the inheritance via template specialization. It initializes the
+internal <code>weak_ptr</code> to point to the newly created control
+block without incrementing the strong reference count.</p>
+<h4 id="2-safe-retrieval-via-shared_from_this">2. Safe Retrieval via
+<code>shared_from_this()</code></h4>
+<p>Instead of wrapping <code>this</code> into a new
+<code>std::shared_ptr</code>, member functions invoke the
+<code>shared_from_this()</code> method provided by the base class:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Good <span class="op">:</span> <span class="kw">public</span> <span class="bu">std::</span>enable_shared_from_this<span class="op">&lt;</span>Good<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>shared_ptr<span class="op">&lt;</span>Good<span class="op">&gt;</span> get_ptr<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> shared_from_this<span class="op">();</span> <span class="co">// Reuses existing control block</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> original <span class="op">=</span> <span class="bu">std::</span>make_shared<span class="op">&lt;</span>Good<span class="op">&gt;();</span> <span class="co">// Initializes internal weak_ptr</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> duplicate <span class="op">=</span> original<span class="op">-&gt;</span>get_ptr<span class="op">();</span>     <span class="co">// Increments Control Block A use count to 2</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Under the hood, <code>shared_from_this()</code> operates by
+constructing a <code>std::shared_ptr</code> from the internal
+<code>weak_ptr</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">return</span> <span class="bu">std::</span>shared_ptr<span class="op">&lt;</span>T<span class="op">&gt;(</span><span class="kw">this</span><span class="op">-&gt;</span>weak_this<span class="op">);</span></span></code></pre></div>
+<p>This operation hooks directly into the existing control block,
+incrementing its strong reference count rather than generating an
+isolated one. Both <code>original</code> and <code>duplicate</code> now
+coordinate through the exact same reference counter, preventing
+premature destruction.</p>
+<h3 id="crucial-usage-rules">Crucial Usage Rules</h3>
+<ul>
+<li><strong>Pre-existing Ownership Required:</strong>
+<code>shared_from_this()</code> can only be called if the object is
+already owned by a valid <code>std::shared_ptr</code>. If called on a
+stack-allocated instance or a raw heap pointer that was never assigned
+to a <code>std::shared_ptr</code>, the internal <code>weak_ptr</code>
+remains uninitialized. In C++17 and later, calling
+<code>shared_from_this()</code> in this state throws
+<code>std::bad_weak_ptr</code>.</li>
+<li><strong>Constructors Cannot Use
+<code>shared_from_this()</code>:</strong> During the execution of an
+object's constructor, the enclosing <code>std::shared_ptr</code> has not
+yet finished being created. Therefore, the internal
+<code>weak_ptr</code> is not yet bound to a control block. Attempting to
+call <code>shared_from_this()</code> within a constructor will trigger
+<code>std::bad_weak_ptr</code>.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

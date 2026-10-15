@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Borrowed Ranges and Iterator Invalidation in C++ - cpp</title>
+    <meta name="description" content="In modern C++, passing temporary containers to algorithms often risks producing dangling iterators, leading to undefined behavior when those iterators outlive the temporary object. Introduced in C++20, the std::ranges::borrowedrange concept mitigates this">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/borrowed-ranges-and-iterator-invalidation-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Borrowed Ranges and Iterator Invalidation in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/borrowed-ranges-and-iterator-invalidation-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, passing temporary containers to algorithms often risks producing dangling iterators, leading to undefined behavior when those iterators outlive the temporary object. Introduced in C++20, the std::ranges::borrowedrange concept mitigates this" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="borrowed-ranges-and-iterator-invalidation-in-c">Borrowed Ranges
+and Iterator Invalidation in C++</h1>
+<p>In modern C++, passing temporary containers to algorithms often risks
+producing dangling iterators, leading to undefined behavior when those
+iterators outlive the temporary object. Introduced in C++20, the
+<code>std::ranges::borrowed_range</code> concept mitigates this lifetime
+issue by distinguishing between ranges whose iterators are tied to the
+container's lifetime and ranges whose iterators remain valid
+independently. By enforcing compile-time checks, the Ranges library
+prevents the creation of dangling iterators from rvalue containers,
+transforming subtle runtime memory bugs into immediate compilation
+errors.</p>
+<h3 id="the-problem-dangling-iterators-from-temporaries">The Problem:
+Dangling Iterators from Temporaries</h3>
+<p>In pre-C++20 code, obtaining an iterator from an rvalue container was
+a common source of bugs:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> it <span class="op">=</span> <span class="bu">std::</span>find<span class="op">(</span>get_temporary_vector<span class="op">().</span>begin<span class="op">(),</span> get_temporary_vector<span class="op">().</span>end<span class="op">(),</span> <span class="dv">42</span><span class="op">);</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co">// *it leads to undefined behavior because the temporary vector is already destroyed.</span></span></code></pre></div>
+<p>Even with algorithms accepting ranges directly, passing a temporary
+container like <code>std::vector</code> by value creates a problem. If
+the algorithm returns an iterator pointing inside that temporary, the
+iterator becomes invalid as soon as the statement finishes
+executing.</p>
+<h3 id="what-is-a-borrowed-range">What Is a Borrowed Range?</h3>
+<p>A range is considered a <em>borrowed range</em> if its iterators do
+not depend on the lifetime of the range object itself. In standard C++,
+this concept is formalized by
+<code>std::ranges::borrowed_range</code>.</p>
+<p>A range models <code>borrowed_range</code> if:</p>
+<ol type="1">
+<li>It is an lvalue reference (the caller owns the container, so it
+outlives the algorithm call), or</li>
+<li>It satisfies the type trait
+<code>std::ranges::enable_borrowed_range&lt;T&gt;</code>.</li>
+</ol>
+<p>Types that naturally model borrowed ranges as rvalues include
+<code>std::string_view</code> and <code>std::span</code>. Because these
+types are non-owning views, destroying the view object does not destroy
+the underlying data. Conversely, owning containers like
+<code>std::vector</code>, <code>std::string</code>, and
+<code>std::list</code> do not satisfy <code>enable_borrowed_range</code>
+when passed as rvalues.</p>
+<h3 id="the-mechanism-stdrangesdangling">The Mechanism:
+<code>std::ranges::dangling</code></h3>
+<p>Range-based algorithms use conditional return types based on whether
+the input range satisfies <code>borrowed_range</code>. When an
+algorithm, such as <code>std::ranges::find</code>, is passed an rvalue
+that is not a borrowed range, it does not return an iterator. Instead,
+it returns an instance of <code>std::ranges::dangling</code>.</p>
+<p><code>std::ranges::dangling</code> is an empty placeholder type
+designed to catch lifetime errors:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Returns a std::vector by value</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> get_data<span class="op">();</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Attempting to find an element in a temporary container:</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> result <span class="op">=</span> <span class="bu">std::</span>ranges::find<span class="op">(</span>get_data<span class="op">(),</span> <span class="dv">10</span><span class="op">);</span></span></code></pre></div>
+<p>In this example, <code>result</code> has the type
+<code>std::ranges::dangling</code> rather than
+<code>std::vector&lt;int&gt;::iterator</code>. Because
+<code>std::ranges::dangling</code> does not implement the dereference
+(<code>*</code>) or member access (<code>-&gt;</code>) operators, any
+attempt to access the element via <code>*result</code> causes a
+compilation failure.</p>
+<h3 id="safe-usage-with-views">Safe Usage with Views</h3>
+<p>If you pass an rvalue that models <code>borrowed_range</code>, the
+algorithm returns a normal iterator because the referenced elements are
+guaranteed to live elsewhere:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string text <span class="op">=</span> <span class="st">&quot;Modern C++&quot;</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co">// std::string_view is a borrowed range</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> it <span class="op">=</span> <span class="bu">std::</span>ranges::find<span class="op">(</span><span class="bu">std::</span>string_view<span class="op">(</span>text<span class="op">),</span> <span class="ch">&#39;C&#39;</span><span class="op">);</span> </span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> c <span class="op">=</span> <span class="op">*</span>it<span class="op">;</span> <span class="co">// Valid: &#39;it&#39; is std::string_view::iterator</span></span></code></pre></div>
+<h3 id="opting-in-custom-types">Opting In Custom Types</h3>
+<p>If you implement a custom view type that does not own its elements,
+you can specialize the <code>std::ranges::enable_borrowed_range</code>
+variable template to enable borrowed range behavior:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">inline</span> <span class="kw">constexpr</span> <span class="dt">bool</span> <span class="bu">std::</span>ranges::enable_borrowed_range<span class="op">&lt;</span>MyCustomView<span class="op">&gt;</span> <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span></code></pre></div>
+<p>This tells the compiler and standard algorithms that it is safe to
+return iterators referencing elements inside a temporary
+<code>MyCustomView</code>.</p>
+<p>By combining the <code>borrowed_range</code> concept with the
+<code>std::ranges::dangling</code> return type, C++ provides a
+zero-overhead, compile-time defense against one of the most persistent
+classes of iterator invalidation bugs.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

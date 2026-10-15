@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lifetime of Temporaries Bound to References in C++ - cpp</title>
+    <meta name="description" content="In C++, temporary objects are normally destroyed at the end of the full-expression in which they are created. However, binding a temporary object to a reference can extend its lifetime to match that of the reference, preventing dangling references. This a">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/lifetime-of-temporaries-bound-to-references-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Lifetime of Temporaries Bound to References in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/lifetime-of-temporaries-bound-to-references-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, temporary objects are normally destroyed at the end of the full-expression in which they are created. However, binding a temporary object to a reference can extend its lifetime to match that of the reference, preventing dangling references. This a" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="lifetime-of-temporaries-bound-to-references-in-c">Lifetime of
+Temporaries Bound to References in C++</h1>
+<p>In C++, temporary objects are normally destroyed at the end of the
+full-expression in which they are created. However, binding a temporary
+object to a reference can extend its lifetime to match that of the
+reference, preventing dangling references. This article explains the
+core rules governing temporary lifetime extension, how it applies to
+<code>const</code> lvalue and rvalue references, and the crucial
+exceptions where this extension fails.</p>
+<h3 id="the-basic-rule-of-lifetime-extension">The Basic Rule of Lifetime
+Extension</h3>
+<p>According to the C++ standard, when a temporary object is bound to a
+<code>const</code> lvalue reference (<code>const T&amp;</code>) or an
+rvalue reference (<code>T&amp;&amp;</code>), its lifetime is extended to
+match the lifetime of that reference.</p>
+<p>Under normal circumstances, a temporary is destroyed when the
+semicolon at the end of its statement is reached:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string<span class="op">(</span><span class="st">&quot;Temporary&quot;</span><span class="op">);</span> <span class="co">// Destroyed immediately at the end of this full-expression</span></span></code></pre></div>
+<p>When bound to a local reference, the destruction of the temporary
+object is deferred:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> ref <span class="op">=</span> <span class="bu">std::</span>string<span class="op">(</span><span class="st">&quot;Temporary&quot;</span><span class="op">);</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// The temporary object remains valid throughout this entire block scope.</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="co">// The temporary object is destroyed here, when &#39;ref&#39; goes out of scope.</span></span></code></pre></div>
+<p>The same behavior applies to rvalue references:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string<span class="op">&amp;&amp;</span> rref <span class="op">=</span> <span class="bu">std::</span>string<span class="op">(</span><span class="st">&quot;Temporary&quot;</span><span class="op">);</span> <span class="co">// Lifetime extended to match &#39;rref&#39;</span></span></code></pre></div>
+<p>Non-const lvalue references (<code>T&amp;</code>) cannot bind to
+temporaries at all, except through non-standard compiler extensions.</p>
+<h3 id="sub-objects-and-arrays">Sub-objects and Arrays</h3>
+<p>Lifetime extension is transitive across member access and array
+indexing. If a reference binds to a sub-object of a temporary (such as a
+public member variable) or an element of a temporary array, the entire
+parent temporary object has its lifetime extended:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Pair <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> first<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> second<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">int</span><span class="op">&amp;</span> ref <span class="op">=</span> Pair<span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">}.</span>first<span class="op">;</span> <span class="co">// The entire &#39;Pair&#39; temporary survives as long as &#39;ref&#39;</span></span></code></pre></div>
+<h3 id="exceptions-where-lifetime-is-not-extended">Exceptions Where
+Lifetime Is Not Extended</h3>
+<p>Lifetime extension is not universal. The C++ standard explicitly
+defines several scenarios where binding a temporary to a reference does
+not extend its lifetime, often leading to undefined behavior caused by
+dangling references.</p>
+<h4 id="1-function-return-statements">1. Function Return Statements</h4>
+<p>A temporary bound to a reference returned by a function does not
+outlive the return statement:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> bad_function<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">std::</span>string<span class="op">(</span><span class="st">&quot;Dangling&quot;</span><span class="op">);</span> <span class="co">// UB: temporary destroyed at the end of the return statement</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The temporary is destroyed when the function returns, leaving the
+caller with a dangling reference.</p>
+<h4 id="2-function-parameters">2. Function Parameters</h4>
+<p>When a temporary is passed to a function that takes a reference
+parameter, the temporary's lifetime is only extended to the end of the
+full-expression containing the function call, not to the lifetime of the
+parameter itself:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> print<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> str<span class="op">);</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>print<span class="op">(</span><span class="bu">std::</span>string<span class="op">(</span><span class="st">&quot;Hello&quot;</span><span class="op">));</span> <span class="co">// Temporary is destroyed immediately after &#39;print&#39; finishes executing</span></span></code></pre></div>
+<h4 id="3-class-member-initialization">3. Class Member
+Initialization</h4>
+<p>If a temporary is bound to a reference member in a constructor
+initializer list, the temporary's lifetime is extended only until the
+constructor finishes executing, not for the lifetime of the object:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Holder <span class="op">{</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> ref<span class="op">;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    Holder<span class="op">()</span> <span class="op">:</span> ref<span class="op">(</span><span class="bu">std::</span>string<span class="op">(</span><span class="st">&quot;Temporary&quot;</span><span class="op">))</span> <span class="op">{}</span> <span class="co">// UB: temporary destroyed when constructor exits</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Once the constructor completes, <code>ref</code> becomes a dangling
+reference inside the newly created <code>Holder</code> instance.</p>
+<h4 id="4-indirect-binding-via-functions">4. Indirect Binding via
+Functions</h4>
+<p>Lifetime extension only occurs when a temporary is directly bound to
+a reference. If a temporary is passed through a function that returns a
+reference, the returned reference cannot extend the original temporary's
+lifetime:</p>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> identity<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> s<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> s<span class="op">;</span> <span class="op">}</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> ref <span class="op">=</span> identity<span class="op">(</span><span class="bu">std::</span>string<span class="op">(</span><span class="st">&quot;Temporary&quot;</span><span class="op">));</span> </span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co">// UB: The temporary is destroyed at the end of the line; &#39;ref&#39; is dangling.</span></span></code></pre></div>
+<h4 id="5-new-expressions">5. New Expressions</h4>
+<p>If a temporary is bound to a reference inside a <code>new</code>
+initializer, the temporary is destroyed at the end of the
+full-expression containing the allocation, rather than surviving for the
+lifetime of the heap-allocated object:</p>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Node <span class="op">{</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="dt">int</span><span class="op">&amp;</span> val<span class="op">;</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>Node<span class="op">*</span> n <span class="op">=</span> <span class="kw">new</span> Node<span class="op">{</span><span class="dv">10</span><span class="op">};</span> <span class="co">// UB: The temporary int(10) is destroyed after this line</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

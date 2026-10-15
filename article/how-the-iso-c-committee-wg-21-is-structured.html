@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How the ISO C++ Committee (WG21) is Structured - cpp</title>
+    <meta name="description" content="The ISO C++ standards committee, formally designated as ISO/IEC JTC1/SC22/WG21, governs the evolution and standardization of the C++ programming language through a tiered pipeline of specialized subgroups. To process hundreds of technical proposals effici">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-the-iso-c-committee-wg-21-is-structured">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How the ISO C++ Committee (WG21) is Structured - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-the-iso-c-committee-wg-21-is-structured" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The ISO C++ standards committee, formally designated as ISO/IEC JTC1/SC22/WG21, governs the evolution and standardization of the C++ programming language through a tiered pipeline of specialized subgroups. To process hundreds of technical proposals effici" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-the-iso-c-committee-wg21-is-structured">How the ISO C++
+Committee (WG21) is Structured</h1>
+<p>The ISO C++ standards committee, formally designated as ISO/IEC
+JTC1/SC22/WG21, governs the evolution and standardization of the C++
+programming language through a tiered pipeline of specialized subgroups.
+To process hundreds of technical proposals efficiently while maintaining
+language stability, WG21 separates responsibilities into domain-specific
+Study Groups (SGs), high-level Evolution Working Groups (EWG and LEWG),
+and detail-oriented Specification Working Groups (CWG and LWG). This
+structured funnel ensures that proposals are rigorously vetted for
+architectural design, technical feasibility, and legalistic wording
+before being integrated into the final ISO standard.</p>
+<h3 id="the-pipeline-architecture">The Pipeline Architecture</h3>
+<p>The committee operates on a conveyor-belt model. Proposals typically
+advance through three primary stages: domain exploration (Study Groups),
+design vetting (Evolution Groups), and precise specification drafting
+(Core and Library Groups), culminating in a formal vote by the entire
+committee during plenary sessions.</p>
+<h3 id="1-study-groups-incubation-and-domain-focus">1. Study Groups
+(Incubation and Domain Focus)</h3>
+<p>Study Groups (designated as SG followed by a number) serve as
+domain-specific incubators. They bring together domain specialists to
+explore complex or emerging areas of computing that may eventually
+require standard language or library support. Examples include:</p>
+<ul>
+<li><strong>SG1 (Concurrency and Parallelism):</strong> Handles
+multithreading, memory models, and execution models.</li>
+<li><strong>SG7 (Compile-Time Programming):</strong> Focuses on
+reflection and metaprogramming.</li>
+<li><strong>SG15 (Tooling):</strong> Addresses ecosystems, package
+management, and compilation workflows.</li>
+<li><strong>SG16 (Unicode):</strong> Oversees text processing and
+character encoding requirements.</li>
+<li><strong>SG21 (Contracts):</strong> Specializes in contract-based
+programming features.</li>
+</ul>
+<p>Study Groups analyze problem spaces, evaluate competing technical
+approaches, and produce high-level consensus proposals before handing
+them over to the broader evolution groups.</p>
+<h3 id="2-evolution-working-groups-design-approval">2. Evolution Working
+Groups (Design Approval)</h3>
+<p>Once a proposal is sufficiently mature, it enters the evolution tier,
+which assesses design fitness, usability, and impact on the broader C++
+ecosystem. This stage is split between language syntax and standard
+library components:</p>
+<ul>
+<li><strong>EWG (Evolution Working Group):</strong> Evaluates proposals
+that change the core C++ syntax, semantics, and language rules. EWG
+determines whether a feature aligns with the general philosophy of C++,
+checks for backward compatibility, and refines the feature's high-level
+user interface.</li>
+<li><strong>LEWG (Library Evolution Working Group):</strong> Evaluates
+proposals intended for the C++ Standard Library. LEWG scrutinizes API
+designs, interface ergonomics, naming conventions, and performance
+implications to ensure consistency across the
+<code>&lt;algorithm&gt;</code>, <code>&lt;ranges&gt;</code>, and other
+standard library headers.</li>
+</ul>
+<p>Proposals cannot proceed to final wording until EWG or LEWG
+officially approves their design and forwards them down the
+pipeline.</p>
+<h3 id="3-specification-groups-wording-and-standardese">3. Specification
+Groups (Wording and Standardese)</h3>
+<p>After a design receives approval from the evolution tier, it reaches
+the final review stage. The specification groups do not invent or alter
+high-level designs; instead, they translate approved designs into
+precise, unambiguous ISO standardese:</p>
+<ul>
+<li><strong>CWG (Core Working Group):</strong> Drafts and refines the
+formal specification for core language mechanics. CWG focuses on
+internal consistency, interaction with existing language clauses, object
+lifetime semantics, and parsing ambiguities. CWG also investigates Core
+Defect Reports (DRs) filed against past standards.</li>
+<li><strong>LWG (Library Working Group):</strong> Drafts and verifies
+the precise specification for the Standard Library. LWG ensures that
+specifications include exact requirements, preconditions,
+postconditions, complexity constraints, and exception safety guarantees
+for every standard library function and type.</li>
+</ul>
+<h3 id="plenary-and-final-approval">Plenary and Final Approval</h3>
+<p>Once CWG or LWG approves the exact wording of a paper, the proposal
+is scheduled for a formal vote before the full WG21 committee during the
+plenary session. If the voting members approve the motion, the text is
+merged into the Working Draft of the upcoming C++ standard release. This
+strict division of labor enables WG21 to maintain a predictable
+three-year release cycle while ensuring both broad ecosystem feedback
+and rigorous technical correctness.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

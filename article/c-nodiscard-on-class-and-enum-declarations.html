@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ [[nodiscard]] on Class and Enum Declarations - cpp</title>
+    <meta name="description" content="This article explains how the [[nodiscard]] attribute behaves when applied directly to class, struct, or enumeration types in C++. Introduced in C++17 and expanded in C++20, this feature allows developers to enforce call-site handling of specific types ac">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-nodiscard-on-class-and-enum-declarations">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ [[nodiscard]] on Class and Enum Declarations - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-nodiscard-on-class-and-enum-declarations" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the [[nodiscard]] attribute behaves when applied directly to class, struct, or enumeration types in C++. Introduced in C++17 and expanded in C++20, this feature allows developers to enforce call-site handling of specific types ac" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-nodiscard-on-class-and-enum-declarations">C++ [[nodiscard]] on
+Class and Enum Declarations</h1>
+<p>This article explains how the <code>[[nodiscard]]</code> attribute
+behaves when applied directly to class, struct, or enumeration types in
+C++. Introduced in C++17 and expanded in C++20, this feature allows
+developers to enforce call-site handling of specific types across an
+entire codebase. You will learn the mechanics of type-level application,
+how it differs from function-level annotations, common use cases, and
+how to suppress warnings when necessary.</p>
+<h3 id="how-type-level-nodiscard-operates">How Type-Level
+<code>[[nodiscard]]</code> Operates</h3>
+<p>When the <code>[[nodiscard]]</code> attribute is applied to the
+declaration of a <code>class</code>, <code>struct</code>, or
+<code>enum</code>, its warning behavior automatically propagates to any
+function that returns that type by value. Rather than annotating every
+individual function that returns a critical type, declaring the type
+itself as <code>[[nodiscard]]</code> guarantees that the compiler warns
+developers whenever an instance returned by value is discarded.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="op">[[</span><span class="at">nodiscard</span><span class="op">]]</span> ErrorCode <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> code<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>ErrorCode processData<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> ErrorCode<span class="op">{</span><span class="dv">0</span><span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    processData<span class="op">();</span> <span class="co">// Compiler warning: return value of type &#39;ErrorCode&#39; declared with &#39;nodiscard&#39; attribute discarded</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    ErrorCode err <span class="op">=</span> processData<span class="op">();</span> <span class="co">// OK: return value is consumed</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="application-to-enumerations">Application to Enumerations</h3>
+<p>Applying <code>[[nodiscard]]</code> to an enumeration is particularly
+useful for status indicators, error codes, and operational results. Any
+function that returns the annotated enumeration by value triggers a
+compiler diagnostic if the caller ignores the result.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">enum</span> <span class="kw">class</span> <span class="op">[[</span><span class="at">nodiscard</span><span class="op">]]</span> Status <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    Success<span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    Failure<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    Pending</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>Status checkStatus<span class="op">();</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> run<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    checkStatus<span class="op">();</span> <span class="co">// Compiler warning: ignoring return value</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="by-value-vs-references-and-pointers">By-Value vs. References and
+Pointers</h3>
+<p>The standard specifies that <code>[[nodiscard]]</code> applied to a
+type only takes effect when a function returns that type <strong>by
+value</strong>. If a function returns a reference (<code>T&amp;</code>,
+<code>const T&amp;</code>) or a pointer (<code>T*</code>) to a
+<code>[[nodiscard]]</code> class or enumeration, the compiler will not
+emit a warning if the return value is discarded.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="op">[[</span><span class="at">nodiscard</span><span class="op">]]</span> Resource <span class="op">{};</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>Resource createResource<span class="op">();</span> <span class="co">// Warns if discarded</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>Resource<span class="op">&amp;</span> getGlobalResource<span class="op">();</span> <span class="co">// Does NOT warn if discarded</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>Resource<span class="op">*</span> findResource<span class="op">();</span> <span class="co">// Does NOT warn if discarded</span></span></code></pre></div>
+<h3 id="c20-string-literals">C++20 String Literals</h3>
+<p>Starting in C++20, <code>[[nodiscard]]</code> can include a string
+literal to provide an explicit explanation for why the returned type
+must not be ignored.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> <span class="op">[[</span><span class="at">nodiscard</span><span class="op">(</span><span class="st">&quot;Discarding this object results in an immediate resource leak.&quot;</span><span class="op">)]]</span> ScopedLock <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// RAII lock implementation</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>When a caller ignores a returned <code>ScopedLock</code>, the
+compiler displays the custom message alongside the warning.</p>
+<h3 id="suppressing-the-warning">Suppressing the Warning</h3>
+<p>If an operation returns a <code>[[nodiscard]]</code> type and you
+intentionally want to ignore the result, you can explicitly cast the
+function call to <code>void</code>. This signals intent to both the
+compiler and future maintainers, suppressing the warning cleanly:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="op">(</span><span class="dt">void</span><span class="op">)</span>processData<span class="op">();</span> <span class="co">// OK: Explicitly discarded, no warning emitted</span></span></code></pre></div></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

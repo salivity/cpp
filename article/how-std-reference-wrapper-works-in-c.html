@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::reference_wrapper Works in C++ - cpp</title>
+    <meta name="description" content="This article provides an overview of how the C++ standard library implements reference wrapper mechanics via std::referencewrapper. Introduced in C++11, this utility bridges the gap between reference semantics and value semantics, allowing developers to s">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-reference-wrapper-works-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::reference_wrapper Works in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-reference-wrapper-works-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the C++ standard library implements reference wrapper mechanics via std::referencewrapper. Introduced in C++11, this utility bridges the gap between reference semantics and value semantics, allowing developers to s" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdreference_wrapper-works-in-c">How std::reference_wrapper
+Works in C++</h1>
+<p>This article provides an overview of how the C++ standard library
+implements reference wrapper mechanics via
+<code>std::reference_wrapper</code>. Introduced in C++11, this utility
+bridges the gap between reference semantics and value semantics,
+allowing developers to store references in standard containers and pass
+them through templates that normally decay types to values. Below is an
+explanation of its internal mechanics, key member functions, and
+practical applications.</p>
+<h3 id="the-problem-with-native-references">The Problem with Native
+References</h3>
+<p>In C++, native references (<code>T&amp;</code>) are not objects. They
+lack storage identity, cannot be reseated once initialized, and do not
+possess assignment semantics that overwrite the reference itself
+(assignment modifies the referent instead). Because of these
+characteristics, standard containers like
+<code>std::vector&lt;T&amp;&gt;</code> are ill-formed; standard library
+containers require elements to be Erasable, CopyAssignable, and
+MoveAssignable.</p>
+<h3 id="internal-mechanics-of-stdreference_wrapper">Internal Mechanics
+of <code>std::reference_wrapper</code></h3>
+<p>Defined in the <code>&lt;functional&gt;</code> header,
+<code>std::reference_wrapper&lt;T&gt;</code> is a class template that
+wraps a reference in a copyable, assignable object. It emulates a
+reference while exhibiting the mechanics of a first-class object.</p>
+<p>Internally, <code>std::reference_wrapper&lt;T&gt;</code> functions
+essentially as a non-null, copyable pointer:</p>
+<ol type="1">
+<li><strong>Internal Storage:</strong> The class typically stores an
+internal pointer to the referenced object: <code>T* ptr;</code>.</li>
+<li><strong>Construction:</strong> It accepts an lvalue reference of
+type <code>T&amp;</code> upon construction and stores its address
+(<code>ptr = std::addressof(val)</code>). Rvalue references are
+explicitly disallowed; attempting to construct a
+<code>std::reference_wrapper</code> from a temporary triggers a deleted
+constructor to prevent dangling references.</li>
+<li><strong>Reseatability:</strong> Unlike a native reference, copying
+or assigning a <code>std::reference_wrapper</code> copies the internal
+pointer, not the underlying object. This allows the wrapper to be
+reseated to point to a different object during its lifetime.</li>
+</ol>
+<h3 id="type-conversion-and-access">Type Conversion and Access</h3>
+<p><code>std::reference_wrapper&lt;T&gt;</code> provides mechanisms to
+access the underlying reference transparently:</p>
+<ul>
+<li><strong>Implicit Conversion Operator:</strong> It defines an
+<code>operator T&amp;() const noexcept</code> that implicitly converts
+the wrapper back to an lvalue reference whenever an expression expects
+<code>T&amp;</code>.</li>
+<li><strong>Explicit Access:</strong> The <code>.get()</code> member
+function returns <code>T&amp;</code> directly, which is useful when
+template deduction cannot infer the implicit conversion.</li>
+</ul>
+<h3 id="callable-object-invocation">Callable Object Invocation</h3>
+<p>If the underlying type <code>T</code> is a callable entity (such as a
+function pointer, lambda, or class with <code>operator()</code>),
+<code>std::reference_wrapper&lt;T&gt;</code> defines an overloaded call
+operator (<code>operator()</code>). It uses <code>std::invoke</code> to
+forward any arguments to the stored callable, returning the result. This
+enables instances of <code>std::reference_wrapper</code> to act as
+drop-in function objects without copying large or stateful callable
+types.</p>
+<h3 id="helper-functions-stdref-and-stdcref">Helper Functions:
+<code>std::ref</code> and <code>std::cref</code></h3>
+<p>To avoid manual template instantiation, the standard library provides
+helper functions:</p>
+<ul>
+<li><code>std::ref(val)</code>: Deduces the type and returns
+<code>std::reference_wrapper&lt;T&gt;(val)</code>.</li>
+<li><code>std::cref(val)</code>: Returns
+<code>std::reference_wrapper&lt;const T&gt;(val)</code>.</li>
+</ul>
+<p>These helpers are critical when passing arguments to template
+utilities such as <code>std::bind</code>, <code>std::make_pair</code>,
+or <code>std::thread</code>, which otherwise decay reference types and
+make copies of the passed arguments.</p>
+<h3 id="primary-use-cases">Primary Use Cases</h3>
+<ol type="1">
+<li><p><strong>Storing References in Containers:</strong> A
+<code>std::vector&lt;std::reference_wrapper&lt;T&gt;&gt;</code> allows
+the storage of non-owning references inside a standard dynamic array,
+offering polymorphic or aliased access without heap allocation or
+pointer syntax.</p></li>
+<li><p><strong>Passing by Reference to Value-Decaying
+Templates:</strong> Utilities like <code>std::thread</code> copy their
+arguments by default. Wrapping an argument with <code>std::ref</code>
+signals to the forwarding machinery that the target function should
+receive an actual reference rather than a decayed copy.</p></li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

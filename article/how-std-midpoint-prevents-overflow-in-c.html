@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::midpoint Prevents Overflow in C++ - cpp</title>
+    <meta name="description" content="Calculating the midpoint between two numbers is a fundamental operation in programming, yet traditional implementations frequently introduce subtle, critical bugs. This article explains how the std::midpoint function, introduced in C++20, solves the long-">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-midpoint-prevents-overflow-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::midpoint Prevents Overflow in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-midpoint-prevents-overflow-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Calculating the midpoint between two numbers is a fundamental operation in programming, yet traditional implementations frequently introduce subtle, critical bugs. This article explains how the std::midpoint function, introduced in C++20, solves the long-" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdmidpoint-prevents-overflow-in-c">How std::midpoint
+Prevents Overflow in C++</h1>
+<p>Calculating the midpoint between two numbers is a fundamental
+operation in programming, yet traditional implementations frequently
+introduce subtle, critical bugs. This article explains how the
+<code>std::midpoint</code> function, introduced in C++20, solves the
+long-standing problem of arithmetic overflow during integer
+calculations. By examining standard naive approaches and comparing them
+with standard library mechanics, this guide details what
+<code>std::midpoint</code> prevents, how it guarantees safety, and its
+precise behavior with edge cases.</p>
+<h3 id="the-hidden-bug-in-naive-midpoint-calculations">The Hidden Bug in
+Naive Midpoint Calculations</h3>
+<p>The most intuitive way to compute the midpoint of two values,
+<code>a</code> and <code>b</code>, is:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> mid <span class="op">=</span> <span class="op">(</span>a <span class="op">+</span> b<span class="op">)</span> <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span></code></pre></div>
+<p>While mathematically sound, this formulation is dangerous in
+finite-precision computer arithmetic. When <code>a</code> and
+<code>b</code> are large positive integers, their sum <code>a + b</code>
+can exceed the maximum representable value of the integer type. In C++,
+signed integer overflow results in <strong>undefined behavior</strong>.
+In practice, this often causes values to wrap around to negative
+numbers, producing wildly incorrect results. For unsigned integers, the
+sum wraps modulo <span class="math inline">\(2^N\)</span>, silently
+returning an invalid midpoint without triggering a compiler warning.</p>
+<p>A common attempt to fix this issue is rewriting the expression
+as:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> mid <span class="op">=</span> a <span class="op">+</span> <span class="op">(</span>b <span class="op">-</span> a<span class="op">)</span> <span class="op">/</span> <span class="dv">2</span><span class="op">;</span></span></code></pre></div>
+<p>While this avoids overflow when <code>a</code> and <code>b</code>
+share the same sign and <code>b &gt;= a</code>, it fails when
+<code>a</code> and <code>b</code> have opposite signs. If <code>a</code>
+is a large negative number and <code>b</code> is a large positive
+number, the subtraction <code>b - a</code> can exceed the maximum limit
+of the integer type, triggering the exact overflow issue it intended to
+prevent.</p>
+<h3 id="what-stdmidpoint-prevents">What std::midpoint Prevents</h3>
+<p>Found in the <code>&lt;numeric&gt;</code> header since C++20,
+<code>std::midpoint</code> explicitly prevents <strong>arithmetic
+overflow and undefined behavior</strong> across all valid inputs of an
+integer type.</p>
+<p>Specifically, <code>std::midpoint(a, b)</code> guarantees:</p>
+<ol type="1">
+<li><strong>No Intermediate Overflow:</strong> The function computes the
+midpoint without ever producing an intermediate value that exceeds the
+bounds of the type. You do not need to manually cast values to a wider
+integer type (such as promoting <code>int</code> to
+<code>int64_t</code>).</li>
+<li><strong>Correctness Across the Entire Range:</strong> It safely
+handles edge cases, such as finding the midpoint between
+<code>std::numeric_limits&lt;int&gt;::min()</code> and
+<code>std::numeric_limits&lt;int&gt;::max()</code>, where manual
+formulas typically break down.</li>
+<li><strong>Prevention of Sign-Change Inversion:</strong> Unlike naive
+subtraction methods, <code>std::midpoint</code> handles mixed-sign
+values without overflowing during difference calculations.</li>
+</ol>
+<h3 id="predictable-rounding-behavior">Predictable Rounding
+Behavior</h3>
+<p>Beyond overflow prevention, <code>std::midpoint</code> provides
+well-defined rounding semantics. When the exact mathematical midpoint
+falls between two integers (i.e., when the sum <span
+class="math inline">\(a + b\)</span> is odd), <code>std::midpoint</code>
+is specified to round towards <code>a</code>.</p>
+<p>For example:</p>
+<ul>
+<li><code>std::midpoint(3, 4)</code> evaluates to <code>3</code></li>
+<li><code>std::midpoint(4, 3)</code> evaluates to <code>4</code></li>
+<li><code>std::midpoint(-3, -4)</code> evaluates to <code>-3</code></li>
+<li><code>std::midpoint(-4, -3)</code> evaluates to <code>-4</code></li>
+</ul>
+<p>This deterministic behavior eliminates inconsistencies across
+different compiler optimizations and architectures. By abstracting the
+complex bitwise and branching logic required to calculate safe averages,
+<code>std::midpoint</code> offers a safe, performant, and
+standard-compliant solution for integer arithmetic.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

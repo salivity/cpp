@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::condition_variable Coordinates C++ Threads - cpp</title>
+    <meta name="description" content="In modern C++, std::conditionvariable is a synchronization primitive that enables multiple threads to communicate by waiting for and signaling specific state changes. This article explains the coordination mechanism of std::conditionvariable, how it inter">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-condition-variable-coordinates-c-threads">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::condition_variable Coordinates C++ Threads - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-condition-variable-coordinates-c-threads" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, std::conditionvariable is a synchronization primitive that enables multiple threads to communicate by waiting for and signaling specific state changes. This article explains the coordination mechanism of std::conditionvariable, how it inter" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdcondition_variable-coordinates-c-threads">How
+std::condition_variable Coordinates C++ Threads</h1>
+<p>In modern C++, <code>std::condition_variable</code> is a
+synchronization primitive that enables multiple threads to communicate
+by waiting for and signaling specific state changes. This article
+explains the coordination mechanism of
+<code>std::condition_variable</code>, how it interacts with
+<code>std::unique_lock</code> to prevent busy-waiting and race
+conditions, how notifications operate, and how to handle spurious
+wakeups effectively.</p>
+<h3 id="the-purpose-of-stdcondition_variable">The Purpose of
+std::condition_variable</h3>
+<p>When multiple threads share data, one thread often needs to pause
+execution until another thread modifies the shared state. Without a
+condition variable, a waiting thread must repeatedly poll the state
+inside a loop, consuming significant CPU resources (known as
+busy-waiting).</p>
+<p><code>std::condition_variable</code> eliminates busy-waiting by
+allowing a thread to put itself to sleep while waiting for a condition
+to become true. The operating system will only wake the sleeping thread
+when another thread explicitly signals that the state has changed.</p>
+<h3 id="the-coordination-workflow">The Coordination Workflow</h3>
+<p>Thread coordination using <code>std::condition_variable</code> relies
+on three components:</p>
+<ol type="1">
+<li>A boolean condition representing the shared state.</li>
+<li>A <code>std::mutex</code> that protects that shared state.</li>
+<li>A <code>std::condition_variable</code> instance that manages the
+sleep and wake signals.</li>
+</ol>
+<p>The coordination process follows these distinct phases:</p>
+<h4 id="1-waiting-on-a-condition">1. Waiting on a Condition</h4>
+<p>To wait, a consumer thread acquires ownership of the mutex using a
+<code>std::unique_lock&lt;std::mutex&gt;</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>unique_lock<span class="op">&lt;</span><span class="bu">std::</span>mutex<span class="op">&gt;</span> lock<span class="op">(</span>mtx<span class="op">);</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>cv<span class="op">.</span>wait<span class="op">(</span>lock<span class="op">,</span> <span class="op">[]</span> <span class="op">{</span> <span class="cf">return</span> ready<span class="op">;</span> <span class="op">});</span></span></code></pre></div>
+<p>The <code>wait()</code> function performs three actions
+automatically:</p>
+<ol type="1">
+<li>It evaluates the predicate (e.g., <code>ready</code>). If true,
+execution continues immediately without blocking.</li>
+<li>If false, it atomically releases the mutex and suspends the calling
+thread into a blocked state.</li>
+<li>When the thread is notified and wakes up, it reacquires the mutex
+before checking the predicate again.</li>
+</ol>
+<p>A <code>std::unique_lock</code> is strictly required instead of
+<code>std::lock_guard</code> because <code>wait()</code> must be able to
+unlock and re-lock the mutex dynamically.</p>
+<h4 id="2-modifying-state-and-notifying">2. Modifying State and
+Notifying</h4>
+<p>When a producer thread updates the shared state, it follows these
+steps:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>lock_guard<span class="op">&lt;</span><span class="bu">std::</span>mutex<span class="op">&gt;</span> lock<span class="op">(</span>mtx<span class="op">);</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    ready <span class="op">=</span> <span class="kw">true</span><span class="op">;</span> <span class="co">// Modify the shared state</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>cv<span class="op">.</span>notify_one<span class="op">();</span> <span class="co">// or cv.notify_all();</span></span></code></pre></div>
+<ol type="1">
+<li>The producer acquires the mutex to ensure exclusive access to the
+shared state.</li>
+<li>It modifies the shared state (setting
+<code>ready = true</code>).</li>
+<li>It releases the mutex (either implicitly at scope exit or
+explicitly).</li>
+<li>It calls <code>notify_one()</code> to wake up a single waiting
+thread, or <code>notify_all()</code> to wake all waiting threads.</li>
+</ol>
+<p>Signaling after releasing the lock avoids a scenario called
+"pessimization," where a signaled thread wakes up only to immediately
+block again waiting for the producer to release the mutex.</p>
+<h3 id="handling-spurious-wakeups">Handling Spurious Wakeups</h3>
+<p>A waiting thread can occasionally wake up even if no thread has
+called <code>notify_one()</code> or <code>notify_all()</code>. This
+phenomenon is known as a <strong>spurious wakeup</strong> and is caused
+by underlying operating system kernel behavior.</p>
+<p>Because of spurious wakeups, a condition variable must never be used
+without verifying the underlying condition. Modern C++ addresses this by
+providing a two-argument overload of <code>wait()</code> that takes a
+predicate function:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>cv<span class="op">.</span>wait<span class="op">(</span>lock<span class="op">,</span> <span class="op">[]</span> <span class="op">{</span> <span class="cf">return</span> is_ready<span class="op">;</span> <span class="op">});</span></span></code></pre></div>
+<p>This overload is equivalent to:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="op">(!</span>is_ready<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    cv<span class="op">.</span>wait<span class="op">(</span>lock<span class="op">);</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The loop ensures that if the thread wakes up spuriously and
+<code>is_ready</code> is still <code>false</code>, it automatically
+re-enters the waiting state.</p>
+<h3 id="choosing-between-notify_one-and-notify_all">Choosing Between
+notify_one() and notify_all()</h3>
+<ul>
+<li><strong><code>notify_one()</code></strong>: Unblocks one of the
+threads currently waiting on the condition variable. If multiple threads
+are waiting, the OS scheduler decides which one wakes up. This is ideal
+for work-queue models where only one worker should process each newly
+available task.</li>
+<li><strong><code>notify_all()</code></strong>: Unblocks all waiting
+threads. This is necessary when multiple threads are waiting for a
+global event, such as a shutdown signal, or when the state change could
+satisfy conditions for multiple distinct threads.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

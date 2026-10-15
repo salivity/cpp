@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multidimensional Subscript Operator in C++ - cpp</title>
+    <meta name="description" content="This article provides an overview of the C++ subscript operator (operator[]), examines its traditional single-argument constraints, and explores the introduction of native multidimensional subscripting in recent language standards. Readers will learn how">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/multidimensional-subscript-operator-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Multidimensional Subscript Operator in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/multidimensional-subscript-operator-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the C++ subscript operator (operator[]), examines its traditional single-argument constraints, and explores the introduction of native multidimensional subscripting in recent language standards. Readers will learn how" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="multidimensional-subscript-operator-in-c">Multidimensional
+Subscript Operator in C++</h1>
+<p>This article provides an overview of the C++ subscript operator
+(<code>operator[]</code>), examines its traditional single-argument
+constraints, and explores the introduction of native multidimensional
+subscripting in recent language standards. Readers will learn how modern
+C++ eliminates legacy workarounds—such as proxy objects and the function
+call operator—by allowing <code>operator[]</code> to accept multiple
+arguments, streamlining custom container and matrix implementations.</p>
+<h2 id="what-is-the-subscript-operator">What is the Subscript
+Operator?</h2>
+<p>The subscript operator, denoted by square brackets <code>[]</code>,
+provides indexed access to elements within a sequence or collection. In
+native C and C++, it is built into raw arrays, where <code>a[i]</code>
+is defined as <code>*(a + i)</code>.</p>
+<p>In object-oriented C++, classes can overload <code>operator[]</code>
+to provide intuitive, array-like syntax for custom data structures, such
+as <code>std::vector</code>, <code>std::array</code>, and
+<code>std::string</code>. Historically, the overloaded operator was
+defined as a member function taking exactly one argument:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Array <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    T<span class="op">&amp;</span> <span class="kw">operator</span><span class="op">[](</span><span class="bu">std::</span>size_t index<span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> T<span class="op">&amp;</span> <span class="kw">operator</span><span class="op">[](</span><span class="bu">std::</span>size_t index<span class="op">)</span> <span class="at">const</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h2 id="the-historical-limitation-single-argument-constraint">The
+Historical Limitation: Single-Argument Constraint</h2>
+<p>Prior to C++23, <code>operator[]</code> was restricted by the
+language grammar to accept only a single parameter. If a developer
+attempted to pass multiple values separated by commas, such as
+<code>matrix[x, y]</code>, the compiler interpreted the comma as the
+built-in comma operator. This meant the expression <code>x, y</code>
+evaluated <code>x</code>, discarded it, and passed only <code>y</code>
+to the operator.</p>
+<p>To implement multidimensional indexing (such as for a 2D matrix or a
+3D tensor), developers had to rely on two primary workarounds:</p>
+<ol type="1">
+<li><strong>The Call Operator:</strong> Overloading
+<code>operator()</code> instead, allowing syntax like
+<code>matrix(x, y)</code>. While functional, it lacked the idiomatic
+bracket syntax associated with indexing.</li>
+<li><strong>Proxy Objects:</strong> Overloading <code>operator[]</code>
+to return an intermediate proxy class that also overloaded
+<code>operator[]</code>, enabling chained access like
+<code>matrix[x][y]</code>. This approach added boilerplate and could
+hinder compiler optimizations if not inlined properly.</li>
+</ol>
+<p>C++20 paved the way for a solution by officially deprecating the use
+of the comma operator inside subscript expressions.</p>
+<h2 id="multidimensional-subscripting-in-c23">Multidimensional
+Subscripting in C++23</h2>
+<p>Adopted through proposal P2128R6, C++23 expanded
+<code>operator[]</code> to accept zero or more arguments, including
+variadic parameter packs. This change aligns the subscript operator's
+signature capabilities with the function call operator
+(<code>operator()</code>).</p>
+<h3 id="syntax-and-implementation">Syntax and Implementation</h3>
+<p>Defining a multidimensional subscript operator requires declaring
+<code>operator[]</code> with multiple parameters:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstddef&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Matrix <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span>T<span class="op">&gt;</span> data<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>size_t cols<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    Matrix<span class="op">(</span><span class="bu">std::</span>size_t rows<span class="op">,</span> <span class="bu">std::</span>size_t cols<span class="op">)</span> </span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="op">:</span> data<span class="op">(</span>rows <span class="op">*</span> cols<span class="op">),</span> cols<span class="op">(</span>cols<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// C++23 Multidimensional Subscript Operator</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    T<span class="op">&amp;</span> <span class="kw">operator</span><span class="op">[](</span><span class="bu">std::</span>size_t row<span class="op">,</span> <span class="bu">std::</span>size_t col<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> data<span class="op">[</span>row <span class="op">*</span> cols <span class="op">+</span> col<span class="op">];</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> T<span class="op">&amp;</span> <span class="kw">operator</span><span class="op">[](</span><span class="bu">std::</span>size_t row<span class="op">,</span> <span class="bu">std::</span>size_t col<span class="op">)</span> <span class="at">const</span> <span class="op">{</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> data<span class="op">[</span>row <span class="op">*</span> cols <span class="op">+</span> col<span class="op">];</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="usage">Usage</h3>
+<p>With C++23 support enabled, callers can use comma-separated indexes
+directly within the square brackets:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    Matrix<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> mat<span class="op">(</span><span class="dv">4</span><span class="op">,</span> <span class="dv">4</span><span class="op">);</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Direct multidimensional access</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    mat<span class="op">[</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">]</span> <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> value <span class="op">=</span> mat<span class="op">[</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">];</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="variadic-subscripting">Variadic Subscripting</h3>
+<p>The feature also supports variadic templates, enabling arbitrary
+N-dimensional containers:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="bu">std::</span>size_t Dimensions<span class="op">&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Tensor <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span><span class="op">...</span> Indices<span class="op">&gt;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">requires</span> <span class="op">(</span><span class="kw">sizeof</span><span class="op">...(</span>Indices<span class="op">)</span> <span class="op">==</span> Dimensions<span class="op">)</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    T<span class="op">&amp;</span> <span class="kw">operator</span><span class="op">[](</span>Indices<span class="op">...</span> indices<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Compute flat index and return element</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h2 id="practical-implications">Practical Implications</h2>
+<p>The introduction of multidimensional subscripting simplifies
+mathematical, linear algebra, and data science libraries. It directly
+complements modern features such as <code>std::mdspan</code> (introduced
+in C++23), a non-owning multidimensional array view that relies on
+native multi-argument indexing to provide zero-overhead abstractions for
+contiguous and non-contiguous memory layouts.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

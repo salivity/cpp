@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Unpack Tuples with std::apply in C++ - cpp</title>
+    <meta name="description" content="This article explores the role and mechanics of std::apply, a utility introduced in C++17 that bridges the gap between heterogeneous containers and function invocations. By unpacking the elements of a tuple-like object into individual arguments for a call">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-to-unpack-tuples-with-std-apply-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Unpack Tuples with std::apply in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-to-unpack-tuples-with-std-apply-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the role and mechanics of std::apply, a utility introduced in C++17 that bridges the gap between heterogeneous containers and function invocations. By unpacking the elements of a tuple-like object into individual arguments for a call" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-unpack-tuples-with-stdapply-in-c">How to Unpack Tuples
+with std::apply in C++</h1>
+<p>This article explores the role and mechanics of
+<code>std::apply</code>, a utility introduced in C++17 that bridges the
+gap between heterogeneous containers and function invocations. By
+unpacking the elements of a tuple-like object into individual arguments
+for a callable target, <code>std::apply</code> eliminates the need for
+complex, boilerplate index-sequence metaprogramming. Readers will learn
+how <code>std::apply</code> works under the hood, how it simplifies
+modern C++ workflows, and how to use it with standard functions,
+lambdas, and custom tuple-like structures.</p>
+<h3 id="the-problem-stdapply-solves">The Problem <code>std::apply</code>
+Solves</h3>
+<p>In C++, functions often take distinct arguments, while data may be
+stored collectively inside a <code>std::tuple</code>,
+<code>std::pair</code>, or <code>std::array</code>. Prior to C++17,
+invoking a callable object with values stored inside a tuple required
+manual expansion using <code>std::index_sequence</code> and helper
+functions:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> F<span class="op">,</span> <span class="kw">typename</span> Tuple<span class="op">,</span> <span class="bu">std::</span>size_t<span class="op">...</span> I<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="kw">decltype</span><span class="op">(</span><span class="kw">auto</span><span class="op">)</span> apply_impl<span class="op">(</span>F<span class="op">&amp;&amp;</span> f<span class="op">,</span> Tuple<span class="op">&amp;&amp;</span> t<span class="op">,</span> <span class="bu">std::</span>index_sequence<span class="op">&lt;</span>I<span class="op">...&gt;)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">std::</span>invoke<span class="op">(</span><span class="bu">std::</span>forward<span class="op">&lt;</span>F<span class="op">&gt;(</span>f<span class="op">),</span> <span class="bu">std::</span>get<span class="op">&lt;</span>I<span class="op">&gt;(</span><span class="bu">std::</span>forward<span class="op">&lt;</span>Tuple<span class="op">&gt;(</span>t<span class="op">))...);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> F<span class="op">,</span> <span class="kw">typename</span> Tuple<span class="op">&gt;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="kw">decltype</span><span class="op">(</span><span class="kw">auto</span><span class="op">)</span> apply<span class="op">(</span>F<span class="op">&amp;&amp;</span> f<span class="op">,</span> Tuple<span class="op">&amp;&amp;</span> t<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> apply_impl<span class="op">(</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>forward<span class="op">&lt;</span>F<span class="op">&gt;(</span>f<span class="op">),</span> </span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>forward<span class="op">&lt;</span>Tuple<span class="op">&gt;(</span>t<span class="op">),</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>make_index_sequence<span class="op">&lt;</span><span class="bu">std::</span>tuple_size_v<span class="op">&lt;</span><span class="bu">std::</span>decay_t<span class="op">&lt;</span>Tuple<span class="op">&gt;&gt;&gt;{}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">);</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The introduction of <code>std::apply</code> standardizes and
+encapsulates this entire pattern into a single call defined within the
+<code>&lt;tuple&gt;</code> header.</p>
+<h3 id="core-role-and-syntax">Core Role and Syntax</h3>
+<p>The primary role of <code>std::apply</code> is to invoke a callable
+object <code>f</code> using the elements of a tuple <code>t</code> as
+arguments. The signature conceptually looks like this:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">class</span> F<span class="op">,</span> <span class="kw">class</span> Tuple<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="kw">decltype</span><span class="op">(</span><span class="kw">auto</span><span class="op">)</span> apply<span class="op">(</span>F<span class="op">&amp;&amp;</span> f<span class="op">,</span> Tuple<span class="op">&amp;&amp;</span> t<span class="op">);</span></span></code></pre></div>
+<p>When evaluated, <code>std::apply</code> extracts each element via
+<code>std::get</code> and forwards them directly to <code>f</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;tuple&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> print_sum<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">double</span> b<span class="op">,</span> <span class="dt">int</span> c<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> a <span class="op">+</span> b <span class="op">+</span> c <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>tuple<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="dt">double</span><span class="op">,</span> <span class="dt">int</span><span class="op">&gt;</span> data<span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="fl">2.5</span><span class="op">,</span> <span class="dv">3</span><span class="op">};</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>apply<span class="op">(</span>print_sum<span class="op">,</span> data<span class="op">);</span> <span class="co">// Prints: 6.5</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="key-technical-characteristics">Key Technical
+Characteristics</h3>
+<ol type="1">
+<li><strong>Perfect Forwarding and Return Deduction:</strong>
+<code>std::apply</code> preserves the value category of both the
+callable and the elements inside the tuple. If you pass an rvalue tuple,
+its members are forwarded as rvalues, allowing move-only types to be
+extracted cleanly. It uses <code>decltype(auto)</code> to preserve
+reference returns without unnecessary copying.</li>
+<li><strong>Support for Generalized Callables:</strong> Because
+<code>std::apply</code> uses <code>std::invoke</code> internally, it can
+invoke free functions, lambdas, functors, member function pointers, and
+member object pointers.</li>
+<li><strong>Broad Container Compatibility:</strong>
+<code>std::apply</code> is not limited to <code>std::tuple</code>. It
+works on any type that adheres to the tuple protocol, which requires
+implementations of <code>std::tuple_size</code>,
+<code>std::tuple_element</code>, and an accessible
+<code>get&lt;I&gt;()</code> overload. Consequently,
+<code>std::pair</code> and <code>std::array</code> work out of the
+box.</li>
+</ol>
+<h3 id="practical-application-generic-callbacks-and-wrappers">Practical
+Application: Generic Callbacks and Wrappers</h3>
+<p><code>std::apply</code> is especially useful when implementing
+generic middleware, event dispatchers, or task queues where arguments
+must be serialized or stored as a unit and executed later:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;tuple&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;functional&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Func<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> defer_execution<span class="op">(</span>Func<span class="op">&amp;&amp;</span> func<span class="op">,</span> Args<span class="op">&amp;&amp;...</span> args<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> stored_args <span class="op">=</span> <span class="bu">std::</span>make_tuple<span class="op">(</span><span class="bu">std::</span>forward<span class="op">&lt;</span>Args<span class="op">&gt;(</span>args<span class="op">)...);</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">[</span>func <span class="op">=</span> <span class="bu">std::</span>forward<span class="op">&lt;</span>Func<span class="op">&gt;(</span>func<span class="op">),</span> args <span class="op">=</span> <span class="bu">std::</span>move<span class="op">(</span>stored_args<span class="op">)]()</span> <span class="at">mutable</span> <span class="op">{</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">std::</span>apply<span class="op">(</span>func<span class="op">,</span> args<span class="op">);</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> task <span class="op">=</span> defer_execution<span class="op">([](</span><span class="dt">int</span> a<span class="op">,</span> <span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> a <span class="op">&lt;&lt;</span> <span class="st">&quot;: &quot;</span> <span class="op">&lt;&lt;</span> b <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">},</span> <span class="dv">42</span><span class="op">,</span> <span class="st">&quot;Success&quot;</span><span class="op">);</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    task<span class="op">();</span> <span class="co">// Invokes the lambda with unpacked values</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By decoupling storage from execution, <code>std::apply</code> serves
+as a core primitive in modern C++ template metaprogramming and
+parameter-forwarding architectures.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

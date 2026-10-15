@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exception Thrown During Stack Unwinding in C++ - cpp</title>
+    <meta name="description" content="In C++, throwing an exception while a previous exception is actively unwinding the stack causes the runtime to immediately abort the program by calling std::terminate(). This article explains the mechanics of stack unwinding, why the C++ runtime strictly">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/exception-thrown-during-stack-unwinding-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Exception Thrown During Stack Unwinding in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/exception-thrown-during-stack-unwinding-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, throwing an exception while a previous exception is actively unwinding the stack causes the runtime to immediately abort the program by calling std::terminate(). This article explains the mechanics of stack unwinding, why the C++ runtime strictly" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="exception-thrown-during-stack-unwinding-in-c">Exception Thrown
+During Stack Unwinding in C++</h1>
+<p>In C++, throwing an exception while a previous exception is actively
+unwinding the stack causes the runtime to immediately abort the program
+by calling <code>std::terminate()</code>. This article explains the
+mechanics of stack unwinding, why the C++ runtime strictly prohibits
+multiple active uncaught exceptions, the impact of modern
+<code>noexcept</code> defaults on destructors, and best practices to
+prevent unexpected program termination.</p>
+<h3 id="the-mechanics-of-stack-unwinding">The Mechanics of Stack
+Unwinding</h3>
+<p>When an exception is thrown, the C++ runtime searches up the call
+stack for an appropriate <code>catch</code> block. As execution exits
+nested scopes during this search, the runtime automatically invokes the
+destructors of all local and automatic objects allocated within those
+scopes in reverse order of their construction. This process is known as
+stack unwinding.</p>
+<p>Stack unwinding guarantees that resources managed via RAII (Resource
+Acquisition Is Initialization)—such as smart pointers, file handles, and
+mutex locks—are deterministically freed even when an error occurs.</p>
+<h3 id="what-happens-when-a-second-exception-escapes">What Happens When
+a Second Exception Escapes</h3>
+<p>During stack unwinding, destructors are actively executing. If code
+inside a destructor throws a secondary exception, that exception must be
+caught and handled entirely within the destructor itself.</p>
+<p>If the secondary exception is not caught and attempts to propagate
+out of the destructor, the runtime faces an impossible dilemma: it has
+two distinct, concurrently active exceptions seeking two potentially
+different <code>catch</code> handlers. Because the C++ language
+specification does not support multiple simultaneous active exception
+flows, the runtime immediately calls <code>std::terminate()</code>.</p>
+<p>When <code>std::terminate()</code> is invoked:</p>
+<ul>
+<li>The program halts execution abruptly.</li>
+<li>No further destructors are called.</li>
+<li>Stack unwinding ceases entirely.</li>
+<li>By default, <code>std::abort()</code> is executed, generating a core
+dump or crash log.</li>
+</ul>
+<h3 id="modern-c-and-implicit-noexcept-destructors">Modern C++ and
+Implicit <code>noexcept</code> Destructors</h3>
+<p>Starting with C++11, destructors are implicitly marked as
+<code>noexcept(true)</code> unless explicitly declared otherwise or if a
+member subobject has a potentially throwing destructor.</p>
+<p>Because of this rule, throwing an exception from a standard
+destructor triggers <code>std::terminate()</code> in two distinct
+ways:</p>
+<ol type="1">
+<li><strong>The Dual-Exception Rule:</strong> If stack unwinding is
+already underway and a destructor throws an uncaught exception,
+<code>std::terminate()</code> is called because of the active unwinding
+state.</li>
+<li><strong>The <code>noexcept</code> Violation:</strong> Even if stack
+unwinding is <em>not</em> active (e.g., an object simply goes out of
+scope normally), allowing an uncaught exception to escape a
+<code>noexcept(true)</code> destructor immediately calls
+<code>std::terminate()</code>.</li>
+</ol>
+<p>Declaring a destructor <code>noexcept(false)</code> disables the
+second rule, but it does not bypass the first. If unwinding is active,
+escaping an exception from a <code>noexcept(false)</code> destructor
+will still invoke <code>std::terminate()</code>.</p>
+<h3 id="how-to-prevent-termination">How to Prevent Termination</h3>
+<p>To maintain program stability, follow these guidelines when writing
+destructors and cleanup routines:</p>
+<ul>
+<li><strong>Swallow Exceptions in Destructors:</strong> Always enclose
+potentially throwing operations within a <code>try-catch(...)</code>
+block inside destructors, logging or silently handling any errors
+locally.</li>
+<li><strong>Separate Cleanup from Error Reporting:</strong> For
+operations where failure must be reported (such as closing a file or
+flushing a socket network buffer), provide an explicit public method
+like <code>close()</code> or <code>flush()</code> that can throw
+exceptions, and use the destructor purely as a fallback to release raw
+resources without throwing.</li>
+<li><strong>Query Active Exceptions via
+<code>std::uncaught_exceptions()</code>:</strong> Introduced in C++17,
+<code>std::uncaught_exceptions()</code> returns an <code>int</code>
+representing the current count of active, uncaught exceptions. This
+allows an object to determine whether it is being destroyed as part of
+stack unwinding and adapt its behavior accordingly.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

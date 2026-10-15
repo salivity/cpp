@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C++ std::underlying_type Determines Enum Backing Types - cpp</title>
+    <meta name="description" content="In C++, std::underlyingtype is a standard type trait that extracts the underlying integral type of an enumeration at compile time. This article explains the mechanism behind std::underlyingtype, detailing how the compiler establishes the numeric backing t">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-c-std-underlying-type-determines-enum-backing-types">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C++ std::underlying_type Determines Enum Backing Types - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-c-std-underlying-type-determines-enum-backing-types" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, std::underlyingtype is a standard type trait that extracts the underlying integral type of an enumeration at compile time. This article explains the mechanism behind std::underlyingtype, detailing how the compiler establishes the numeric backing t" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c-stdunderlying_type-determines-enum-backing-types">How C++
+std::underlying_type Determines Enum Backing Types</h1>
+<p>In C++, <code>std::underlying_type</code> is a standard type trait
+that extracts the underlying integral type of an enumeration at compile
+time. This article explains the mechanism behind
+<code>std::underlying_type</code>, detailing how the compiler
+establishes the numeric backing type of scoped and unscoped enums, and
+how standard library implementations leverage compiler intrinsics to
+expose this type to developers.</p>
+<h3 id="the-role-of-compiler-intrinsics">The Role of Compiler
+Intrinsics</h3>
+<p>At the library level, <code>std::underlying_type</code> cannot deduce
+an enumeration's backing type using pure template metaprogramming or
+pattern matching. Because the mapping between an enum and its underlying
+integer representation is resolved directly inside the compiler's
+semantic analysis phase, the standard library delegates this work to a
+compiler intrinsic.</p>
+<p>In major toolchains like GCC, Clang, and MSVC, the implementation of
+<code>std::underlying_type</code> resembles the following:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="dt">underlying_type</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> type <span class="op">=</span> __underlying_type<span class="op">(</span>T<span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> <span class="dt">underlying_type_t</span> <span class="op">=</span> <span class="kw">typename</span> <span class="dt">underlying_type</span><span class="op">&lt;</span>T<span class="op">&gt;::</span>type<span class="op">;</span></span></code></pre></div>
+<p>The intrinsic <code>__underlying_type(T)</code> queries the
+compiler's internal Abstract Syntax Tree (AST) for the symbol definition
+of <code>T</code>, verifies that <code>T</code> is a complete
+enumeration type, and immediately returns the designated integer
+type.</p>
+<h3 id="how-the-compiler-establishes-the-underlying-type">How the
+Compiler Establishes the Underlying Type</h3>
+<p>To provide the intrinsic with the correct type, the compiler assigns
+an underlying integral type during the declaration of the enumeration
+based on ISO C++ rules:</p>
+<ol type="1">
+<li><strong>Scoped Enumerations (<code>enum class</code> and
+<code>enum struct</code>)</strong>
+<ul>
+<li><strong>Explicit type:</strong> If specified (e.g.,
+<code>enum class Status : uint8_t</code>), the underlying type is
+strictly that type.</li>
+<li><strong>Implicit default:</strong> If no type is specified (e.g.,
+<code>enum class Status</code>), the standard dictates that the
+underlying type defaults directly to <code>int</code>.</li>
+</ul></li>
+<li><strong>Unscoped Enumerations with an Explicit Type</strong>
+<ul>
+<li>If an unscoped enum specifies a type (e.g.,
+<code>enum Flags : unsigned long</code>), the underlying type is fixed
+to that specification, matching the behavior of scoped enums.</li>
+</ul></li>
+<li><strong>Unscoped Enumerations without an Explicit Type</strong>
+<ul>
+<li>When an unscoped enum omits an explicit base (e.g.,
+<code>enum Color { Red, Green, Blue }</code>), the underlying type is
+not fixed until all enumerators are evaluated.</li>
+<li>The compiler analyzes the smallest and largest values among the
+enumerators.</li>
+<li>It then selects an implementation-defined integral type capable of
+representing all defined enumerator values. Typically, the compiler
+checks types in an order such as <code>int</code>,
+<code>unsigned int</code>, <code>long</code>,
+<code>unsigned long</code>, <code>long long</code>, or
+<code>unsigned long long</code>.</li>
+<li>If the values fit within <code>int</code> or
+<code>unsigned int</code>, one of those is chosen according to the signs
+of the values.</li>
+</ul></li>
+</ol>
+<h3 id="constraints-and-validity">Constraints and Validity</h3>
+<p>Before resolving the type, the compiler verifies that the template
+argument satisfies the requirements of
+<code>std::underlying_type</code>:</p>
+<ul>
+<li><strong>Completeness:</strong> The enumeration must be fully
+defined. Applying <code>std::underlying_type</code> to a
+forward-declared enum without a fixed underlying type results in a
+compile-time error.</li>
+<li><strong>Type Category:</strong> The type must be an enumeration.
+Passing non-enum types (such as classes, pointers, or primitive
+integers) produces a compilation failure within the intrinsic
+evaluation.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

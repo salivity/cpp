@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::string_view Lifetime Hazards in C++ - cpp</title>
+    <meta name="description" content="The std::stringview utility introduced in C++17 provides a lightweight, non-owning view of a character sequence, significantly reducing unnecessary memory allocations. However, because it does not manage the underlying data, developers face severe lifetim">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-string-view-lifetime-hazards-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::string_view Lifetime Hazards in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-string-view-lifetime-hazards-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The std::stringview utility introduced in C++17 provides a lightweight, non-owning view of a character sequence, significantly reducing unnecessary memory allocations. However, because it does not manage the underlying data, developers face severe lifetim" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stdstring_view-lifetime-hazards-in-c">std::string_view Lifetime
+Hazards in C++</h1>
+<p>The <code>std::string_view</code> utility introduced in C++17
+provides a lightweight, non-owning view of a character sequence,
+significantly reducing unnecessary memory allocations. However, because
+it does not manage the underlying data, developers face severe lifetime
+hazards—most commonly dangling references caused by binding a view to a
+temporary string. This article breaks down the mechanics of
+<code>std::string_view</code>, illustrates how returning one bound to a
+temporary results in undefined behavior, and provides concrete rules to
+avoid these pitfalls.</p>
+<h2 id="what-is-a-stdstring_view-lifetime-hazard">What Is a
+std::string_view Lifetime Hazard?</h2>
+<p>At its core, <code>std::string_view</code> is implemented as a
+pointer to a character buffer and a size:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> string_view <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="dt">char</span><span class="op">*</span> <span class="va">data_</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>size_t <span class="va">size_</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Because it is purely an observer, it has no ownership semantics. It
+does not allocate memory on creation, nor does it free memory upon
+destruction. Consequently, a <strong>lifetime hazard</strong> occurs
+whenever the lifetime of the <code>std::string_view</code> exceeds the
+lifetime of the character array it references. Once the underlying
+buffer is deallocated or goes out of scope, the
+<code>std::string_view</code> becomes a dangling pointer. Accessing it
+triggers undefined behavior (UB).</p>
+<h2 id="how-returning-from-a-temporary-causes-dangling-references">How
+Returning from a Temporary Causes Dangling References</h2>
+<p>A common source of bugs is returning a <code>std::string_view</code>
+initialized from a temporary or local <code>std::string</code>.</p>
+<h3 id="1-returning-a-local-stdstring">1. Returning a Local
+<code>std::string</code></h3>
+<p>Consider the following function:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string_view get_greeting<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string greeting <span class="op">=</span> <span class="st">&quot;Hello, World!&quot;</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> greeting<span class="op">;</span> <span class="co">// Hazard: Implicit conversion to std::string_view</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Here, <code>greeting</code> is a local variable stored on the stack
+with automatic storage duration. When the <code>return</code> statement
+executes:</p>
+<ol type="1">
+<li><code>greeting</code> is implicitly converted to a
+<code>std::string_view</code>, pointing to the internal buffer of
+<code>greeting</code>.</li>
+<li>The function ends, and <code>greeting</code> goes out of scope,
+destroying its internal buffer.</li>
+<li>The returned <code>std::string_view</code> now points to invalid,
+deallocated stack or heap memory.</li>
+</ol>
+<p>Calling code that reads the returned view will encounter undefined
+behavior, such as garbage output or memory access violations:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string_view sv <span class="op">=</span> get_greeting<span class="op">();</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> sv<span class="op">;</span> <span class="co">// Undefined Behavior: sv points to destroyed memory</span></span></code></pre></div>
+<h3 id="2-returning-a-temporary-from-string-manipulation">2. Returning a
+Temporary from String Manipulation</h3>
+<p>Lifetime hazards also emerge when returning string views from
+expressions that generate temporary <code>std::string</code>
+objects:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string_view get_full_name<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> first<span class="op">,</span> <span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> last<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> first <span class="op">+</span> <span class="st">&quot; &quot;</span> <span class="op">+</span> last<span class="op">;</span> <span class="co">// Hazard: operator+ returns a temporary std::string</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The expression <code>first + " " + last</code> generates a temporary
+<code>std::string</code>. The function converts this temporary into a
+<code>std::string_view</code> and returns it. Because temporaries are
+destroyed at the end of the full expression in which they are created,
+the temporary is destroyed before the caller can even inspect the
+returned view.</p>
+<h3 id="3-immediate-binding-to-a-temporary">3. Immediate Binding to a
+Temporary</h3>
+<p>This hazard does not only occur across function boundaries; it can
+occur in a single line of code:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string get_data<span class="op">();</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Hazard: The temporary returned by get_data() is destroyed </span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">// at the semicolon, leaving sv dangling.</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string_view sv <span class="op">=</span> get_data<span class="op">();</span> </span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> sv<span class="op">;</span> <span class="co">// Undefined Behavior</span></span></code></pre></div>
+<p>While <code>const std::string&amp;</code> can extend the lifetime of
+a temporary to the lifetime of the reference,
+<strong><code>std::string_view</code> does not extend the lifetime of a
+temporary <code>std::string</code></strong>.</p>
+<h2 id="rules-for-safe-usage">Rules for Safe Usage</h2>
+<p>To prevent dangling references with <code>std::string_view</code>,
+apply the following guidelines:</p>
+<ul>
+<li><strong>Use <code>std::string_view</code> for input
+parameters:</strong> It is primarily designed to replace
+<code>const std::string&amp;</code> in function arguments, allowing
+functions to accept string literals, <code>std::string</code>, and raw
+arrays without heap allocation.</li>
+<li><strong>Return <code>std::string</code> by value when creating
+data:</strong> If a function creates, combines, or transforms text,
+return <code>std::string</code> by value. Rely on Return Value
+Optimization (RVO) and move semantics for performance.</li>
+<li><strong>Only return <code>std::string_view</code> if the referenced
+data outlives the caller:</strong> It is safe to return a
+<code>std::string_view</code> referencing a string literal (which has
+static storage duration) or referencing an input parameter that is
+guaranteed to outlive the function call.</li>
+<li><strong>Enable compiler diagnostics:</strong> Modern compilers
+provide warnings for these scenarios (such as Clang's
+<code>-Wdangling-gsl</code> or GCC's <code>-Wreturn-local-addr</code>).
+Treat these warnings as errors.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

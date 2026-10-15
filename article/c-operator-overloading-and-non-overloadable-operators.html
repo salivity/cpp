@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Operator Overloading and Non-Overloadable Operators - cpp</title>
+    <meta name="description" content="This article provides an overview of operator overloading in C++, explaining how it allows developers to redefine how standard operators interact with user-defined types. It covers the core concept and purpose of operator overloading, followed by an expli">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-operator-overloading-and-non-overloadable-operators">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Operator Overloading and Non-Overloadable Operators - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-operator-overloading-and-non-overloadable-operators" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of operator overloading in C++, explaining how it allows developers to redefine how standard operators interact with user-defined types. It covers the core concept and purpose of operator overloading, followed by an expli" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-operator-overloading-and-non-overloadable-operators">C++
+Operator Overloading and Non-Overloadable Operators</h1>
+<p>This article provides an overview of operator overloading in C++,
+explaining how it allows developers to redefine how standard operators
+interact with user-defined types. It covers the core concept and purpose
+of operator overloading, followed by an explicit breakdown of the
+specific C++ operators that the language standard strictly prohibits
+from being overloaded, along with the technical reasons behind these
+restrictions.</p>
+<h2 id="what-is-operator-overloading">What Is Operator Overloading?</h2>
+<p>Operator overloading is a compile-time polymorphism feature in C++
+that allows standard operators (such as <code>+</code>, <code>-</code>,
+<code>*</code>, <code>==</code>, and <code>&lt;&lt;</code>) to have
+user-defined meanings when applied to custom data types like classes and
+structs.</p>
+<p>In standard C++, operators are predefined for primitive types (e.g.,
+adding two integers using <code>a + b</code>). Through operator
+overloading, you can define a special member function or a non-member
+friend function using the <code>operator</code> keyword so that your
+custom objects can be manipulated using the same intuitive syntax. For
+example, rather than calling a method like
+<code>vector1.add(vector2)</code>, you can write
+<code>vector1 + vector2</code>.</p>
+<h2 id="operators-that-cannot-be-overloaded">Operators That Cannot Be
+Overloaded</h2>
+<p>While C++ allows the majority of its operators to be overloaded, a
+small set cannot be modified. The C++ standard explicitly forbids
+overloading the following operators:</p>
+<h3 id="1-scope-resolution-operator-">1. Scope Resolution Operator
+(<code>::</code>)</h3>
+<p>The scope resolution operator is resolved entirely at compile time to
+specify namespace, class, or enumeration scopes. Overloading it would
+create severe syntactic ambiguity, making it impossible for the compiler
+to distinguish between a namespace lookup and an overloaded
+operation.</p>
+<h3 id="2-member-access-operator-">2. Member Access Operator
+(<code>.</code>)</h3>
+<p>The direct member access (dot) operator is fundamental to accessing
+members of an object. Allowing this operator to be overloaded would
+compromise member lookup logic and obscure how class members are
+reached. Note that while <code>.</code> cannot be overloaded, the
+pointer-to-member arrow operator (<code>-&gt;</code>) can be.</p>
+<h3 id="3-member-pointer-selector-operator-">3. Member Pointer Selector
+Operator (<code>.*</code>)</h3>
+<p>Similar to the dot operator, the pointer-to-member dereference
+operator (<code>.*</code>) is bound to the core mechanics of accessing
+member functions or variables via pointers within an instance.
+Overloading it would disrupt object-model guarantees. The indirect
+version (<code>-&gt;*</code>), however, can be overloaded.</p>
+<h3 id="4-ternary-conditional-operator-">4. Ternary Conditional Operator
+(<code>?:</code>)</h3>
+<p>The ternary conditional operator evaluates an expression based on a
+condition: <code>condition ? true_expr : false_expr</code>. Crucially,
+it guarantees short-circuit evaluation—only one of the two expressions
+is evaluated. In C++, overloaded operators act as function calls where
+all arguments must be evaluated before the function executes.
+Overloading <code>?:</code> would break this short-circuiting
+guarantee.</p>
+<h3 id="5-object-size-operator-sizeof">5. Object Size Operator
+(<code>sizeof</code>)</h3>
+<p>The <code>sizeof</code> operator returns the memory size of a type or
+object in bytes. It is evaluated at compile time and is vital for
+low-level memory allocation, array sizing, and type layout. Modifying
+its behavior would fundamentally break memory management.</p>
+<h3 id="6-type-identification-operator-typeid">6. Type Identification
+Operator (<code>typeid</code>)</h3>
+<p>Part of Run-Time Type Information (RTTI), <code>typeid</code> queries
+the runtime type of an expression. Because the integrity of the type
+system relies on <code>typeid</code> providing accurate metadata, C++
+prohibits user-defined overrides.</p>
+<h3 id="7-alignment-operator-alignof">7. Alignment Operator
+(<code>alignof</code>)</h3>
+<p>Introduced in modern C++, <code>alignof</code> queries the alignment
+requirement of a type at compile time. Like <code>sizeof</code>, it is
+an intrinsic compiler query that cannot be altered.</p>
+<h3 id="8-casting-operators">8. Casting Operators</h3>
+<p>Explicit casting operators—such as <code>static_cast</code>,
+<code>dynamic_cast</code>, <code>const_cast</code>, and
+<code>reinterpret_cast</code>—are intrinsic type-conversion keywords
+rather than traditional overloadable operators.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

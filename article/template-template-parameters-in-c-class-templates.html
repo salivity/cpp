@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Template Template Parameters in C++ Class Templates - cpp</title>
+    <meta name="description" content="In C++, declaring a template template parameter inside a class template enables higher-order generic programming by allowing the class to accept a template itself rather than a fully instantiated type. This article explores the mechanics and effects of th">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/template-template-parameters-in-c-class-templates">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Template Template Parameters in C++ Class Templates - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/template-template-parameters-in-c-class-templates" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, declaring a template template parameter inside a class template enables higher-order generic programming by allowing the class to accept a template itself rather than a fully instantiated type. This article explores the mechanics and effects of th" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="template-template-parameters-in-c-class-templates">Template
+Template Parameters in C++ Class Templates</h1>
+<p>In C++, declaring a template template parameter inside a class
+template enables higher-order generic programming by allowing the class
+to accept a template itself rather than a fully instantiated type. This
+article explores the mechanics and effects of this feature,
+demonstrating how it decouples container templates from their contained
+types, enforces compile-time constraints, and enhances code flexibility
+and expressiveness.</p>
+<h3 id="understanding-the-concept">Understanding the Concept</h3>
+<p>A standard template parameter typically accepts a concrete type (such
+as <code>int</code> or <code>std::string</code>) or a non-type value. In
+contrast, a template template parameter accepts an uninstantiated
+template. By declaring one inside a class template, you shift the
+responsibility of type instantiation from the caller to the class
+template itself.</p>
+<p>Consider the basic declaration syntax:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span><span class="op">...&gt;</span> <span class="kw">class</span> Container<span class="op">,</span> <span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> DataHandler <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    Container<span class="op">&lt;</span>T<span class="op">&gt;</span> primary_storage<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    Container<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> id_storage<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>In this example, <code>Container</code> is a template template
+parameter. It is not a complete type until <code>DataHandler</code>
+instantiates it internally with specific arguments such as
+<code>T</code> or <code>int</code>.</p>
+<h3 id="core-effects-on-class-design">Core Effects on Class Design</h3>
+<h4 id="1-decoupling-templates-from-element-types">1. Decoupling
+Templates from Element Types</h4>
+<p>Without template template parameters, passing a container type like
+<code>std::vector&lt;int&gt;</code> requires specifying both the
+container and its element type at the call site. If the enclosing class
+needs to use that same container structure for other types, it cannot do
+so easily.</p>
+<p>Declaring a template template parameter allows the enclosing class
+template to supply or vary the inner type. The user only provides the
+blueprint of the container (e.g., <code>std::vector</code>), and the
+class template decides what types it will store.</p>
+<h4 id="2-multiple-instantiations-of-the-same-family">2. Multiple
+Instantiations of the Same Family</h4>
+<p>Because the template parameter remains uninstantiated until used
+inside the class body, the class can instantiate the provided template
+multiple times with different type arguments. A single class template
+can instantiate <code>Container&lt;T&gt;</code>,
+<code>Container&lt;std::string&gt;</code>, and
+<code>Container&lt;size_t&gt;</code>, ensuring structural consistency
+across disparate data types.</p>
+<h4 id="3-strict-compile-time-signature-matching">3. Strict Compile-Time
+Signature Matching</h4>
+<p>Declaring a template template parameter imposes strict matching
+rules. The compiler verifies that the argument passed by the caller
+matches the template parameter list of the template template
+parameter.</p>
+<p>For instance, standard library containers like
+<code>std::vector</code> typically take an allocator parameter with a
+default argument:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="kw">typename</span> Allocator <span class="op">=</span> <span class="bu">std::</span>allocator<span class="op">&lt;</span>T<span class="op">&gt;&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> vector<span class="op">;</span></span></code></pre></div>
+<p>Prior to C++17, a template template parameter declared as
+<code>template &lt;typename&gt; class Container</code> would fail to
+match <code>std::vector</code> because the allocator parameter was not
+accounted for. Using variadic template template parameters
+(<code>template &lt;typename...&gt; class Container</code>) solves this
+by accepting templates with any number of parameters, making the design
+robust and backward-compatible.</p>
+<h4 id="4-type-safety-and-error-localization">4. Type Safety and Error
+Localization</h4>
+<p>When a class template expects a template template parameter, passing
+a non-template type (such as <code>int</code> or an already instantiated
+<code>std::vector&lt;int&gt;</code>) results in an immediate
+compile-time error. This prevents invalid type substitutions early in
+the compilation process and produces clearer diagnostics compared to
+errors deep within nested type definitions.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Binary Literals and Digit Separators Explained - cpp</title>
+    <meta name="description" content="Prior to C++14, developers had to rely on decimal, octal, or hexadecimal formats to represent numbers, which often obscured the underlying bit patterns or made large values difficult to parse at a glance. The introduction of binary literals and single-quo">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-binary-literals-and-digit-separators-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Binary Literals and Digit Separators Explained - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-binary-literals-and-digit-separators-explained" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Prior to C++14, developers had to rely on decimal, octal, or hexadecimal formats to represent numbers, which often obscured the underlying bit patterns or made large values difficult to parse at a glance. The introduction of binary literals and single-quo" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-binary-literals-and-digit-separators-explained">C++ Binary
+Literals and Digit Separators Explained</h1>
+<p>Prior to C++14, developers had to rely on decimal, octal, or
+hexadecimal formats to represent numbers, which often obscured the
+underlying bit patterns or made large values difficult to parse at a
+glance. The introduction of binary literals and single-quote digit
+separators in the C++14 standard directly resolved these readability
+issues. By allowing programmers to express values natively in base-2 and
+visually segment long sequences of digits, C++ enables self-documenting
+numeric constants, reduces transcription errors, and makes
+hardware-level and data-intensive programming significantly more
+maintainable.</p>
+<h3 id="native-bit-representation-with-binary-literals">Native Bit
+Representation with Binary Literals</h3>
+<p>Low-level systems programming, embedded systems, and graphics
+programming frequently require manipulating individual bits, masks, and
+hardware registers. Before binary literals, developers typically wrote
+bitmasks using hexadecimal or octal notations:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Setting the 0th, 2nd, and 7th bits via hexadecimal</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">uint8_t</span> mask <span class="op">=</span> <span class="bn">0x85</span><span class="op">;</span></span></code></pre></div>
+<p>While compact, hexadecimal requires mental translation to verify
+which individual bits are active. A developer must mentally convert
+<code>0x8</code> to <code>1000</code> and <code>0x5</code> to
+<code>0101</code>.</p>
+<p>C++14 introduced binary literals using the prefixes <code>0b</code>
+or <code>0B</code>. This allows bit patterns to be written out
+explicitly:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Explicit representation of bits 0, 2, and 7</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">uint8_t</span> mask <span class="op">=</span> <span class="bn">0b10000101</span><span class="op">;</span></span></code></pre></div>
+<p>Writing values directly in binary eliminates mental translation
+errors, clarifies intent during code reviews, and makes bitwise
+operations such as masking, shifting, and setting flags instantly
+recognizable.</p>
+<h3 id="visual-clarity-using-digit-separators">Visual Clarity Using
+Digit Separators</h3>
+<p>Large numeric literals—whether representing currency, scientific
+constants, memory addresses, or raw bit fields—are prone to human
+reading errors. Long sequences of numbers, such as
+<code>1000000000</code>, often force developers to manually count zeros
+to differentiate between one hundred million and one billion.</p>
+<p>C++14 introduced the single quote (<code>'</code>) as an arbitrary
+digit separator. The compiler completely ignores this separator during
+compilation, meaning it has zero impact on runtime performance or the
+resulting binary.</p>
+<p>Digit separators can be applied to standard base-10 integers:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Large numbers become immediately readable</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">long</span> <span class="dt">long</span> one_billion <span class="op">=</span> <span class="dv">1&#39;000&#39;000&#39;000</span><span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">double</span> microsecond    <span class="op">=</span> <span class="fl">0.000&#39;001</span><span class="op">;</span></span></code></pre></div>
+<p>They also function across all other supported numeric bases,
+including hexadecimal:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// 32-bit RGBA color representation</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">uint32_t</span> red_color <span class="op">=</span> <span class="bn">0xFF&#39;00&#39;00&#39;FF</span><span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Memory address formatting</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">uintptr_t</span> base_address <span class="op">=</span> <span class="bn">0xDEAD&#39;BEEF</span><span class="op">;</span></span></code></pre></div>
+<h3 id="combining-binary-literals-and-digit-separators">Combining Binary
+Literals and Digit Separators</h3>
+<p>The primary advantage of these two features emerges when they are
+used together. An unformatted 16-bit or 32-bit binary literal can
+quickly become an unreadable sequence of ones and zeros:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Difficult to parse quickly</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">uint16_t</span> control_register <span class="op">=</span> <span class="bn">0b1101001010101111</span><span class="op">;</span></span></code></pre></div>
+<p>By grouping bits into nibbles (4 bits) or bytes (8 bits) using digit
+separators, the layout of the registers and flags becomes immediately
+apparent:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Grouped by nibbles for immediate readability</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">uint16_t</span> control_register <span class="op">=</span> <span class="bn">0b1101&#39;0010&#39;1010&#39;1111</span><span class="op">;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Grouped by bytes</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">uint16_t</span> ethernet_flags   <span class="op">=</span> <span class="bn">0b11010010&#39;10101111</span><span class="op">;</span></span></code></pre></div>
+<h3 id="key-benefits">Key Benefits</h3>
+<ol type="1">
+<li><strong>Bug Prevention:</strong> Eliminates off-by-one errors when
+counting zeros or aligning bits for masks.</li>
+<li><strong>Self-Documenting Code:</strong> Replaces verbose explanatory
+comments that map hexadecimal values to individual bit functions.</li>
+<li><strong>Zero Runtime Overhead:</strong> All parsing and formatting
+occur strictly at compile time; the generated machine code is identical
+to using standard decimal or hex representations.</li>
+<li><strong>Flexible Formatting:</strong> Developers can group digits in
+whatever pattern makes logical sense for the domain, such as three
+digits for thousands, four digits for binary nibbles, or two digits for
+hex color channels.</li>
+</ol></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

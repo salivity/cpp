@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>constinit vs constexpr in C++: Timing and Mutability - cpp</title>
+    <meta name="description" content="In modern C++, both constexpr and constinit play critical roles in ensuring variables are initialized before runtime execution begins, but they serve distinct purposes regarding how data can be modified. While constexpr (introduced in C++11) forces both c">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/constinit-vs-constexpr-in-c-timing-and-mutability">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="constinit vs constexpr in C++: Timing and Mutability - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/constinit-vs-constexpr-in-c-timing-and-mutability" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, both constexpr and constinit play critical roles in ensuring variables are initialized before runtime execution begins, but they serve distinct purposes regarding how data can be modified. While constexpr (introduced in C++11) forces both c" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="constinit-vs-constexpr-in-c-timing-and-mutability">constinit vs
+constexpr in C++: Timing and Mutability</h1>
+<p>In modern C++, both <code>constexpr</code> and <code>constinit</code>
+play critical roles in ensuring variables are initialized before runtime
+execution begins, but they serve distinct purposes regarding how data
+can be modified. While <code>constexpr</code> (introduced in C++11)
+forces both compile-time evaluation and absolute immutability,
+<code>constinit</code> (introduced in C++20) specifically guarantees
+compile-time static initialization without enforcing <code>const</code>
+semantics. This article breaks down the exact differences between
+<code>constinit</code> and <code>constexpr</code>, focusing directly on
+initialization timing, object mutability, and their practical
+applications.</p>
+<h2 id="initialization-timing">Initialization Timing</h2>
+<p>The primary goal of initialization keywords in C++ is to control when
+an expression or variable is evaluated.</p>
+<ul>
+<li><strong><code>constexpr</code>:</strong> A <code>constexpr</code>
+variable must be evaluated at compile time. The compiler computes the
+value during translation, substituting the result directly where
+applicable. It can be used in contexts requiring compile-time constants,
+such as template arguments, array bounds, or <code>static_assert</code>
+expressions.</li>
+<li><strong><code>constinit</code>:</strong> A <code>constinit</code>
+specifier enforces that a variable with static or thread-local storage
+duration is initialized at compile time (static initialization) rather
+than during runtime (dynamic initialization). Its primary purpose is to
+eliminate the <strong>static initialization order fiasco</strong>, where
+the initialization order of global variables across different
+translation units is undefined. Unlike <code>constexpr</code>,
+<code>constinit</code> cannot be applied to local automatic
+variables.</li>
+</ul>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Specifier</th>
+<th style="text-align: left;">Permitted Storage Duration</th>
+<th style="text-align: left;">Evaluation Phase</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><code>constexpr</code></td>
+<td style="text-align: left;">Automatic (local), static, or
+thread-local</td>
+<td style="text-align: left;">Compile time</td>
+</tr>
+<tr>
+<td style="text-align: left;"><code>constinit</code></td>
+<td style="text-align: left;">Static or thread-local only</td>
+<td style="text-align: left;">Compile time (guarantees static
+initialization)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="mutability">Mutability</h2>
+<p>The most significant functional difference between the two specifiers
+is whether the resulting variable can be modified at runtime.</p>
+<ul>
+<li><strong><code>constexpr</code> implies <code>const</code>:</strong>
+Declaring a variable <code>constexpr</code> implicitly marks it as
+<code>const</code>. Once initialized, its value is fixed in read-only
+memory or inlined, meaning it cannot be modified at runtime.</li>
+<li><strong><code>constinit</code> does not imply
+<code>const</code>:</strong> A <code>constinit</code> variable is
+mutable by default unless explicitly combined with the
+<code>const</code> keyword (<code>constinit const</code>). This allows a
+program to initialize a global or thread-local variable safely before
+runtime starts, while still allowing the variable's state to be modified
+during program execution.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Evaluated at compile time; immutable at runtime</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="dt">int</span> max_users <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// max_users = 200; // Error: assignment of read-only variable</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Initialized at compile time; mutable at runtime</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">constinit</span> <span class="dt">int</span> active_connections <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> on_connect<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Valid: constinit does not imply const</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">++</span>active_connections<span class="op">;</span> </span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Initialized at compile time; immutable at runtime</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="kw">constinit</span> <span class="at">const</span> <span class="dt">int</span> buffer_size <span class="op">=</span> <span class="dv">4096</span><span class="op">;</span></span></code></pre></div>
+<h2 id="usability-in-constant-expressions">Usability in Constant
+Expressions</h2>
+<p>Because <code>constinit</code> allows mutability, it does not
+guarantee that the variable itself remains a constant expression
+throughout execution.</p>
+<ul>
+<li>A <code>constexpr</code> variable can always be used in subsequent
+constant expressions, such as defining the size of a
+<code>std::array</code> or evaluating a <code>static_assert</code>.</li>
+<li>A <code>constinit</code> variable (without an explicit
+<code>const</code>) cannot be used in a constant expression, because its
+value might change at runtime.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="dt">int</span> a <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">constinit</span> <span class="dt">int</span> b <span class="op">=</span> <span class="dv">20</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Allowed: &#39;a&#39; is a compile-time constant expression</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> arr1<span class="op">[</span>a<span class="op">];</span> </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Error: &#39;b&#39; is not usable in a constant expression</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// int arr2[b]; </span></span></code></pre></div>
+<h2 id="summary-of-differences">Summary of Differences</h2>
+<ul>
+<li><strong>Choose <code>constexpr</code></strong> when an object's
+value is known at compile time and should never change.</li>
+<li><strong>Choose <code>constinit</code></strong> for global or
+thread-local variables to ensure they are initialized statically before
+runtime, avoiding initialization order issues while preserving the
+ability to update their values during execution.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wait-Free vs Lock-Free Structures in C++ - cpp</title>
+    <meta name="description" content="This article provides an analysis of the operational differences between lock-free and wait-free concurrent data structures in the C++ programming language. Both paradigms belong to the non-blocking synchronization family, which avoids mutual exclusion pr">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/wait-free-vs-lock-free-structures-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Wait-Free vs Lock-Free Structures in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/wait-free-vs-lock-free-structures-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an analysis of the operational differences between lock-free and wait-free concurrent data structures in the C++ programming language. Both paradigms belong to the non-blocking synchronization family, which avoids mutual exclusion pr" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="wait-free-vs-lock-free-structures-in-c">Wait-Free vs Lock-Free
+Structures in C++</h1>
+<p>This article provides an analysis of the operational differences
+between lock-free and wait-free concurrent data structures in the C++
+programming language. Both paradigms belong to the non-blocking
+synchronization family, which avoids mutual exclusion primitives like
+<code>std::mutex</code>. While both aim to maximize concurrency and
+eliminate deadlocks, they differ fundamentally in their thread progress
+guarantees, algorithmic complexity, implementation overhead using
+<code>std::atomic</code>, and suitability for real-time constraints.</p>
+<h3 id="core-progress-guarantees">Core Progress Guarantees</h3>
+<p>The primary distinction between lock-free and wait-free execution
+lies in the formal progress guarantees provided to executing
+threads:</p>
+<ul>
+<li><strong>Lock-Free Execution:</strong> Guarantees <strong>system-wide
+progress</strong>. In a concurrent environment, at least one thread is
+guaranteed to complete its operation within a finite number of steps,
+regardless of what other threads are doing. However, individual threads
+can face starvation due to repeated contention and retries.</li>
+<li><strong>Wait-Free Execution:</strong> Guarantees <strong>per-thread
+progress</strong>. Every thread is guaranteed to complete its operation
+within a bounded number of its own steps, regardless of the execution
+speed, delays, or contention from other threads. Wait-free execution
+entirely eliminates thread starvation.</li>
+</ul>
+<p>Every wait-free data structure is inherently lock-free, but a
+lock-free structure is not necessarily wait-free.</p>
+<h3 id="implementation-mechanisms-in-c">Implementation Mechanisms in
+C++</h3>
+<p>The differing progress guarantees dictate distinct design patterns
+and usage of the C++ standard library's atomic operations.</p>
+<h4 id="lock-free-mechanisms">Lock-Free Mechanisms</h4>
+<p>Lock-free algorithms in C++ typically rely on speculative execution
+combined with atomic Read-Modify-Write (RMW) operations, predominantly
+<code>std::atomic&lt;T&gt;::compare_exchange_weak</code> or
+<code>compare_exchange_strong</code>.</p>
+<p>A standard lock-free pattern employs an unbounded loop:</p>
+<ol type="1">
+<li>Read the current atomic state.</li>
+<li>Prepare a new state locally.</li>
+<li>Attempt to commit the new state via a compare-and-swap (CAS)
+operation.</li>
+<li>If the CAS fails because another thread modified the state first,
+loop back to step 1.</li>
+</ol>
+<p>While this ensures that the thread causing the CAS failure
+successfully updated the data structure (system progress), the failing
+thread may loop indefinitely under severe contention (no individual
+progress guarantee).</p>
+<h4 id="wait-free-mechanisms">Wait-Free Mechanisms</h4>
+<p>Wait-free structures eliminate unbounded retry loops. Instead of
+looping until a CAS succeeds, an operation must complete within a
+deterministic bound.</p>
+<p>To achieve this in C++, wait-free algorithms often utilize:</p>
+<ul>
+<li><strong>Helping Schemes:</strong> When a thread fails a CAS or
+detects contention, it announces its operation in a shared descriptor
+array. Other threads inspect this array and complete the stalled
+thread's operation before finishing their own.</li>
+<li><strong>Bounded Primitive Operations:</strong> Fetch-and-add
+(<code>std::atomic&lt;T&gt;::fetch_add</code>) and exchange
+(<code>std::atomic&lt;T&gt;::exchange</code>) operations execute
+unconditionally in hardware. If an algorithm relies exclusively on
+bounded sequences of these instructions without loops, it can achieve
+wait-free status naturally (such as bounded wait-free ring
+buffers).</li>
+<li><strong>Fast-Path / Slow-Path Architecture:</strong> A thread
+attempts a fast lock-free operation once or up to a fixed threshold; if
+it fails, it falls back to a wait-free helping mechanism to guarantee
+completion.</li>
+</ul>
+<h3 id="performance-and-trade-offs">Performance and Trade-Offs</h3>
+<h4 id="throughput-vs-latency">Throughput vs. Latency</h4>
+<ul>
+<li><strong>Lock-Free:</strong> Typically yields higher average
+throughput under low to moderate contention. The code paths are simpler,
+with lower overhead per operation when contention is low. However, tail
+latencies can spike significantly under heavy contention due to repeated
+CAS failures.</li>
+<li><strong>Wait-Free:</strong> Prioritizes bounded worst-case latency
+over raw average throughput. Because threads must maintain state
+descriptors, announce operations, or assist peers, wait-free operations
+incur higher baseline memory and instruction overhead. However, tail
+latency remains deterministic.</li>
+</ul>
+<h4 id="algorithmic-complexity-and-memory">Algorithmic Complexity and
+Memory</h4>
+<p>Wait-free implementations in C++ are substantially more complex to
+design, verify, and maintain than lock-free equivalents. Helping
+mechanisms introduce additional memory overhead and complicate memory
+reclamation schemes (such as hazard pointers or epoch-based
+reclamation), as descriptors must remain valid while other threads
+assist in completing operations.</p>
+<h3 id="selection-criteria-in-c">Selection Criteria in C++</h3>
+<p>Choose <strong>lock-free</strong> structures when:</p>
+<ul>
+<li>Maximizing general throughput across multi-core processors is the
+primary objective.</li>
+<li>Workloads feature low-to-moderate write contention.</li>
+<li>Occasional latency spikes on individual threads do not cause
+critical system failures.</li>
+</ul>
+<p>Choose <strong>wait-free</strong> structures when:</p>
+<ul>
+<li>The application operates under hard or soft real-time constraints
+(e.g., audio processing, high-frequency trading, aerospace systems)
+where deterministic latency is required.</li>
+<li>Thread starvation cannot be tolerated.</li>
+<li>Predictable execution time takes precedence over raw aggregate
+throughput.</li>
+</ul></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

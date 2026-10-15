@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Whole-Program Optimization Enables C++ Inlining - cpp</title>
+    <meta name="description" content="Whole-program optimization (WPO), commonly implemented as Link-Time Optimization (LTO), bypasses the traditional boundaries of separate compilation in C++ by delaying machine code generation until the linking phase. Under standard compilation, the compile">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-whole-program-optimization-enables-c-inlining">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Whole-Program Optimization Enables C++ Inlining - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-whole-program-optimization-enables-c-inlining" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Whole-program optimization (WPO), commonly implemented as Link-Time Optimization (LTO), bypasses the traditional boundaries of separate compilation in C++ by delaying machine code generation until the linking phase. Under standard compilation, the compile" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-whole-program-optimization-enables-c-inlining">How
+Whole-Program Optimization Enables C++ Inlining</h1>
+<p>Whole-program optimization (WPO), commonly implemented as Link-Time
+Optimization (LTO), bypasses the traditional boundaries of separate
+compilation in C++ by delaying machine code generation until the linking
+phase. Under standard compilation, the compiler processes each
+translation unit in isolation, strictly limiting function inlining to
+code visible within the same source file or included headers. WPO
+removes this visibility barrier by preserving an intermediate
+representation of every module, allowing the optimizer to construct a
+global call graph, inline functions defined across different source
+files, and trigger cascading performance optimizations across the entire
+application.</p>
+<p>In the standard C++ compilation model, a project is divided into
+distinct translation units (individual <code>.cpp</code> files along
+with their preprocessed <code>#include</code> headers). The compiler
+compiles each translation unit independently into an object file
+containing target machine code. Because the compiler cannot inspect the
+implementation of a function defined in a separate translation unit, it
+must emit a standard call instruction and rely on the linker to resolve
+the memory address later. Consequently, inline expansion is impossible
+for functions defined in separate source files unless their definitions
+are explicitly placed inside header files.</p>
+<p>Whole-program optimization fundamentally alters this pipeline.
+Instead of immediately lowering source code to target-specific machine
+instructions, the compiler emits a high-level Intermediate
+Representation (IR)—such as LLVM Bitcode or GCC GIMPLE—into the
+resulting object files. These object files act as containers for IR
+rather than finalized machine code. When the linker is invoked, an LTO
+plugin or specialized linker driver intercepts these IR containers,
+combining the code from all compiled translation units into a single,
+unified program view.</p>
+<p>With the entire codebase visible at once, the optimizer constructs a
+complete program call graph. At this stage, cross-module function
+inlining operates as follows:</p>
+<ol type="1">
+<li><strong>Global Candidate Analysis:</strong> The optimizer scans all
+call sites across all translation units. It identifies function calls
+where the definition exists in another module and evaluates whether
+inlining is advantageous based on standard heuristics (e.g., function
+body size, call frequency, loop nesting depth, and execution profiling
+data).</li>
+<li><strong>Body Substitution:</strong> For qualifying functions, the
+optimizer retrieves the target function's IR from its originating module
+and inserts it directly into the caller's IR, replacing the function
+call entirely.</li>
+<li><strong>Overhead Removal:</strong> Inlining eliminates the runtime
+overhead associated with standard function calls, such as pushing
+arguments onto the stack, saving registers, allocating stack frames,
+executing branching instructions, and executing return sequences.</li>
+</ol>
+<p>Enabling cross-module inlining serves as a gateway for significant
+secondary optimizations. When a function from one module is inlined into
+another, the combined code is subjected to another pass of local
+optimizations. Constants passed as arguments can now propagate into the
+inlined body (constant propagation), which often renders branches within
+the inlined code redundant (dead code elimination). Additionally,
+cross-module inlining provides the necessary context to resolve virtual
+calls statically (devirtualization) and exposes larger, continuous
+blocks of code to instruction scheduling, common subexpression
+elimination, and loop vectorization.</p>
+<p>Through this deferred code generation and unified intermediate
+representation, whole-program optimization provides C++ developers with
+the architectural freedom to organize code into clean, modular source
+files without incurring the runtime performance penalties historically
+associated with separate compilation.</p></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

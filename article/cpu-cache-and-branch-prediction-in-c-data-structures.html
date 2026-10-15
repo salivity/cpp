@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPU Cache and Branch Prediction in C++ Data Structures - cpp</title>
+    <meta name="description" content="Modern high-performance C++ applications are increasingly bottlenecked by hardware microarchitecture rather than raw algorithmic complexity. This article explores how CPU instruction caches (I-cache) and branch target buffers (BTB) dictate data structure">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/cpu-cache-and-branch-prediction-in-c-data-structures">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CPU Cache and Branch Prediction in C++ Data Structures - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/cpu-cache-and-branch-prediction-in-c-data-structures" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern high-performance C++ applications are increasingly bottlenecked by hardware microarchitecture rather than raw algorithmic complexity. This article explores how CPU instruction caches (I-cache) and branch target buffers (BTB) dictate data structure" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="cpu-cache-and-branch-prediction-in-c-data-structures">CPU Cache
+and Branch Prediction in C++ Data Structures</h1>
+<p>Modern high-performance C++ applications are increasingly
+bottlenecked by hardware microarchitecture rather than raw algorithmic
+complexity. This article explores how CPU instruction caches (I-cache)
+and branch target buffers (BTB) dictate data structure design in C++. By
+examining the hidden costs of dynamic dispatch, code bloating, and
+unpredictable control flow, we demonstrate why traditional
+object-oriented structures are often replaced by data-oriented
+paradigms, compile-time polymorphism, and contiguous memory layouts to
+maximize hardware throughput.</p>
+<hr />
+<h3 id="the-hardware-reality-i-cache-and-branch-targets">The Hardware
+Reality: I-Cache and Branch Targets</h3>
+<p>Processors execute code via deep pipelines. To maintain execution
+speed, the CPU relies on two critical instruction-side mechanisms:</p>
+<ol type="1">
+<li><strong>Instruction Cache (L1i):</strong> A dedicated, high-speed
+on-chip cache (typically 32 KB to 64 KB per core) that stores frequently
+executed machine instructions. If a loop’s code footprint exceeds L1i
+capacity, the CPU stalls while fetching instructions from slower L2/L3
+caches or main memory.</li>
+<li><strong>Branch Target Buffer (BTB):</strong> A specialized cache
+used by the branch prediction unit to predict the destination address of
+indirect jumps and calls before they are executed.</li>
+</ol>
+<p>When a branch target cannot be predicted—or when instructions must
+continually be fetched from distant memory—the processor pipeline
+stalls, incurring penalties ranging from 15 to 20 clock cycles per
+misprediction.</p>
+<hr />
+<h3 id="why-traditional-polymorphism-degrades-instruction-locality">Why
+Traditional Polymorphism Degrades Instruction Locality</h3>
+<p>Classic object-oriented design in C++ relies on dynamic dispatch:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Entity <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> update<span class="op">()</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> updateAll<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>vector<span class="op">&lt;</span>Entity<span class="op">*&gt;&amp;</span> entities<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="kw">auto</span><span class="op">*</span> e <span class="op">:</span> entities<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        e<span class="op">-&gt;</span>update<span class="op">();</span> <span class="co">// Indirect branch via vtable pointer</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This pattern creates two severe instruction-side issues:</p>
+<ul>
+<li><strong>Indirect Branch Mispredictions:</strong> Calling
+<code>e-&gt;update()</code> requires dereferencing the object’s vptr to
+access the vtable, then jumping to the resolved function address. If
+<code>entities</code> contains a heterogeneous mix of derived classes
+(e.g., <code>Monster</code>, <code>Projectile</code>,
+<code>Player</code>), the target address changes continuously. The BTB
+fails to establish a consistent pattern, causing frequent branch
+mispredictions.</li>
+<li><strong>I-Cache Thrashing:</strong> Each derived class executes a
+completely different block of machine code. Iterating through varied
+objects pulls distinct function implementations into the L1i cache,
+evicting the instructions of the previous class. The CPU spends
+significant cycles loading code rather than executing work.</li>
+</ul>
+<hr />
+<h3 id="c-design-adaptations-for-instruction-locality">C++ Design
+Adaptations for Instruction Locality</h3>
+<p>To mitigate branch target penalties and instruction cache misses,
+modern C++ designs favor architectures that preserve predictable
+execution paths and compact instruction footprints.</p>
+<h4 id="1-entity-component-systems-ecs-and-type-sorted-arrays">1. Entity
+Component Systems (ECS) and Type-Sorted Arrays</h4>
+<p>Instead of storing heterogeneous pointers in a single container, data
+is grouped by concrete type:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> World <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span>TransformComponent<span class="op">&gt;</span> transforms<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span>PhysicsComponent<span class="op">&gt;</span> physics<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>By processing one array of identical types at a time, the CPU runs
+the exact same instruction sequence thousands of times in a tight loop.
+The instructions remain resident in L1i, and branch targets remain
+completely static, eliminating BTB pressure.</p>
+<h4 id="2-static-polymorphism-via-concepts-and-crtp">2. Static
+Polymorphism via Concepts and CRTP</h4>
+<p>When polymorphism is required, moving it from runtime to compile time
+eliminates indirect branches:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> updateEntity<span class="op">(</span>T<span class="op">&amp;</span> entity<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    entity<span class="op">.</span>update<span class="op">();</span> <span class="co">// Direct call, resolved at compile time</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The Curiously Recurring Template Pattern (CRTP) and C++20 Concepts
+enable inlining. The compiler substitutes direct function jumps or
+inlines the body entirely into the call site, converting indirect
+pointer lookups into deterministic, zero-overhead instructions.</p>
+<h4 id="3-variant-collections-with-sorting">3. Variant Collections with
+Sorting</h4>
+<p>When heterogeneity is mandatory, <code>std::variant</code> paired
+with <code>std::visit</code> provides a value-semantic alternative to
+class hierarchies. However, naive visitation inside a loop still causes
+indirect branches via jump tables:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>variant<span class="op">&lt;</span>Warrior<span class="op">,</span> Mage<span class="op">,</span> Rogue<span class="op">&gt;&gt;</span> party<span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Problematic: BTB misses if types are randomly distributed</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="kw">auto</span><span class="op">&amp;</span> member <span class="op">:</span> party<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>visit<span class="op">([](</span><span class="kw">auto</span><span class="op">&amp;</span> character<span class="op">)</span> <span class="op">{</span> character<span class="op">.</span>act<span class="op">();</span> <span class="op">},</span> member<span class="op">);</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>To eliminate branch misses, the data structure is sorted by the
+variant's active index prior to execution:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>sort<span class="op">(</span>party<span class="op">.</span>begin<span class="op">(),</span> party<span class="op">.</span>end<span class="op">(),</span> <span class="op">[](</span><span class="at">const</span> <span class="kw">auto</span><span class="op">&amp;</span> a<span class="op">,</span> <span class="at">const</span> <span class="kw">auto</span><span class="op">&amp;</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a<span class="op">.</span>index<span class="op">()</span> <span class="op">&lt;</span> b<span class="op">.</span>index<span class="op">();</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="op">});</span></span></code></pre></div>
+<p>Sorting groups identical variants together. The branch predictor
+encounters the same jump target consecutively for dozens or hundreds of
+iterations, reducing misprediction rates to near zero.</p>
+<h4 id="4-structure-of-arrays-soa-for-control-flow-reduction">4.
+Structure-of-Arrays (SoA) for Control Flow Reduction</h4>
+<p>Conditional logic inside tight loops strains the branch
+predictor:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Array of Structures (AoS)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Particle <span class="op">{</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> x<span class="op">,</span> y<span class="op">,</span> z<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">bool</span> isActive<span class="op">;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>If <code>isActive</code> is checked per particle, an unpredictable
+distribution stalls the pipeline. Refactoring into a Structure-of-Arrays
+isolates the active members:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> ParticleSystem <span class="op">{</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">float</span><span class="op">&gt;</span> posX<span class="op">,</span> posY<span class="op">,</span> posZ<span class="op">;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_t</span> activeCount<span class="op">;</span> <span class="co">// Only active particles are stored up to activeCount</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>By reorganizing data so that inactive elements are partitioned out,
+the updating loop runs without conditional checks. Eliminating branches
+entirely removes the need for BTB evaluation and keeps the machine code
+minimal and cache-friendly.</p>
+<hr />
+<h3 id="summary-of-architectural-guidelines">Summary of Architectural
+Guidelines</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Design Decision</th>
+<th style="text-align: left;">Microarchitectural Benefit</th>
+<th style="text-align: left;">C++ Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Homogeneous Batching</strong></td>
+<td style="text-align: left;">Minimizes I-cache evictions by reusing
+instructions</td>
+<td style="text-align: left;">ECS, type-segregated arrays</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Compile-Time
+Dispatch</strong></td>
+<td style="text-align: left;">Eliminates indirect jumps in favor of
+direct/inlined calls</td>
+<td style="text-align: left;">Templates, CRTP, C++20 Concepts</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Index-Sorted
+Variants</strong></td>
+<td style="text-align: left;">Ensures consecutive identical branch
+targets</td>
+<td style="text-align: left;"><code>std::variant</code> sorted by
+<code>.index()</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Data Partitioning</strong></td>
+<td style="text-align: left;">Removes conditional branches from inner
+loops</td>
+<td style="text-align: left;">SoA layouts, active-element swaps</td>
+</tr>
+</tbody>
+</table></article>
+        <div id="comments-container"></div>
+        <script>
+            const utterancesScript = document.createElement('script');
+            utterancesScript.setAttribute('src', 'https://utteranc.es/client.js');
+            utterancesScript.setAttribute('repo', 'salivity/cpp'); 
+            utterancesScript.setAttribute('issue-term', 'pathname'); 
+            const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            utterancesScript.setAttribute('theme', currentTheme === 'dark' ? 'github-dark' : 'github-light'); 
+            utterancesScript.setAttribute('crossorigin', 'anonymous');
+            utterancesScript.async = true;
+            document.getElementById('comments-container').appendChild(utterancesScript);
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>
