@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projections in Modern C++ Ranges Explained - cpp</title>
+    <meta name="description" content="Projections in modern C++ ranges algorithms are callable objects that transform or extract data from an element before the algorithm processes it. Introduced in C++20 as part of the &lt;ranges&gt; and &lt;algorithm&gt; libraries, projections fundamentally streamline">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/projections-in-modern-c-ranges-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Projections in Modern C++ Ranges Explained - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/projections-in-modern-c-ranges-explained" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Projections in modern C++ ranges algorithms are callable objects that transform or extract data from an element before the algorithm processes it. Introduced in C++20 as part of the &lt;ranges&gt; and &lt;algorithm&gt; libraries, projections fundamentally streamline" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="projections-in-modern-c-ranges-explained">Projections in Modern
+C++ Ranges Explained</h1>
+<p>Projections in modern C++ ranges algorithms are callable objects that
+transform or extract data from an element before the algorithm processes
+it. Introduced in C++20 as part of the <code>&lt;ranges&gt;</code> and
+<code>&lt;algorithm&gt;</code> libraries, projections fundamentally
+streamline element access by removing boilerplate comparator code,
+reducing verbose lambdas, and separating the mechanics of data retrieval
+from core algorithmic logic.</p>
+<h2 id="the-problem-before-projections">The Problem Before
+Projections</h2>
+<p>Prior to C++20, operating on specific attributes of complex objects
+required custom predicates or comparators. For instance, sorting a
+collection of objects by a specific member variable demanded a custom
+lambda:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> User <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string name<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span>User<span class="op">&gt;</span> users <span class="op">=</span> <span class="co">/* ... */</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Pre-C++20: Custom lambda defines the comparison logic</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>sort<span class="op">(</span>users<span class="op">.</span>begin<span class="op">(),</span> users<span class="op">.</span>end<span class="op">(),</span> <span class="op">[](</span><span class="at">const</span> User<span class="op">&amp;</span> a<span class="op">,</span> <span class="at">const</span> User<span class="op">&amp;</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a<span class="op">.</span>id <span class="op">&lt;</span> b<span class="op">.</span>id<span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="op">});</span></span></code></pre></div>
+<p>This pattern forced developers to rewrite binary comparison logic
+(<code>&lt;</code>, <code>==</code>, etc.) repeatedly, increasing the
+risk of subtle bugs such as violating strict weak ordering.</p>
+<h2 id="what-is-a-projection">What is a Projection?</h2>
+<p>A projection is an invocable entity—such as a lambda, function
+pointer, or pointer-to-member—passed as an optional argument to a
+constrained algorithm in <code>std::ranges</code>. The algorithm
+evaluates the projection on each element before applying its predicate,
+comparator, or action:</p>
+<p><code>Algorithm Operation -&gt; Predicate(Projection(Element))</code></p>
+<p>In algorithms with binary operations (like
+<code>std::ranges::sort</code>), the projection is applied to both
+operands individually before they are evaluated by the comparison
+function.</p>
+<h2 id="how-projections-transform-element-access">How Projections
+Transform Element Access</h2>
+<p>Projections dramatically simplify how elements and their internal
+attributes are accessed during algorithmic passes:</p>
+<h3 id="1-direct-pointer-to-member-syntax">1. Direct Pointer-to-Member
+Syntax</h3>
+<p>C++20 ranges treat member pointers as callable projections via
+<code>std::invoke</code>. You no longer need to write a lambda just to
+access an object's member variable or getter function:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Sort users by ID using standard std::less{} and a member pointer projection</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>ranges::sort<span class="op">(</span>users<span class="op">,</span> <span class="op">{},</span> <span class="op">&amp;</span>User<span class="op">::</span>id<span class="op">);</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Sort users by name in descending order</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>ranges::sort<span class="op">(</span>users<span class="op">,</span> <span class="bu">std::</span>ranges::greater<span class="op">{},</span> <span class="op">&amp;</span>User<span class="op">::</span>name<span class="op">);</span></span></code></pre></div>
+<h3 id="2-decoupling-access-from-operation">2. Decoupling Access from
+Operation</h3>
+<p>Projections decouple <em>what</em> attribute is being evaluated from
+<em>how</em> it is evaluated. The comparator handles ordering logic,
+while the projection handles property extraction:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Check if any user has an empty name</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">bool</span> has_empty <span class="op">=</span> <span class="bu">std::</span>ranges::any_of<span class="op">(</span>users<span class="op">,</span> <span class="op">&amp;</span><span class="bu">std::</span>string::empty<span class="op">,</span> <span class="op">&amp;</span>User<span class="op">::</span>name<span class="op">);</span></span></code></pre></div>
+<p>In this example, <code>&amp;User::name</code> extracts the string
+member, and <code>&amp;std::string::empty</code> evaluates whether that
+extracted string is empty.</p>
+<h3 id="3-modifying-views-without-modifying-data">3. Modifying Views
+Without Modifying Data</h3>
+<p>Projections allow on-the-fly transformations without allocating
+temporary containers or altering the underlying data. For instance,
+calculating distances, casting types, or hashing elements can be
+projected directly into algorithms such as
+<code>std::ranges::lower_bound</code> or
+<code>std::ranges::min_element</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> shortest_name <span class="op">=</span> <span class="bu">std::</span>ranges::min_element<span class="op">(</span>users<span class="op">,</span> <span class="op">{},</span> <span class="op">[](</span><span class="at">const</span> User<span class="op">&amp;</span> u<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> u<span class="op">.</span>name<span class="op">.</span>length<span class="op">();</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="op">});</span></span></code></pre></div>
+<h2 id="performance-and-guarantees">Performance and Guarantees</h2>
+<p>Projections introduce no runtime performance overhead compared to
+handwritten lambdas. Constrained algorithms forward projected arguments
+using <code>std::invoke</code>, allowing modern compilers to completely
+inline member accesses and functional mappings. Projections provide an
+expressive, type-safe, and zero-cost abstraction for manipulating data
+collections in modern C++.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/projections-in-modern-c-ranges-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

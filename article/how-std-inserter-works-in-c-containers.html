@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::inserter Works in C++ Containers - cpp</title>
+    <meta name="description" content="The std::inserter function template in C++ is a convenience function that constructs an std::insertiterator, allowing algorithms to insert new elements into specific positions within a container rather than overwriting existing elements. By wrapping a tar">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-inserter-works-in-c-containers">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::inserter Works in C++ Containers - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-inserter-works-in-c-containers" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The std::inserter function template in C++ is a convenience function that constructs an std::insertiterator, allowing algorithms to insert new elements into specific positions within a container rather than overwriting existing elements. By wrapping a tar" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdinserter-works-in-c-containers">How std::inserter Works
+in C++ Containers</h1>
+<p>The <code>std::inserter</code> function template in C++ is a
+convenience function that constructs an
+<code>std::insert_iterator</code>, allowing algorithms to insert new
+elements into specific positions within a container rather than
+overwriting existing elements. By wrapping a target container and an
+iterator pointing to a insertion location, <code>std::inserter</code>
+translates standard output iterator operations (such as dereferencing
+and assignment) into calls to the container's member
+<code>insert()</code> method. This provides a unified interface for
+inserting data into both sequence containers and associative containers,
+though the underlying insertion semantics differ depending on the
+container type.</p>
+<h3 id="the-underlying-mechanism">The Underlying Mechanism</h3>
+<p>When you call <code>std::inserter(container, iterator)</code>, it
+returns an <code>std::insert_iterator&lt;Container&gt;</code>. When an
+algorithm assigns a value to this iterator:</p>
+<ol type="1">
+<li>It invokes
+<code>container.insert(current_iterator, value)</code>.</li>
+<li>The <code>insert</code> member function returns an iterator pointing
+to the newly inserted element.</li>
+<li>The <code>std::insert_iterator</code> updates its internal insertion
+position to point just after the newly inserted element (equivalent to
+<code>++current_iterator</code>), ensuring subsequent assignments insert
+elements sequentially in the intended order.</li>
+</ol>
+<h3 id="insertion-into-sequence-containers">Insertion into Sequence
+Containers</h3>
+<p>For sequence containers like <code>std::vector</code>,
+<code>std::deque</code>, and <code>std::list</code>, the position
+supplied to <code>std::inserter</code> determines the exact location
+where elements are inserted.</p>
+<ul>
+<li><strong>Positional Placement:</strong> New elements are placed
+immediately before the specified iterator.</li>
+<li><strong>Order Preservation:</strong> Because the internal iterator
+advances after each insertion, copying a range into a sequence container
+via <code>std::inserter</code> preserves the original order of the
+incoming sequence at that specific index.</li>
+<li><strong>Iterator Invalidation Safety:</strong> Because the internal
+position updates using the iterator returned by
+<code>container.insert()</code>, <code>std::inserter</code> remains
+valid even if operations like reallocation in an
+<code>std::vector</code> invalidate existing external iterators.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;algorithm&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iterator&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> target <span class="op">=</span> <span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">5</span><span class="op">};</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> source <span class="op">=</span> <span class="op">{</span><span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">4</span><span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Inserts 2, 3, 4 directly before the element &#39;5&#39;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>copy<span class="op">(</span>source<span class="op">.</span>begin<span class="op">(),</span> source<span class="op">.</span>end<span class="op">(),</span> <span class="bu">std::</span>inserter<span class="op">(</span>target<span class="op">,</span> target<span class="op">.</span>begin<span class="op">()</span> <span class="op">+</span> <span class="dv">1</span><span class="op">));</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="co">// target is now: {1, 2, 3, 4, 5}</span></span></code></pre></div>
+<h3 id="insertion-into-associative-and-unordered-containers">Insertion
+into Associative and Unordered Containers</h3>
+<p>For associative containers (<code>std::set</code>,
+<code>std::map</code>, <code>std::multiset</code>,
+<code>std::multimap</code>) and unordered containers
+(<code>std::unordered_set</code>, <code>std::unordered_map</code>),
+elements cannot be placed at arbitrary positions because their locations
+are strictly governed by sorting criteria (keys) or hash functions.</p>
+<ul>
+<li><strong>Position as an Insertion Hint:</strong> In these containers,
+the iterator passed to <code>std::inserter</code> acts as a
+<em>hint</em> indicating where the element might belong.</li>
+<li><strong>Performance Optimization:</strong> If the hint accurately
+points to the position directly preceding or following the correct
+placement, insertion achieves amortized constant time <span
+class="math inline">\(O(1)\)</span>. If the hint is inaccurate, the
+container ignores it and performs a standard logarithmic lookup <span
+class="math inline">\(O(\log N)\)</span> or hashed lookup <span
+class="math inline">\(O(1)\)</span> to find the proper placement.</li>
+<li><strong>Integrity of Order:</strong> Regardless of the iterator
+provided to <code>std::inserter</code>, the container guarantees that
+all invariants (such as key ordering or unique key constraints) remain
+intact.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;set&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;algorithm&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iterator&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>set<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> my_set <span class="op">=</span> <span class="op">{</span><span class="dv">10</span><span class="op">,</span> <span class="dv">40</span><span class="op">};</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> new_vals <span class="op">=</span> <span class="op">{</span><span class="dv">20</span><span class="op">,</span> <span class="dv">30</span><span class="op">};</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// The iterator my_set.end() serves as an insertion hint</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>copy<span class="op">(</span>new_vals<span class="op">.</span>begin<span class="op">(),</span> new_vals<span class="op">.</span>end<span class="op">(),</span> <span class="bu">std::</span>inserter<span class="op">(</span>my_set<span class="op">,</span> my_set<span class="op">.</span>end<span class="op">()));</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">// my_set maintains sorted order: {10, 20, 30, 40}</span></span></code></pre></div>
+<h3 id="summary-of-differences">Summary of Differences</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Sequence Containers
+(<code>std::vector</code>, <code>std::list</code>)</th>
+<th style="text-align: left;">Associative Containers
+(<code>std::set</code>, <code>std::map</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Iterator Role</strong></td>
+<td style="text-align: left;">Defines the exact insertion index.</td>
+<td style="text-align: left;">Serves as an optimization hint.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Element Order</strong></td>
+<td style="text-align: left;">Dictated by the insertion sequence.</td>
+<td style="text-align: left;">Dictated by key comparison or
+hashing.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Complexity</strong></td>
+<td style="text-align: left;"><span class="math inline">\(O(N)\)</span>
+for contiguous shifts, <span class="math inline">\(O(1)\)</span> for
+node links.</td>
+<td style="text-align: left;"><span class="math inline">\(O(1)\)</span>
+if the hint is correct; otherwise <span class="math inline">\(O(\log
+N)\)</span>.</td>
+</tr>
+</tbody>
+</table></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-std-inserter-works-in-c-containers';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::any vs void Pointer in Modern C++ - cpp</title>
+    <meta name="description" content="In modern C++, both std::any and raw void pointers allow developers to store and pass data of arbitrary types without knowing those types at compile time. However, their design philosophies, memory safety guarantees, and runtime behaviors are vastly diffe">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-any-vs-void-pointer-in-modern-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::any vs void Pointer in Modern C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-any-vs-void-pointer-in-modern-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, both std::any and raw void pointers allow developers to store and pass data of arbitrary types without knowing those types at compile time. However, their design philosophies, memory safety guarantees, and runtime behaviors are vastly diffe" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stdany-vs-void-pointer-in-modern-c">std::any vs void Pointer in
+Modern C++</h1>
+<p>In modern C++, both <code>std::any</code> and raw <code>void*</code>
+pointers allow developers to store and pass data of arbitrary types
+without knowing those types at compile time. However, their design
+philosophies, memory safety guarantees, and runtime behaviors are vastly
+different. While <code>void*</code> is an inherited C-style mechanism
+that merely points to an untyped memory address, <code>std::any</code>
+(introduced in C++17) is a type-safe container that manages object
+lifetime, enforces type validation at runtime, and owns the data it
+holds.</p>
+<h3 id="type-safety-and-casting">Type Safety and Casting</h3>
+<p>The most critical distinction lies in type safety:</p>
+<ul>
+<li><strong><code>void*</code> (Unsafe):</strong> A <code>void*</code>
+strips away all compile-time type information. To retrieve the original
+object, you must cast it using <code>static_cast</code> or
+<code>reinterpret_cast</code>. The compiler cannot verify whether the
+target type matches the original type. If you cast a <code>void*</code>
+pointing to a <code>double</code> into an <code>int*</code>, the code
+will compile, execute, and cause undefined behavior.</li>
+<li><strong><code>std::any</code> (Type-Safe):</strong>
+<code>std::any</code> preserves type information using runtime type
+identification (RTTI). Retrieval requires
+<code>std::any_cast&lt;T&gt;</code>. If you attempt to extract the wrong
+type, <code>std::any</code> safely throws a
+<code>std::bad_any_cast</code> exception (or returns
+<code>nullptr</code> if queried via pointer syntax), preventing memory
+corruption.</li>
+</ul>
+<h3 id="lifetime-and-ownership-management">Lifetime and Ownership
+Management</h3>
+<p>Memory and resource management is another major operational
+difference:</p>
+<ul>
+<li><strong><code>void*</code>:</strong> A void pointer possesses no
+ownership semantics. It does not manage memory, nor does it call
+destructors. If dynamically allocated memory is assigned to a
+<code>void*</code>, deleting it via <code>delete ptr;</code> causes
+undefined behavior because the compiler does not know which destructor
+to invoke.</li>
+<li><strong><code>std::any</code>:</strong> It embraces the Resource
+Acquisition Is Initialization (RAII) idiom. <code>std::any</code>
+completely owns the value it contains. When a <code>std::any</code>
+object falls out of scope or is reassigned, it automatically invokes the
+destructor of the held type and deallocates any dynamically allocated
+memory.</li>
+</ul>
+<h3 id="value-semantics-vs-pointer-semantics">Value Semantics vs.
+Pointer Semantics</h3>
+<ul>
+<li><strong><code>void*</code>:</strong> Operates strictly on pointer
+semantics. It points to a location in memory where an object already
+exists, requiring the original object's lifetime to outlive the usage of
+the pointer.</li>
+<li><strong><code>std::any</code>:</strong> Operates with value
+semantics. It stores a copy or a moved instance of the value directly.
+Most modern implementations apply Small Buffer Optimization (SBO),
+meaning small types (like integers, floats, or small structs) are stored
+inline without dynamic heap allocation. If an object exceeds the small
+buffer threshold, <code>std::any</code> automatically allocates heap
+memory to house it.</li>
+</ul>
+<h3 id="copying-and-moving">Copying and Moving</h3>
+<ul>
+<li><strong><code>void*</code>:</strong> Copying a <code>void*</code>
+performs a shallow copy of the memory address. Both pointers then
+reference the exact same memory, increasing the risk of double-free
+errors or dangling pointers.</li>
+<li><strong><code>std::any</code>:</strong> Copying a
+<code>std::any</code> object creates a deep copy of the contained value,
+invoking the underlying type's copy constructor. Consequently, types
+stored in <code>std::any</code> must be copy-constructible. It also
+natively supports move semantics.</li>
+</ul>
+<h3 id="performance-overhead">Performance Overhead</h3>
+<p>While <code>std::any</code> provides critical safety guarantees, it
+introduces minor overhead compared to <code>void*</code>:</p>
+<ul>
+<li><strong><code>void*</code>:</strong> Incurs zero overhead. It is
+simply a raw memory address with no metadata, dynamic dispatch, or RTTI
+tracking.</li>
+<li><strong><code>std::any</code>:</strong> Incurs overhead from storing
+type metadata, checking types during <code>std::any_cast</code>, and
+potential dynamic allocation if the contained type exceeds the
+implementation's SBO capacity.</li>
+</ul>
+<p>In modern C++, <code>void*</code> is primarily reserved for low-level
+system programming, C API inter准, and hardware-level memory
+manipulation, whereas <code>std::any</code> is the standard tool for
+general-purpose, type-safe heterogeneous storage.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/std-any-vs-void-pointer-in-modern-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

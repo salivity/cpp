@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic vs Automatic Storage Duration in C++ - cpp</title>
+    <meta name="description" content="In C++, storage duration defines the rules that govern the creation, lifetime, and destruction of objects in memory. While automatic storage duration binds an object&#39;s existence strictly to the scope in which it is declared, dynamic storage duration grant">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/dynamic-vs-automatic-storage-duration-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Dynamic vs Automatic Storage Duration in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/dynamic-vs-automatic-storage-duration-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, storage duration defines the rules that govern the creation, lifetime, and destruction of objects in memory. While automatic storage duration binds an object&#39;s existence strictly to the scope in which it is declared, dynamic storage duration grant" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="dynamic-vs-automatic-storage-duration-in-c">Dynamic vs Automatic
+Storage Duration in C++</h1>
+<p>In C++, storage duration defines the rules that govern the creation,
+lifetime, and destruction of objects in memory. While automatic storage
+duration binds an object's existence strictly to the scope in which it
+is declared, dynamic storage duration grants developers explicit control
+over when an object is allocated and deallocated at runtime.
+Understanding the distinction between these two storage models is
+essential for managing system resources effectively, preventing memory
+leaks, and writing safe, high-performance C++ code.</p>
+<h3 id="automatic-storage-duration">Automatic Storage Duration</h3>
+<p>Variables with automatic storage duration—commonly referred to as
+local or stack variables—are created automatically at the point of
+definition and destroyed automatically when execution leaves the block
+or scope in which they are declared.</p>
+<p>Key characteristics include:</p>
+<ul>
+<li><strong>Scope-Bound Lifetime:</strong> The lifetime of an automatic
+object begins when the execution thread reaches its declaration and ends
+deterministically when the enclosing block (<code>{ ... }</code>)
+terminates, whether by reaching the end, a <code>return</code>
+statement, or an exception.</li>
+<li><strong>Stack Allocation:</strong> These variables are typically
+placed on the program's call stack. Allocation and deallocation are
+extremely fast because they usually involve merely adjusting the stack
+pointer.</li>
+<li><strong>Deterministic Cleanup:</strong> The destructor of a
+class-type object with automatic duration is guaranteed to execute upon
+scope exit, forming the foundation of the Resource Acquisition Is
+Initialization (RAII) idiom.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> exampleFunction<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> x <span class="op">=</span> <span class="dv">10</span><span class="op">;</span> <span class="co">// Automatic storage duration; allocated on the stack.</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="co">// x is destroyed here as the function exits.</span></span></code></pre></div>
+<h3 id="dynamic-storage-duration">Dynamic Storage Duration</h3>
+<p>Dynamic storage duration refers to objects whose lifetime is not tied
+directly to a specific scope. Instead, memory is allocated and released
+dynamically upon explicit request during program execution.</p>
+<p>Key characteristics include:</p>
+<ul>
+<li><strong>Programmer-Controlled Lifetime:</strong> The object is
+created explicitly using operators like <code>new</code> (or functions
+like <code>malloc</code>) and persists until it is explicitly destroyed
+using <code>delete</code> (or <code>free</code>), or until the process
+terminates.</li>
+<li><strong>Heap (Free Store) Allocation:</strong> Dynamic objects
+reside on the free store (commonly referred to as the heap). Heap
+allocation requires runtime search and metadata tracking, making it
+slower than stack allocation.</li>
+<li><strong>Cross-Scope Longevity:</strong> Because dynamic objects
+outlive the function or block that created them, they allow data to be
+passed across different application layers without copying.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> exampleDynamic<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span><span class="op">*</span> ptr <span class="op">=</span> <span class="kw">new</span> <span class="dt">int</span><span class="op">(</span><span class="dv">20</span><span class="op">);</span> <span class="co">// Dynamic storage duration; allocated on the heap.</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ptr (the pointer) is automatic, but the integer it points to is dynamic.</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">delete</span> ptr<span class="op">;</span> <span class="co">// Explicit destruction required.</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="key-differences">Key Differences</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Automatic Storage Duration</th>
+<th style="text-align: left;">Dynamic Storage Duration</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Memory Region</strong></td>
+<td style="text-align: left;">Stack</td>
+<td style="text-align: left;">Heap / Free Store</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Lifetime Management</strong></td>
+<td style="text-align: left;">Handled automatically by the compiler</td>
+<td style="text-align: left;">Managed explicitly by the programmer or
+smart pointers</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Creation Point</strong></td>
+<td style="text-align: left;">At variable definition within a scope</td>
+<td style="text-align: left;">On demand via <code>new</code>,
+<code>std::make_unique</code>, etc.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Destruction Point</strong></td>
+<td style="text-align: left;">When exiting the enclosing scope</td>
+<td style="text-align: left;">Upon <code>delete</code> or when reference
+count hits zero</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Performance</strong></td>
+<td style="text-align: left;">Extremely fast
+allocation/deallocation</td>
+<td style="text-align: left;">Slower due to heap management
+overhead</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Size Constraints</strong></td>
+<td style="text-align: left;">Limited stack size; risk of stack
+overflow</td>
+<td style="text-align: left;">Constrained only by available system
+memory</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Primary Risks</strong></td>
+<td style="text-align: left;">Returning pointers to out-of-scope
+variables</td>
+<td style="text-align: left;">Memory leaks, double frees, and dangling
+pointers</td>
+</tr>
+</tbody>
+</table>
+<h3 id="modern-c-best-practice">Modern C++ Best Practice</h3>
+<p>Manually managing dynamic storage duration using raw <code>new</code>
+and <code>delete</code> is discouraged in modern C++. Instead,
+developers use smart pointers—specifically <code>std::unique_ptr</code>
+and <code>std::shared_ptr</code>. Smart pointers reside with automatic
+storage duration on the stack, but they encapsulate and manage the
+lifetime of heap-allocated dynamic objects. When the smart pointer
+leaves scope, its destructor automatically triggers the deletion of the
+dynamically allocated object, combining the scope safety of automatic
+duration with the flexibility of dynamic duration.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/dynamic-vs-automatic-storage-duration-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

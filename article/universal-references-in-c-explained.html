@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal References in C++ Explained - cpp</title>
+    <meta name="description" content="Universal references—formally named &quot;forwarding references&quot; in the C++ standard—are a special category of references in C++ that can bind to both lvalues and rvalues. Introduced in C++11, they enable perfect forwarding, allowing generic functions to accep">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/universal-references-in-c-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Universal References in C++ Explained - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/universal-references-in-c-explained" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Universal references—formally named &quot;forwarding references&quot; in the C++ standard—are a special category of references in C++ that can bind to both lvalues and rvalues. Introduced in C++11, they enable perfect forwarding, allowing generic functions to accep" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="universal-references-in-c-explained">Universal References in C++
+Explained</h1>
+<p>Universal references—formally named "forwarding references" in the
+C++ standard—are a special category of references in C++ that can bind
+to both lvalues and rvalues. Introduced in C++11, they enable perfect
+forwarding, allowing generic functions to accept arguments and pass them
+along to other functions while perfectly preserving their value category
+(constness and value type). This article breaks down what forwarding
+references are, how type deduction and reference collapsing make them
+work, and how they differ from standard rvalue references.</p>
+<h2 id="the-definition-rvalue-reference-vs-forwarding-reference">The
+Definition: Rvalue Reference vs. Forwarding Reference</h2>
+<p>Both rvalue references and forwarding references use the double
+ampersand syntax (<code>&amp;&amp;</code>). However, their behavior
+depends entirely on whether type deduction is involved:</p>
+<ul>
+<li><strong>Rvalue Reference:</strong> Binds strictly to rvalues
+(temporary objects). The type is explicitly specified without
+deduction.</li>
+<li><strong>Forwarding Reference:</strong> Can bind to either lvalues or
+rvalues. The type <em>must</em> be deduced.</li>
+</ul>
+<p>A reference is a forwarding reference if it meets two conditions:</p>
+<ol type="1">
+<li>It uses the <code>T&amp;&amp;</code> syntax.</li>
+<li>The type <code>T</code> is being deduced at the call site.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="dt">int</span><span class="op">&amp;&amp;</span> x<span class="op">);</span> <span class="co">// Rvalue reference (no deduction; binds only to rvalues)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> forwarder<span class="op">(</span>T<span class="op">&amp;&amp;</span> x<span class="op">);</span>  <span class="co">// Forwarding reference (T is deduced; binds to lvalues and rvalues)</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span><span class="op">&amp;&amp;</span> y <span class="op">=</span> getValue<span class="op">();</span> <span class="co">// Forwarding reference (auto deduction)</span></span></code></pre></div>
+<p>If the syntax is modified, such as adding <code>const</code>, the
+reference ceases to be a forwarding reference and becomes a
+<code>const</code> rvalue reference:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> strictlyRvalue<span class="op">(</span><span class="at">const</span> T<span class="op">&amp;&amp;</span> x<span class="op">);</span> <span class="co">// Const rvalue reference, NOT a forwarding reference</span></span></code></pre></div>
+<p>Similarly, in a class template where the type parameter is
+established when the class is instantiated, member functions using that
+parameter without their own template deduction do not have forwarding
+references:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Widget <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> add<span class="op">(</span>T<span class="op">&amp;&amp;</span> x<span class="op">);</span> <span class="co">// Rvalue reference: T is deduced at class instantiation, not here.</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> U<span class="op">&gt;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> addGeneric<span class="op">(</span>U<span class="op">&amp;&amp;</span> x<span class="op">);</span> <span class="co">// Forwarding reference: U is deduced here.</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h2 id="how-they-work-reference-collapsing">How They Work: Reference
+Collapsing</h2>
+<p>Forwarding references function through a C++ mechanism called
+<strong>reference collapsing</strong>. In standard C++, you cannot
+directly declare a reference to a reference (like
+<code>int&amp; &amp;</code>). However, references to references can
+arise during template instantiation and type deduction.</p>
+<p>When an argument is passed to a template function accepting
+<code>T&amp;&amp;</code>:</p>
+<ul>
+<li>If the passed argument is an <strong>lvalue</strong> of type
+<code>X</code>, <code>T</code> is deduced as an lvalue reference:
+<code>X&amp;</code>.</li>
+<li>If the passed argument is an <strong>rvalue</strong> of type
+<code>X</code>, <code>T</code> is deduced as the plain type:
+<code>X</code>.</li>
+</ul>
+<p>The compiler then resolves the resulting reference using reference
+collapsing rules:</p>
+<ul>
+<li><code>&amp;</code> + <code>&amp;</code> <span
+class="math inline">\(\rightarrow\)</span> <code>&amp;</code></li>
+<li><code>&amp;</code> + <code>&amp;&amp;</code> <span
+class="math inline">\(\rightarrow\)</span> <code>&amp;</code></li>
+<li><code>&amp;&amp;</code> + <code>&amp;</code> <span
+class="math inline">\(\rightarrow\)</span> <code>&amp;</code></li>
+<li><code>&amp;&amp;</code> + <code>&amp;&amp;</code> <span
+class="math inline">\(\rightarrow\)</span> <code>&amp;&amp;</code></li>
+</ul>
+<p>In short: <strong>an lvalue reference always dominates.</strong> If
+either reference is an lvalue reference (<code>&amp;</code>), the result
+collapses into an lvalue reference. Only two rvalue references
+(<code>&amp;&amp;</code> + <code>&amp;&amp;</code>) collapse into an
+rvalue reference.</p>
+<h3 id="step-by-step-resolution-example">Step-by-Step Resolution
+Example</h3>
+<p>Given the function template:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> wrapper<span class="op">(</span>T<span class="op">&amp;&amp;</span> arg<span class="op">);</span></span></code></pre></div>
+<ol type="1">
+<li><p><strong>Passing an lvalue:</strong></p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>wrapper<span class="op">(</span>a<span class="op">);</span></span></code></pre></div>
+<ul>
+<li><code>a</code> is an lvalue, so <code>T</code> is deduced as
+<code>int&amp;</code>.</li>
+<li>Parameter type: <code>int&amp; &amp;&amp;</code>.</li>
+<li>Collapses to: <code>int&amp;</code>.</li>
+<li>Function instantiates as:
+<code>void wrapper(int&amp; arg);</code>.</li>
+</ul></li>
+<li><p><strong>Passing an rvalue:</strong></p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>wrapper<span class="op">(</span><span class="dv">20</span><span class="op">);</span></span></code></pre></div>
+<ul>
+<li><code>20</code> is an rvalue, so <code>T</code> is deduced as
+<code>int</code>.</li>
+<li>Parameter type: <code>int&amp;&amp;</code>.</li>
+<li>Collapses to: <code>int&amp;&amp;</code>.</li>
+<li>Function instantiates as:
+<code>void wrapper(int&amp;&amp; arg);</code>.</li>
+</ul></li>
+</ol>
+<h2 id="the-purpose-perfect-forwarding-with-stdforward">The Purpose:
+Perfect Forwarding with <code>std::forward</code></h2>
+<p>Once an argument is inside a function, it is treated as an lvalue
+because it has a name, even if it arrived as an rvalue. Without
+intervention, passing that parameter to another function would invoke
+copy operations instead of move operations.</p>
+<p>To solve this, forwarding references are paired with
+<code>std::forward&lt;T&gt;()</code>, defined in
+<code>&lt;utility&gt;</code>. <code>std::forward</code> performs a
+conditional cast based on the deduced type <code>T</code>:</p>
+<ul>
+<li>If <code>T</code> was deduced as an lvalue reference
+(<code>int&amp;</code>), <code>std::forward&lt;T&gt;</code> casts the
+object to an lvalue.</li>
+<li>If <code>T</code> was deduced as a concrete type (<code>int</code>),
+<code>std::forward&lt;T&gt;</code> casts the object to an rvalue
+(<code>int&amp;&amp;</code>).</li>
+</ul>
+<h3 id="canonical-implementation">Canonical Implementation</h3>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;utility&gt;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> target<span class="op">(</span><span class="at">const</span> <span class="dt">int</span><span class="op">&amp;</span> x<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Lvalue overload called</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> target<span class="op">(</span><span class="dt">int</span><span class="op">&amp;&amp;</span> x<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Rvalue overload called</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> forwarder<span class="op">(</span>T<span class="op">&amp;&amp;</span> arg<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// std::forward preserves whether arg was originally an lvalue or rvalue</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    target<span class="op">(</span><span class="bu">std::</span>forward<span class="op">&lt;</span>T<span class="op">&gt;(</span>arg<span class="op">));</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> x <span class="op">=</span> <span class="dv">5</span><span class="op">;</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>    forwarder<span class="op">(</span>x<span class="op">);</span>  <span class="co">// Outputs: Lvalue overload called</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    forwarder<span class="op">(</span><span class="dv">10</span><span class="op">);</span> <span class="co">// Outputs: Rvalue overload called</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="summary-checklist">Summary Checklist</h2>
+<p>A reference is a universal/forwarding reference if:</p>
+<ul>
+<li>It is written precisely as <code>T&amp;&amp;</code> or
+<code>auto&amp;&amp;</code> with no <code>const</code> or
+<code>volatile</code> qualifiers.</li>
+<li>The type <code>T</code> depends on template argument deduction
+happening at that specific call site.</li>
+<li>It is intended to accept any value category and pass it through
+using <code>std::forward&lt;T&gt;</code>.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/universal-references-in-c-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

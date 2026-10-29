@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>typeid with Non-Polymorphic Types in C++ - cpp</title>
+    <meta name="description" content="In C++, applying the typeid operator to an expression with a non-polymorphic type results in static, compile-time type resolution where the expression itself is completely unevaluated. Unlike its behavior with polymorphic types, typeid on non-polymorphic">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/typeid-with-non-polymorphic-types-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="typeid with Non-Polymorphic Types in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/typeid-with-non-polymorphic-types-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, applying the typeid operator to an expression with a non-polymorphic type results in static, compile-time type resolution where the expression itself is completely unevaluated. Unlike its behavior with polymorphic types, typeid on non-polymorphic" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="typeid-with-non-polymorphic-types-in-c">typeid with
+Non-Polymorphic Types in C++</h1>
+<p>In C++, applying the <code>typeid</code> operator to an expression
+with a non-polymorphic type results in static, compile-time type
+resolution where the expression itself is completely unevaluated. Unlike
+its behavior with polymorphic types, <code>typeid</code> on
+non-polymorphic types does not inspect runtime metadata or virtual
+tables. This article explains how the C++ standard dictates the
+evaluation, cv-qualifier handling, and runtime safety of
+<code>typeid</code> when applied to non-polymorphic expressions.</p>
+<h3 id="compile-time-static-resolution">Compile-Time Static
+Resolution</h3>
+<p>When an operand passed to <code>typeid</code> is not of a polymorphic
+class type (a class type containing at least one virtual function), the
+compiler determines the type entirely at compile time. The resulting
+<code>std::type_info</code> object represents the static type of the
+expression, regardless of the actual object that might be bound to it at
+runtime.</p>
+<p>For example, if a base class pointer points to a derived class
+object, but the base class lacks virtual functions,
+<code>typeid(*base_ptr)</code> will evaluate to the base class type, not
+the derived type.</p>
+<h3 id="unevaluated-operands">Unevaluated Operands</h3>
+<p>Because non-polymorphic types are resolved at compile time, the
+expression provided to <code>typeid</code> is an unevaluated operand,
+similar to the behavior of <code>sizeof</code> or
+<code>decltype</code>.</p>
+<p>This has two critical implications:</p>
+<ol type="1">
+<li><strong>Side Effects Are Ignored:</strong> Any function calls,
+assignments, or increments inside the <code>typeid</code> expression are
+never executed at runtime.</li>
+<li><strong>Safe Dereferencing:</strong> Dereferencing a null or
+dangling pointer inside <code>typeid</code> does not cause undefined
+behavior or trigger runtime errors. Unlike polymorphic expressions—which
+throw a <code>std::bad_typeid</code> exception if a null pointer is
+dereferenced—a non-polymorphic dereference such as
+<code>typeid(*static_cast&lt;int*&gt;(nullptr))</code> is completely
+safe because the pointer is never actually accessed.</li>
+</ol>
+<h3 id="stripping-of-cv-qualifiers-and-references">Stripping of
+cv-Qualifiers and References</h3>
+<p>When <code>typeid</code> receives an expression or type-id, it
+discards top-level <code>const</code> and <code>volatile</code>
+qualifiers, as well as reference qualifiers, before returning the
+<code>std::type_info</code> reference.</p>
+<ul>
+<li><code>typeid(int)</code> is identical to
+<code>typeid(const int)</code>.</li>
+<li><code>typeid(int&amp;)</code> is identical to
+<code>typeid(int)</code>.</li>
+<li><code>typeid(const int&amp;)</code> is identical to
+<code>typeid(int)</code>.</li>
+</ul>
+<p>However, cv-qualifiers that are not top-level—such as qualifiers on
+pointed-to types—are preserved. Therefore, <code>typeid(int*)</code> and
+<code>typeid(const int*)</code> produce distinct
+<code>std::type_info</code> representations.</p>
+<h3 id="performance-and-binary-footprint">Performance and Binary
+Footprint</h3>
+<p>Because non-polymorphic <code>typeid</code> operations do not require
+runtime type information (RTTI) lookups, they introduce zero runtime
+execution overhead. The compiler directly associates the expression with
+the corresponding static type metadata at compile time. Even if RTTI is
+disabled via compiler flags (such as <code>-fno-rtti</code> in
+GCC/Clang), non-polymorphic <code>typeid</code> queries often remain
+functional because they do not require runtime dynamic dispatch
+mechanisms.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/typeid-with-non-polymorphic-types-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

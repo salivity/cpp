@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Core Guidelines for Modern Programming - cpp</title>
+    <meta name="description" content="The C++ Core Guidelines project serves as an authoritative roadmap for writing safe, efficient, and maintainable modern C++. Initiated by Bjarne Stroustrup and Herb Sutter, this collaborative open-source initiative bridges the gap between decades of legac">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-core-guidelines-for-modern-programming">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Core Guidelines for Modern Programming - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-core-guidelines-for-modern-programming" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The C++ Core Guidelines project serves as an authoritative roadmap for writing safe, efficient, and maintainable modern C++. Initiated by Bjarne Stroustrup and Herb Sutter, this collaborative open-source initiative bridges the gap between decades of legac" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-core-guidelines-for-modern-programming">C++ Core Guidelines
+for Modern Programming</h1>
+<p>The C++ Core Guidelines project serves as an authoritative roadmap
+for writing safe, efficient, and maintainable modern C++. Initiated by
+Bjarne Stroustrup and Herb Sutter, this collaborative open-source
+initiative bridges the gap between decades of legacy C-style habits and
+modern C++ design principles. By providing structured, actionable rules
+backed by tool-enforced static analysis, the guidelines fundamentally
+reshape how developers handle memory safety, resource management, and
+interface design in modern software systems.</p>
+<h3 id="eliminating-manual-resource-management">Eliminating Manual
+Resource Management</h3>
+<p>A primary goal of the Core Guidelines is the eradication of common
+memory errors, such as memory leaks, double frees, and use-after-free
+conditions. The guidelines mandate the Resource Acquisition Is
+Initialization (RAII) idiom as the foundational pattern for all resource
+handling. Developers are guided to:</p>
+<ul>
+<li>Avoid raw <code>new</code> and <code>delete</code> expressions
+entirely in application-level code.</li>
+<li>Represent ownership explicitly using smart pointers such as
+<code>std::unique_ptr</code> for exclusive ownership and
+<code>std::shared_ptr</code> for shared ownership.</li>
+<li>Treat raw pointers and references exclusively as non-owning
+observers, removing ambiguity over lifetime responsibilities.</li>
+</ul>
+<h3 id="enforcing-type-and-lifetime-safety">Enforcing Type and Lifetime
+Safety</h3>
+<p>Modern C++ avoids the undefined behaviors often inherited from C. The
+guidelines establish specific safety profiles—focused on type safety,
+bounds safety, and lifetime tracking—designed to eliminate errors before
+code reaches production:</p>
+<ul>
+<li><strong>Bounds Safety:</strong> Array indexing with raw pointers is
+discouraged in favor of safe abstractions like standard containers and
+contiguous views.</li>
+<li><strong>Initialization:</strong> Every object must be initialized
+before use, eliminating undefined behavior from garbage memory
+reads.</li>
+<li><strong>Casting:</strong> C-style casts and arbitrary
+reinterpretation are restricted in favor of <code>static_cast</code>,
+explicit constructors, or safer standard abstractions.</li>
+</ul>
+<h3 id="the-guideline-support-library-gsl">The Guideline Support Library
+(GSL)</h3>
+<p>To facilitate compliance without reinventing core primitives, the
+project introduces the Guideline Support Library (GSL). The GSL provides
+a small set of vocabulary types that make developer intent explicit:</p>
+<ul>
+<li><code>gsl::span</code>: A non-owning view over a contiguous sequence
+of elements that enables safe, bounds-checked access without memory
+allocation.</li>
+<li><code>gsl::not_null</code>: A pointer wrapper guaranteeing at
+compile-time and run-time that an address is never null, removing
+repetitive null checks.</li>
+<li><code>gsl::owner</code>: An annotation for legacy code that
+identifies raw pointers responsible for freeing memory, simplifying
+incremental refactoring.</li>
+</ul>
+<h3 id="automation-and-static-analysis">Automation and Static
+Analysis</h3>
+<p>The Core Guidelines are designed to be mechanically checkable rather
+than relying solely on human code reviews. Modern compilers and
+development environments integrate dedicated analyzers directly into
+workflows:</p>
+<ul>
+<li><strong>Clang-Tidy:</strong> Features a dedicated
+<code>cppcoreguidelines</code> module that flags violations and suggests
+automated fixes.</li>
+<li><strong>Microsoft Visual C++:</strong> Includes integrated Core
+Guidelines checkers configured directly into the IDE and command-line
+toolchains.</li>
+<li><strong>Continuous Integration:</strong> Enforcing these checks in
+build pipelines ensures that codebases continuously adhere to modern
+standards without regression.</li>
+</ul>
+<h3 id="promoting-modern-language-features">Promoting Modern Language
+Features</h3>
+<p>The guidelines evolve alongside the ISO C++ standard, guiding
+developers to adopt contemporary language features that enhance
+expressiveness and compile-time correctness. They encourage using
+compile-time computation (<code>constexpr</code> and
+<code>consteval</code>), type-safe constraints via Concepts, structured
+bindings, and clear function interfaces that minimize side effects. By
+steering developers away from outdated idioms, the C++ Core Guidelines
+ensure that codebases remain performant, resilient, and ready for future
+standards.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-core-guidelines-for-modern-programming';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

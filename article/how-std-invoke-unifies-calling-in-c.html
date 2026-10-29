@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::invoke Unifies Calling in C++ - cpp</title>
+    <meta name="description" content="Introduced in C++17, std::invoke provides a standardized mechanism to execute any callable entity using a single, unified interface. Before its introduction, generic programming in C++ required different syntaxes depending on whether you were calling a re">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-invoke-unifies-calling-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::invoke Unifies Calling in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-invoke-unifies-calling-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++17, std::invoke provides a standardized mechanism to execute any callable entity using a single, unified interface. Before its introduction, generic programming in C++ required different syntaxes depending on whether you were calling a re" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdinvoke-unifies-calling-in-c">How std::invoke Unifies
+Calling in C++</h1>
+<p>Introduced in C++17, <code>std::invoke</code> provides a standardized
+mechanism to execute any callable entity using a single, unified
+interface. Before its introduction, generic programming in C++ required
+different syntaxes depending on whether you were calling a regular
+function, invoking a member function pointer, or accessing a member
+variable pointer. This article explores how <code>std::invoke</code>
+eliminates these syntactic disparities, how it operates behind the
+scenes, and how to apply it across different C++ callable types.</p>
+<h3 id="the-problem-syntactic-divergence-in-c">The Problem: Syntactic
+Divergence in C++</h3>
+<p>Prior to C++17, writing generic template code that accepted any
+callable object was cumbersome because C++ enforces distinct syntactical
+rules based on the callable's type:</p>
+<ol type="1">
+<li><p><strong>Free functions, functors, and lambdas</strong> use the
+standard function call syntax:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>func<span class="op">(</span>arg1<span class="op">,</span> arg2<span class="op">);</span></span></code></pre></div></li>
+<li><p><strong>Pointers to member functions</strong> require a class
+instance or pointer, dereferencing operators (<code>.*</code> or
+<code>-&gt;*</code>), and explicit grouping parentheses due to operator
+precedence:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="op">(</span>instance<span class="op">.*</span>ptrToMemberFunc<span class="op">)(</span>arg1<span class="op">,</span> arg2<span class="op">);</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="op">(</span>instancePtr<span class="op">-&gt;*</span>ptrToMemberFunc<span class="op">)(</span>arg1<span class="op">,</span> arg2<span class="op">);</span></span></code></pre></div></li>
+<li><p><strong>Pointers to data members</strong> access values without
+invocation parentheses:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>instance<span class="op">.*</span>ptrToDataMember<span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>instancePtr<span class="op">-&gt;*</span>ptrToDataMember<span class="op">;</span></span></code></pre></div></li>
+</ol>
+<p>Because of these differences, generic code that took an arbitrary
+callable had to provide complex template specializations or utilize
+helper traits to handle member pointers properly.</p>
+<h3 id="how-stdinvoke-resolves-the-disparity">How
+<code>std::invoke</code> Resolves the Disparity</h3>
+<p>Defined in the <code>&lt;functional&gt;</code> header,
+<code>std::invoke</code> implements the concept of <em>INVOKE</em>
+expressions defined in the C++ standard. It uses template deduction and
+SFINAE (or concepts in C++20) to inspect the first argument and
+determine the correct invocation syntax at compile time.</p>
+<p>The general syntax is uniform:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>invoke<span class="op">(</span>callable<span class="op">,</span> target_or_arg1<span class="op">,</span> args<span class="op">...);</span></span></code></pre></div>
+<p>Depending on the type of <code>callable</code>,
+<code>std::invoke</code> automatically routes the arguments to the
+proper underlying language expression.</p>
+<h3 id="1-free-functions-function-pointers-and-lambdas">1. Free
+Functions, Function Pointers, and Lambdas</h3>
+<p>For standard callables, <code>std::invoke</code> passes the trailing
+arguments directly to the function call operator:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;functional&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> printSum<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> a <span class="op">+</span> b <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> lambda <span class="op">=</span> <span class="op">[](</span><span class="dt">int</span> x<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> x <span class="op">*</span> <span class="dv">2</span><span class="op">;</span> <span class="op">};</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>invoke<span class="op">(</span>printSum<span class="op">,</span> <span class="dv">10</span><span class="op">,</span> <span class="dv">20</span><span class="op">);</span>           <span class="co">// Equivalent to: printSum(10, 20)</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> result <span class="op">=</span> <span class="bu">std::</span>invoke<span class="op">(</span>lambda<span class="op">,</span> <span class="dv">5</span><span class="op">);</span>     <span class="co">// Equivalent to: lambda(5)</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="2-pointers-to-member-functions">2. Pointers to Member
+Functions</h3>
+<p>When the first argument is a pointer to a member function,
+<code>std::invoke</code> treats the second argument as the class
+instance and the remaining arguments as the function parameters. It
+automatically handles instances passed by reference, by value, by
+pointer, or via smart pointers:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;functional&gt;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;memory&gt;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Calculator <span class="op">{</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> add<span class="op">(</span><span class="dt">int</span> a<span class="op">)</span> <span class="at">const</span> <span class="op">{</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Value: &quot;</span> <span class="op">&lt;&lt;</span> a <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    Calculator calc<span class="op">;</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> calcPtr <span class="op">=</span> <span class="bu">std::</span>make_unique<span class="op">&lt;</span>Calculator<span class="op">&gt;();</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Using an object reference</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>invoke<span class="op">(&amp;</span>Calculator<span class="op">::</span>add<span class="op">,</span> calc<span class="op">,</span> <span class="dv">42</span><span class="op">);</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Using a smart pointer (automatically dereferenced)</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>invoke<span class="op">(&amp;</span>Calculator<span class="op">::</span>add<span class="op">,</span> calcPtr<span class="op">,</span> <span class="dv">42</span><span class="op">);</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This removes the need to manually write
+<code>(calc.*&amp;Calculator::add)(42)</code> or check if the target is
+a raw pointer or smart pointer.</p>
+<h3 id="3-pointers-to-data-members">3. Pointers to Data Members</h3>
+<p>In modern C++, pointers to data members are categorized as callables.
+Invoking a pointer to a member variable retrieves a reference to that
+member from the target instance:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;functional&gt;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> User <span class="op">{</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string name<span class="op">;</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    User user<span class="op">{</span><span class="st">&quot;Alice&quot;</span><span class="op">};</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Accessing member variable</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>invoke<span class="op">(&amp;</span>User<span class="op">::</span>name<span class="op">,</span> user<span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span> <span class="co">// Equivalent to: user.name</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Modifying member variable through returned reference</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>invoke<span class="op">(&amp;</span>User<span class="op">::</span>name<span class="op">,</span> user<span class="op">)</span> <span class="op">=</span> <span class="st">&quot;Bob&quot;</span><span class="op">;</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> user<span class="op">.</span>name <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span>                       <span class="co">// Outputs: Bob</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="generic-programming-applications">Generic Programming
+Applications</h3>
+<p>The greatest utility of <code>std::invoke</code> lies in template and
+library design. A generic utility such as a thread pool, an asynchronous
+wrapper, or an algorithm can accept any callable without writing
+specialized overloads:</p>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Callable<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="kw">decltype</span><span class="op">(</span><span class="kw">auto</span><span class="op">)</span> execute<span class="op">(</span>Callable<span class="op">&amp;&amp;</span> callable<span class="op">,</span> Args<span class="op">&amp;&amp;...</span> args<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Executes correctly whether Callable is a free function, lambda, or member pointer</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">std::</span>invoke<span class="op">(</span><span class="bu">std::</span>forward<span class="op">&lt;</span>Callable<span class="op">&gt;(</span>callable<span class="op">),</span> <span class="bu">std::</span>forward<span class="op">&lt;</span>Args<span class="op">&gt;(</span>args<span class="op">)...);</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Along with <code>std::invoke</code>, C++17 introduced accompanying
+type traits:</p>
+<ul>
+<li><code>std::invoke_result&lt;F, Args...&gt;</code> (and its alias
+<code>std::invoke_result_t</code>): Determines the return type of the
+invocation at compile time.</li>
+<li><code>std::is_invocable&lt;F, Args...&gt;</code>: Tests whether a
+callable type can be invoked with the specified argument types.</li>
+</ul>
+<p>Together, these utilities ensure that any callable object in C++ can
+be examined, checked, and executed through a predictable and consistent
+interface.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-std-invoke-unifies-calling-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

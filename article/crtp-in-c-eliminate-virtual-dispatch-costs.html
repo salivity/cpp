@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRTP in C++: Eliminate Virtual Dispatch Costs - cpp</title>
+    <meta name="description" content="The Curiously Recurring Template Pattern (CRTP) is a C++ idiom that achieves compile-time, or static, polymorphism by combining inheritance with template metaprogramming. This article explains the structure of CRTP, examines how dynamic polymorphism incur">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/crtp-in-c-eliminate-virtual-dispatch-costs">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CRTP in C++: Eliminate Virtual Dispatch Costs - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/crtp-in-c-eliminate-virtual-dispatch-costs" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Curiously Recurring Template Pattern (CRTP) is a C++ idiom that achieves compile-time, or static, polymorphism by combining inheritance with template metaprogramming. This article explains the structure of CRTP, examines how dynamic polymorphism incur" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="crtp-in-c-eliminate-virtual-dispatch-costs">CRTP in C++:
+Eliminate Virtual Dispatch Costs</h1>
+<p>The Curiously Recurring Template Pattern (CRTP) is a C++ idiom that
+achieves compile-time, or static, polymorphism by combining inheritance
+with template metaprogramming. This article explains the structure of
+CRTP, examines how dynamic polymorphism incurs runtime overhead through
+virtual method tables, and demonstrates how CRTP eliminates indirect
+call costs by resolving function dispatches during compilation.</p>
+<hr />
+<h3 id="what-is-the-crtp-idiom">What is the CRTP Idiom?</h3>
+<p>CRTP occurs when a class derives from a base class template that
+takes the derived class itself as a template argument.</p>
+<p>The basic structure looks like this:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Derived<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Base <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> interface<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Cast &#39;this&#39; pointer to the Derived type and call its implementation</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">static_cast</span><span class="op">&lt;</span>Derived<span class="op">*&gt;(</span><span class="kw">this</span><span class="op">)-&gt;</span>implementation<span class="op">();</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base<span class="op">&lt;</span>Derived<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> implementation<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Concrete logic here</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Because <code>Base</code> is parameterized with <code>Derived</code>,
+the base class has compile-time knowledge of the derived class's
+interface and memory layout. When <code>Base::interface()</code> is
+executed, it uses <code>static_cast&lt;Derived*&gt;(this)</code> to
+invoke <code>Derived::implementation()</code> without relying on runtime
+type identification.</p>
+<hr />
+<h3 id="the-cost-of-virtual-function-dispatch">The Cost of Virtual
+Function Dispatch</h3>
+<p>Traditional polymorphism in C++ is dynamic and relies on
+<code>virtual</code> functions. When a class declares a virtual
+function, the compiler introduces hidden mechanisms:</p>
+<ol type="1">
+<li><strong>Vtable Pointer (<code>vptr</code>) Overhead:</strong> Every
+object instance of a polymorphic class carries an extra pointer pointing
+to a Virtual Method Table (<code>vtable</code>). This increases the
+memory footprint of objects.</li>
+<li><strong>Indirection and Cache Misses:</strong> Calling a virtual
+function requires dereferencing the object's <code>vptr</code>, locating
+the appropriate function pointer in the <code>vtable</code>, and
+branching to that address. This extra layer of indirection can cause CPU
+instruction cache misses and pipeline stalls.</li>
+<li><strong>Inlining Prevention:</strong> The compiler often cannot
+determine which override will be called at compile time when accessing
+objects through pointers or references. Consequently, it cannot inline
+the function body, preventing further compiler optimizations such as
+loop unrolling, dead code elimination, and constant propagation.</li>
+</ol>
+<hr />
+<h3 id="how-crtp-eliminates-dispatch-costs">How CRTP Eliminates Dispatch
+Costs</h3>
+<p>CRTP replaces dynamic dispatch with static dispatch, effectively
+bypassing the <code>vtable</code> mechanism entirely:</p>
+<h4 id="1-compile-time-resolution">1. Compile-Time Resolution</h4>
+<p>In CRTP, the compiler generates a unique
+<code>Base&lt;Derived&gt;</code> specialization for each derived type.
+Because the exact type is hard-coded into the template specialization,
+the call
+<code>static_cast&lt;Derived*&gt;(this)-&gt;implementation()</code> is
+bound at compile time to the concrete
+<code>Derived::implementation()</code> function. No runtime table lookup
+or <code>vptr</code> dereferencing is performed.</p>
+<h4 id="2-aggressive-inlining">2. Aggressive Inlining</h4>
+<p>Because the compiler knows the exact target function at compile time,
+it can inline the implementation directly into the call site. For small,
+frequently called methods—such as those found in math libraries, matrix
+operations, or packet parsers—inlining completely eliminates function
+call overhead and allows the optimizer to optimize the caller and callee
+together.</p>
+<h4 id="3-zero-memory-overhead">3. Zero Memory Overhead</h4>
+<p>Objects derived using CRTP do not require a <code>vptr</code>. If
+neither <code>Base</code> nor <code>Derived</code> declares virtual
+functions, instances of <code>Derived</code> only consume memory for
+their actual member variables.</p>
+<hr />
+<h3 id="concrete-comparison">Concrete Comparison</h3>
+<h4 id="dynamic-polymorphism-runtime-overhead">Dynamic Polymorphism
+(Runtime Overhead)</h4>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Base <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> step<span class="op">()</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="op">~</span>Base<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Worker <span class="op">:</span> <span class="kw">public</span> Base <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> step<span class="op">()</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Executed via vtable lookup</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> run<span class="op">(</span>Base<span class="op">&amp;</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    b<span class="op">.</span>step<span class="op">();</span> <span class="co">// Indirect call: cannot be inlined easily</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h4 id="crtp-zero-runtime-overhead">CRTP (Zero Runtime Overhead)</h4>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Derived<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Base <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> step<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">static_cast</span><span class="op">&lt;</span>Derived<span class="op">*&gt;(</span><span class="kw">this</span><span class="op">)-&gt;</span>step_impl<span class="op">();</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Worker <span class="op">:</span> <span class="kw">public</span> Base<span class="op">&lt;</span>Worker<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> step_impl<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Concrete logic</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> run<span class="op">(</span>Base<span class="op">&lt;</span>T<span class="op">&gt;&amp;</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    b<span class="op">.</span>step<span class="op">();</span> <span class="co">// Direct call: fully inlinable, no vtable lookup</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<hr />
+<h3 id="trade-offs-of-crtp">Trade-offs of CRTP</h3>
+<p>While CRTP eliminates virtual dispatch overhead, it is not an
+absolute replacement for dynamic polymorphism:</p>
+<ul>
+<li><strong>No Heterogeneous Collections:</strong> Because
+<code>Base&lt;WorkerA&gt;</code> and <code>Base&lt;WorkerB&gt;</code>
+are distinct, unrelated types, they cannot be stored together in a
+standard container like <code>std::vector&lt;Base*&gt;</code>.</li>
+<li><strong>Code Bloat:</strong> Each template instantiation creates a
+new class type, which can increase binary size if many distinct derived
+classes instantiate the same base template logic.</li>
+<li><strong>Compile-Time Coupling:</strong> Dynamic polymorphism allows
+implementations to be swapped out without recompiling callers (e.g., via
+shared libraries). CRTP binds types at compile time, requiring
+recompilation when implementations change.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/crtp-in-c-eliminate-virtual-dispatch-costs';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

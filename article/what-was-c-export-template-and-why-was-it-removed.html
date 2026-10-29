@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Was C++ Export Template and Why Was It Removed? - cpp</title>
+    <meta name="description" content="The export template feature in C++98 and C++03 was designed to allow template declarations to be separated from their definitions across different translation units, mirroring how ordinary functions and classes are structured. Despite its promise to impro">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/what-was-c-export-template-and-why-was-it-removed">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Was C++ Export Template and Why Was It Removed? - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/what-was-c-export-template-and-why-was-it-removed" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The export template feature in C++98 and C++03 was designed to allow template declarations to be separated from their definitions across different translation units, mirroring how ordinary functions and classes are structured. Despite its promise to impro" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-was-c-export-template-and-why-was-it-removed">What Was C++
+Export Template and Why Was It Removed?</h1>
+<p>The <code>export template</code> feature in C++98 and C++03 was
+designed to allow template declarations to be separated from their
+definitions across different translation units, mirroring how ordinary
+functions and classes are structured. Despite its promise to improve
+encapsulation and compile times, the feature suffered from monumental
+implementation complexity, virtually no adoption by compiler vendors,
+and unexpected performance overheads. Consequently, it was declared
+obsolete and officially removed from the language in C++11, leaving the
+standard inclusion model as the default way to handle C++ templates
+until the arrival of C++20 Modules.</p>
+<h3 id="what-was-the-export-template-feature">What Was the Export
+Template Feature?</h3>
+<p>In standard C++, templates typically follow the "inclusion model."
+Because the compiler must generate concrete code whenever a template is
+instantiated with a specific type, the full definition of the template
+must reside in the header file. This exposes implementation details to
+every file including the header and can significantly increase
+compilation times.</p>
+<p>To address this, the C++98 standard introduced the "separation model"
+via the <code>export</code> keyword. By prefixing a template definition
+in a source file (<code>.cpp</code>) with <code>export</code>,
+developers were supposed to be able to leave only the template's
+declaration in the corresponding header file (<code>.h</code>):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// math_utils.h</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">export</span> <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>T add<span class="op">(</span>T a<span class="op">,</span> T b<span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// math_utils.cpp</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">export</span> <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>T add<span class="op">(</span>T a<span class="op">,</span> T b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Other translation units could include <code>math_utils.h</code> and
+call <code>add(1, 2)</code> without needing the function body present at
+the point of call. The compiler and linker were expected to cooperate to
+locate the definition and instantiate it for the required types.</p>
+<h3 id="why-was-export-template-removed">Why Was Export Template
+Removed?</h3>
+<p>Although the concept seemed logical on the surface, the reality of
+the C++ compilation pipeline made <code>export template</code> deeply
+problematic for several reasons:</p>
+<h4 id="1-extreme-implementation-complexity">1. Extreme Implementation
+Complexity</h4>
+<p>Templates cannot be compiled into native machine code without knowing
+their concrete type arguments. Under the separation model, the compiler
+could not generate object code when compiling
+<code>math_utils.cpp</code> alone. Instead, it had to parse the template
+into an intermediate representation (such as an abstract syntax tree),
+store it, and re-invoke the compiler or a specialized pre-linker during
+the link phase when the instantiation types became known. Implementing
+this architecture required an enormous engineering effort that almost no
+compiler vendor was willing or able to undertake.</p>
+<h4 id="2-lack-of-vendor-adoption">2. Lack of Vendor Adoption</h4>
+<p>Throughout the entire lifespan of C++03, only one compiler
+front-end—developed by the Edison Design Group (EDG)—ever produced a
+conforming implementation of <code>export template</code>. It took EDG
+several years of dedicated effort to build. Major industry compilers
+such as GCC, Clang, and Microsoft Visual C++ never supported it, often
+issuing warnings or treating the keyword as a no-op. Because the feature
+lacked cross-platform support, developers could not rely on it for
+portable software.</p>
+<h4 id="3-it-failed-to-improve-build-times">3. It Failed to Improve
+Build Times</h4>
+<p>One of the primary selling points of <code>export template</code> was
+faster builds. In practice, the EDG implementation demonstrated that
+parsing, serializing, and reloading template definitions across
+translation units introduced significant disk and memory overhead. In
+many cases, it was actually slower than simply re-parsing headers using
+the traditional inclusion model.</p>
+<h4 id="4-inability-to-truly-hide-implementation">4. Inability to Truly
+Hide Implementation</h4>
+<p>Developers also hoped <code>export template</code> would function
+like binary dynamic libraries, protecting proprietary source code.
+However, because the full syntax tree and semantic definitions still had
+to be distributed or exposed to the instantiation engine, true
+intellectual property protection was impossible.</p>
+<h3 id="resolution-in-c11-and-beyond">Resolution in C++11 and
+Beyond</h3>
+<p>Recognizing that the feature was practically non-existent in the
+real-world ecosystem and imposed an unfair burden on compiler
+implementers, the C++ Standards Committee officially removed
+<code>export template</code> in C++11.</p>
+<p>The <code>export</code> keyword itself was retained as a reserved
+keyword rather than discarded entirely. Decades later, with the release
+of C++20, the keyword was repurposed for C++ Modules, which finally
+achieved the goals of faster compilation and proper code boundary
+separation that <code>export template</code> had failed to deliver.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/what-was-c-export-template-and-why-was-it-removed';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

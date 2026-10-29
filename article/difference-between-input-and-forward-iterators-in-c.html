@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Difference Between Input and Forward Iterators in C++ - cpp</title>
+    <meta name="description" content="In the legacy iterator hierarchy of C++, both input iterators and forward iterators are used to traverse sequences and read data, but they differ significantly in their traversal capabilities, state preservation, and dereferencing behavior. While an input">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/difference-between-input-and-forward-iterators-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Difference Between Input and Forward Iterators in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/difference-between-input-and-forward-iterators-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the legacy iterator hierarchy of C++, both input iterators and forward iterators are used to traverse sequences and read data, but they differ significantly in their traversal capabilities, state preservation, and dereferencing behavior. While an input" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="difference-between-input-and-forward-iterators-in-c">Difference
+Between Input and Forward Iterators in C++</h1>
+<p>In the legacy iterator hierarchy of C++, both input iterators and
+forward iterators are used to traverse sequences and read data, but they
+differ significantly in their traversal capabilities, state
+preservation, and dereferencing behavior. While an input iterator
+supports only single-pass, read-only algorithms, a forward iterator
+refines the input iterator concept to support multi-pass traversal,
+making it capable of saving positions and repeatedly iterating over the
+same sequence.</p>
+<h3 id="core-differences">Core Differences</h3>
+<h4 id="1-single-pass-vs-multi-pass-traversal">1. Single-Pass vs.
+Multi-Pass Traversal</h4>
+<p>The most critical distinction lies in whether an iterator can be used
+in multi-pass algorithms:</p>
+<ul>
+<li><strong>Input Iterator (Single-Pass):</strong> Designed for
+single-pass consumption of data. Once an input iterator is incremented
+(<code>++it</code>), all copies of the previous iterator value become
+invalid for dereferencing. This makes them ideal for streams where data
+is consumed on the fly, such as reading from standard input via
+<code>std::istream_iterator</code>.</li>
+<li><strong>Forward Iterator (Multi-Pass):</strong> Satisfies the
+<em>multipass guarantee</em>. Incrementing a forward iterator does not
+invalidate copies of earlier positions. You can store an iterator at a
+specific point in a sequence, advance another iterator forward, and
+still safely return to and dereference the stored iterator. Collections
+like <code>std::forward_list</code> and <code>std::unordered_set</code>
+provide forward iterators.</li>
+</ul>
+<h4 id="2-dereferencing-and-reference-types">2. Dereferencing and
+Reference Types</h4>
+<p>How values are accessed through the dereference operator
+(<code>*</code>) differs between the two categories:</p>
+<ul>
+<li><strong>Input Iterator:</strong> Does not guarantee that
+<code>*it</code> returns a real reference (<code>T&amp;</code>). It may
+return a temporary proxy or a value by-value (as long as
+<code>*it</code> is convertible to the iterator's
+<code>value_type</code>). Because of this, you cannot rely on the
+identity of the underlying object.</li>
+<li><strong>Forward Iterator:</strong> Guarantees that <code>*it</code>
+returns a true reference: <code>const value_type&amp;</code> for
+constant iterators, or <code>value_type&amp;</code> for mutable forward
+iterators. Consequently, if two forward iterators compare equal,
+dereferencing them refers to the exact same memory location.</li>
+</ul>
+<h4 id="3-default-constructibility">3. Default Constructibility</h4>
+<ul>
+<li><strong>Input Iterator:</strong> In C++98/03 legacy requirements, an
+input iterator was not required to be default-constructible (though many
+implementations provided it).</li>
+<li><strong>Forward Iterator:</strong> Must always be
+default-constructible. A default-constructed forward iterator represents
+a "singular" value that can be assigned to, but not dereferenced.</li>
+</ul>
+<h4 id="4-read-vs-write-capabilities">4. Read vs. Write
+Capabilities</h4>
+<ul>
+<li><strong>Input Iterator:</strong> Strictly read-only relative to the
+input sequence. You cannot modify the underlying elements through an
+input iterator.</li>
+<li><strong>Forward Iterator:</strong> Can be either constant
+(read-only) or mutable (read/write). A mutable forward iterator
+satisfies both the <code>InputIterator</code> and
+<code>OutputIterator</code> requirements, allowing algorithms like
+<code>std::replace</code> to read and write elements in place.</li>
+</ul>
+<h3 id="summary-comparison">Summary Comparison</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Input Iterator</th>
+<th style="text-align: left;">Forward Iterator</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Pass Capability</strong></td>
+<td style="text-align: left;">Single-pass only</td>
+<td style="text-align: left;">Multi-pass</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Equality Comparison</strong></td>
+<td style="text-align: left;">Compared mainly to detect
+end-of-stream</td>
+<td style="text-align: left;">Can compare any two iterators in the same
+range</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Dereference Result</strong></td>
+<td style="text-align: left;">Value or proxy convertible to
+<code>value_type</code></td>
+<td style="text-align: left;">True reference (<code>T&amp;</code> or
+<code>const T&amp;</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>State Invalidation</strong></td>
+<td style="text-align: left;">Incrementing invalidates earlier
+copies</td>
+<td style="text-align: left;">Earlier copies remain valid</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Canonical Example</strong></td>
+<td style="text-align: left;"><code>std::istream_iterator</code></td>
+<td
+style="text-align: left;"><code>std::forward_list::iterator</code></td>
+</tr>
+</tbody>
+</table></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/difference-between-input-and-forward-iterators-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

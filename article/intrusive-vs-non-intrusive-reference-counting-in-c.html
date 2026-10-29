@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Intrusive vs Non-Intrusive Reference Counting in C++ - cpp</title>
+    <meta name="description" content="This article examines the core differences between intrusive and non-intrusive reference counting in C++. It breaks down how both memory management strategies function under the hood, compares their memory overhead and performance characteristics, and hig">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/intrusive-vs-non-intrusive-reference-counting-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Intrusive vs Non-Intrusive Reference Counting in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/intrusive-vs-non-intrusive-reference-counting-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article examines the core differences between intrusive and non-intrusive reference counting in C++. It breaks down how both memory management strategies function under the hood, compares their memory overhead and performance characteristics, and hig" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="intrusive-vs-non-intrusive-reference-counting-in-c">Intrusive vs
+Non-Intrusive Reference Counting in C++</h1>
+<p>This article examines the core differences between intrusive and
+non-intrusive reference counting in C++. It breaks down how both memory
+management strategies function under the hood, compares their memory
+overhead and performance characteristics, and highlights the trade-offs
+in flexibility, safety, and API design when choosing between standard
+solutions like <code>std::shared_ptr</code> and intrusive alternatives
+like <code>boost::intrusive_ptr</code>.</p>
+<h3 id="fundamentals-of-reference-counting">Fundamentals of Reference
+Counting</h3>
+<p>Reference counting is a memory management technique where an object
+tracks the number of references pointing to it, automatically
+deallocating its resources when the count drops to zero. In C++,
+reference counting is implemented primarily through two paradigms:
+intrusive and non-intrusive.</p>
+<h3 id="non-intrusive-reference-counting">Non-Intrusive Reference
+Counting</h3>
+<p>In non-intrusive reference counting, the reference counter is stored
+externally to the managed object. The managed class itself has no
+awareness of how its lifetime is tracked. The standard C++
+implementation of this pattern is <code>std::shared_ptr</code>.</p>
+<ul>
+<li><strong>Control Block Allocation:</strong> When creating a
+<code>std::shared_ptr</code>, an auxiliary structure called a
+<em>control block</em> is created. This block contains the strong
+reference counter, the weak reference counter, allocators, and custom
+deleters.</li>
+<li><strong>Pointer Size:</strong> A <code>std::shared_ptr</code> is
+typically two pointers in size (16 bytes on a 64-bit architecture): one
+pointer points to the managed object, and the other points to the
+control block.</li>
+<li><strong>Third-Party Compatibility:</strong> Because the counter
+resides externally, non-intrusive smart pointers can wrap any type,
+including standard library types, primitive types, and legacy
+third-party library classes, without requiring source code
+modifications.</li>
+</ul>
+<h3 id="intrusive-reference-counting">Intrusive Reference Counting</h3>
+<p>In intrusive reference counting, the reference counter is embedded
+directly inside the managed object. The object itself provides functions
+to increment and decrement this internal count. A prominent
+implementation is <code>boost::intrusive_ptr</code>.</p>
+<ul>
+<li><strong>Memory Layout:</strong> The object and the counter share the
+same memory allocation. No external control block is required.</li>
+<li><strong>Pointer Size:</strong> An intrusive smart pointer holds only
+a single raw pointer to the object (8 bytes on a 64-bit architecture),
+making it identical in size to a native C++ raw pointer.</li>
+<li><strong>Class Requirements:</strong> The managed class must be
+modified to include the counter and the necessary management logic
+(typically <code>intrusive_ptr_add_ref</code> and
+<code>intrusive_ptr_release</code> functions), often accomplished via
+inheritance from a base class.</li>
+</ul>
+<h3 id="key-architectural-differences">Key Architectural
+Differences</h3>
+<h4 id="1-memory-overhead-and-cache-locality">1. Memory Overhead and
+Cache Locality</h4>
+<ul>
+<li><strong>Non-Intrusive:</strong> If not using
+<code>std::make_shared</code>, wrapping a raw pointer in a
+<code>std::shared_ptr</code> requires two separate dynamic allocations:
+one for the object and one for the control block. Even with
+<code>std::make_shared</code> (which allocates the object and control
+block in one contiguous block), accessing the control block requires
+traversing an extra pointer indirection if the object pointer is
+manipulated separately. Furthermore, with <code>std::make_shared</code>,
+the memory for the object cannot be deallocated until all
+<code>std::weak_ptr</code> instances are destroyed, because the weak
+count resides in the same memory block.</li>
+<li><strong>Intrusive:</strong> The object and its counter are always
+co-located in the same cache line or memory block. Memory deallocation
+happens immediately when the reference count reaches zero, regardless of
+any other systems tracking the instance.</li>
+</ul>
+<h4 id="2-reconstructing-smart-pointers-from-raw-pointers">2.
+Reconstructing Smart Pointers from Raw Pointers</h4>
+<ul>
+<li><strong>Non-Intrusive:</strong> Creating a
+<code>std::shared_ptr</code> from a raw pointer creates a <em>new</em>
+control block. If another <code>std::shared_ptr</code> already owns that
+object, two separate control blocks will independently manage the same
+memory, inevitably causing a double-free crash. To safely obtain a
+<code>std::shared_ptr</code> from inside a member function, the class
+must inherit from <code>std::enable_shared_from_this</code>.</li>
+<li><strong>Intrusive:</strong> Constructing an intrusive smart pointer
+from a raw pointer or from <code>this</code> is completely safe at any
+time. The constructor simply increments the internal counter embedded
+within the target object, eliminating double-free risks stemming from
+raw pointer conversions.</li>
+</ul>
+<h4 id="3-interoperability-with-c-apis">3. Interoperability with C
+APIs</h4>
+<ul>
+<li><strong>Non-Intrusive:</strong> Passing objects managed by
+<code>std::shared_ptr</code> to C-style APIs that require a raw
+<code>void*</code> context pointer requires storing or leaking the
+<code>std::shared_ptr</code> elsewhere to keep it alive. Reconstructing
+the smart pointer inside a C callback is error-prone.</li>
+<li><strong>Intrusive:</strong> Intrusive objects can be cast directly
+to raw pointers and passed to C callbacks. Inside the callback, the raw
+pointer can be safely wrapped back into an intrusive smart pointer, or
+the ref-count functions can be invoked manually from C-compatible
+wrappers.</li>
+</ul>
+<h3 id="summary-comparison">Summary Comparison</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Non-Intrusive
+(<code>std::shared_ptr</code>)</th>
+<th style="text-align: left;">Intrusive
+(<code>boost::intrusive_ptr</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Counter Location</strong></td>
+<td style="text-align: left;">External control block</td>
+<td style="text-align: left;">Inside the object</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Smart Pointer Size</strong></td>
+<td style="text-align: left;">2 words (typically 16 bytes)</td>
+<td style="text-align: left;">1 word (typically 8 bytes)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Type Requirements</strong></td>
+<td style="text-align: left;">None (works with any type)</td>
+<td style="text-align: left;">Must define internal counter logic</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Conversion from <code>this</code>
+/ Raw</strong></td>
+<td style="text-align: left;">Requires
+<code>enable_shared_from_this</code></td>
+<td style="text-align: left;">Inherently safe and direct</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Weak Pointer Support</strong></td>
+<td style="text-align: left;">Built-in via
+<code>std::weak_ptr</code></td>
+<td style="text-align: left;">Requires custom implementation</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Standardization</strong></td>
+<td style="text-align: left;">C++ Standard Library
+(<code>&lt;memory&gt;</code>)</td>
+<td style="text-align: left;">External (e.g., Boost) or custom</td>
+</tr>
+</tbody>
+</table></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/intrusive-vs-non-intrusive-reference-counting-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

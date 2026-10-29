@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How to Safely Downcast with static_cast in C++ - cpp</title>
+    <meta name="description" content="Downcasting in C++ involves converting a base class pointer or reference to a derived class pointer or reference. While dynamiccast is traditionally used to perform safe downcasting via runtime checks, it introduces performance overhead due to Run-Time Ty">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-to-safely-downcast-with-static-cast-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How to Safely Downcast with static_cast in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-to-safely-downcast-with-static-cast-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Downcasting in C++ involves converting a base class pointer or reference to a derived class pointer or reference. While dynamiccast is traditionally used to perform safe downcasting via runtime checks, it introduces performance overhead due to Run-Time Ty" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-to-safely-downcast-with-static_cast-in-c">How to Safely
+Downcast with static_cast in C++</h1>
+<p>Downcasting in C++ involves converting a base class pointer or
+reference to a derived class pointer or reference. While
+<code>dynamic_cast</code> is traditionally used to perform safe
+downcasting via runtime checks, it introduces performance overhead due
+to Run-Time Type Information (RTTI) lookups. When an application's
+architecture already guarantees the dynamic type of an object—such as
+through type tags or deterministic program flow—<code>static_cast</code>
+provides an efficient, safe alternative. This article explains how
+<code>static_cast</code> executes compile-time pointer adjustments
+without runtime checks and how to safely utilize it when dynamic type
+identity is already known.</p>
+<h3 id="how-static_cast-downcasts-at-compile-time">How static_cast
+Downcasts at Compile Time</h3>
+<p>Unlike <code>dynamic_cast</code>, which inspects dynamic type
+metadata stored in an object's virtual table (vtable) at runtime,
+<code>static_cast</code> performs all inheritance calculations purely at
+compile time.</p>
+<p>When you use <code>static_cast</code> to downcast from a base class
+pointer to a derived class pointer:</p>
+<ol type="1">
+<li>The compiler checks whether a valid inheritance relationship exists
+between the base and derived classes.</li>
+<li>If multiple inheritance or non-zero offsets are involved, the
+compiler statically calculates the fixed byte offset between the base
+class subobject and the beginning of the derived class instance.</li>
+<li>The compiler adjusts the pointer address using this fixed offset
+calculation.</li>
+</ol>
+<p>Because this offset is determined during compilation, the downcast
+executes as a simple arithmetic pointer adjustment (or a no-op in single
+inheritance hierarchies where the base subobject sits at offset zero),
+producing zero runtime overhead.</p>
+<h3 id="safe-downcasting-using-known-dynamic-type-identity">Safe
+Downcasting Using Known Dynamic Type Identity</h3>
+<p>Downcasting with <code>static_cast</code> invokes undefined behavior
+if the actual dynamic type does not match the target type. However, when
+the dynamic type identity is explicitly tracked and verified by the
+program logic, the cast becomes completely safe.</p>
+<p>A common pattern for ensuring type identity is the use of an explicit
+type tag or enumeration within the base class:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">enum</span> <span class="kw">class</span> EntityType <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    Player<span class="op">,</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    Enemy</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Entity <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">explicit</span> Entity<span class="op">(</span>EntityType type<span class="op">)</span> <span class="op">:</span> <span class="va">type_</span><span class="op">(</span>type<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="op">~</span>Entity<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    EntityType getType<span class="op">()</span> <span class="at">const</span> <span class="op">{</span> <span class="cf">return</span> <span class="va">type_</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    EntityType <span class="va">type_</span><span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Player <span class="op">:</span> <span class="kw">public</span> Entity <span class="op">{</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    Player<span class="op">()</span> <span class="op">:</span> Entity<span class="op">(</span>EntityType<span class="op">::</span>Player<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> attack<span class="op">()</span> <span class="op">{</span> <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Player attacks!</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Enemy <span class="op">:</span> <span class="kw">public</span> Entity <span class="op">{</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    Enemy<span class="op">()</span> <span class="op">:</span> Entity<span class="op">(</span>EntityType<span class="op">::</span>Enemy<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> defend<span class="op">()</span> <span class="op">{</span> <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Enemy defends!</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> processEntity<span class="op">(</span>Entity<span class="op">*</span> entity<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span>entity<span class="op">)</span> <span class="cf">return</span><span class="op">;</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Type identity is explicitly checked before downcasting</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>entity<span class="op">-&gt;</span>getType<span class="op">()</span> <span class="op">==</span> EntityType<span class="op">::</span>Player<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span><span class="op">*</span> player <span class="op">=</span> <span class="kw">static_cast</span><span class="op">&lt;</span>Player<span class="op">*&gt;(</span>entity<span class="op">);</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>        player<span class="op">-&gt;</span>attack<span class="op">();</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="cf">if</span> <span class="op">(</span>entity<span class="op">-&gt;</span>getType<span class="op">()</span> <span class="op">==</span> EntityType<span class="op">::</span>Enemy<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span><span class="op">*</span> enemy <span class="op">=</span> <span class="kw">static_cast</span><span class="op">&lt;</span>Enemy<span class="op">*&gt;(</span>entity<span class="op">);</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>        enemy<span class="op">-&gt;</span>defend<span class="op">();</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="static-offset-calculation-in-multiple-inheritance">Static Offset
+Calculation in Multiple Inheritance</h3>
+<p>The safety of <code>static_cast</code> extends to multiple
+inheritance hierarchies, provided virtual inheritance is not used.</p>
+<p>Consider a derived class inheriting from two base classes:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> InterfaceA <span class="op">{</span> <span class="kw">public</span><span class="op">:</span> <span class="kw">virtual</span> <span class="op">~</span>InterfaceA<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span> <span class="op">};</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> InterfaceB <span class="op">{</span> <span class="kw">public</span><span class="op">:</span> <span class="kw">virtual</span> <span class="op">~</span>InterfaceB<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span> <span class="op">};</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Implementation <span class="op">:</span> <span class="kw">public</span> InterfaceA<span class="op">,</span> <span class="kw">public</span> InterfaceB <span class="op">{};</span></span></code></pre></div>
+<p>In memory, <code>InterfaceB</code> is positioned at an offset after
+<code>InterfaceA</code>. When casting an <code>InterfaceB*</code> back
+to an <code>Implementation*</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>InterfaceB<span class="op">*</span> bPtr <span class="op">=</span> <span class="kw">new</span> Implementation<span class="op">();</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co">// The dynamic identity is guaranteed by the program context</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>Implementation<span class="op">*</span> impl <span class="op">=</span> <span class="kw">static_cast</span><span class="op">&lt;</span>Implementation<span class="op">*&gt;(</span>bPtr<span class="op">);</span></span></code></pre></div>
+<p>The compiler knows the exact binary layout of
+<code>Implementation</code>. It subtracts the byte offset of
+<code>InterfaceB</code> from <code>bPtr</code> to yield the correct
+starting address of <code>Implementation</code>. Because the type
+identity is known beforehand, the pointer arithmetic succeeds without
+needing RTTI.</p>
+<h3 id="critical-considerations">Critical Considerations</h3>
+<ul>
+<li><strong>Virtual Inheritance:</strong> <code>static_cast</code>
+cannot downcast from a virtual base class to a derived class. Because
+the offset of a virtual base subobject is determined dynamically at
+runtime, <code>dynamic_cast</code> is required in such hierarchies.</li>
+<li><strong>Absence of Validation:</strong> <code>static_cast</code>
+provides no safety net. If the type identity assumption fails, the
+compiler still applies the static offset, resulting in an invalid
+pointer and undefined behavior. Use <code>static_cast</code> for
+downcasting only when preconditions guarantee the underlying dynamic
+type.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-to-safely-downcast-with-static-cast-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

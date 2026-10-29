@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using C++ Override to Prevent Function Hiding - cpp</title>
+    <meta name="description" content="In modern C++, the override specifier serves as an explicit compile-time safeguard that ensures a derived class function correctly overrides a base class virtual function. Historically, subtle discrepancies between function signatures would cause a derive">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/using-c-override-to-prevent-function-hiding">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using C++ Override to Prevent Function Hiding - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/using-c-override-to-prevent-function-hiding" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, the override specifier serves as an explicit compile-time safeguard that ensures a derived class function correctly overrides a base class virtual function. Historically, subtle discrepancies between function signatures would cause a derive" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-c-override-to-prevent-function-hiding">Using C++ Override
+to Prevent Function Hiding</h1>
+<p>In modern C++, the <code>override</code> specifier serves as an
+explicit compile-time safeguard that ensures a derived class function
+correctly overrides a base class virtual function. Historically, subtle
+discrepancies between function signatures would cause a derived function
+to unintentionally hide a base class method instead of overriding it,
+leading to silent runtime bugs. This article explains how the C++
+name-lookup and hiding rules work, why accidental hiding occurs, and how
+appending the <code>override</code> keyword allows the compiler to catch
+these mistakes early during compilation.</p>
+<h3 id="the-problem-of-function-hiding-in-c">The Problem of Function
+Hiding in C++</h3>
+<p>In C++, function resolution relies on name lookup before overload
+resolution takes place. When a derived class declares a member function
+with the same name as a function in its base class, the derived class
+declaration automatically hides all base class functions sharing that
+name within the derived scope.</p>
+<p>When dealing with virtual functions, true runtime polymorphism
+requires an exact match in the function signature: the function name,
+parameter types, and cv-qualifiers (<code>const</code> or
+<code>volatile</code>) must be identical (with allowances only for
+covariant return types). If any detail fails to match, the derived
+function does not override the base class implementation. Instead, it
+becomes a completely new function that hides the base class version.</p>
+<p>Prior to C++11, this behavior frequently caused hard-to-detect
+defects. Consider a base class with the following method:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Base <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> process<span class="op">(</span><span class="dt">int</span> value<span class="op">)</span> <span class="at">const</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>If a developer implements a derived class and inadvertently omits the
+<code>const</code> qualifier or uses a slightly different type:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> process<span class="op">(</span><span class="dt">int</span> value<span class="op">);</span> <span class="co">// Missing &#39;const&#39;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>The compiler treats <code>Derived::process(int)</code> as a new,
+distinct member function. It successfully compiles, but it does not
+override <code>Base::process(int) const</code>. When called through a
+<code>Base*</code> pointer or reference, the program invokes
+<code>Base::process</code>, ignoring the derived implementation
+entirely. Furthermore, calling <code>process</code> directly on a
+<code>Derived</code> instance hides the base method, preventing callers
+from accessing <code>Base::process</code> without an explicit scope
+resolution qualifier (<code>Derived::Base::process</code>).</p>
+<h3 id="how-the-override-specifier-works">How the <code>override</code>
+Specifier Works</h3>
+<p>Introduced in C++11, <code>override</code> is a contextual keyword
+placed after the declarator of a member function. It informs the
+compiler that the declared method is explicitly intended to override an
+existing virtual function from an ancestor class.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> process<span class="op">(</span><span class="dt">int</span> value<span class="op">)</span> <span class="kw">override</span><span class="op">;</span> <span class="co">// Compiler error</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>When the compiler encounters <code>override</code>, it enforces the
+following rules:</p>
+<ol type="1">
+<li><strong>Existence of a Base Function:</strong> A member function
+with the same name must exist in a direct or indirect base class.</li>
+<li><strong>Virtual Status:</strong> The base class function must be
+declared <code>virtual</code>.</li>
+<li><strong>Exact Signature Match:</strong> The parameter types,
+quantity, order, and cv-qualifiers must match the base class declaration
+precisely.</li>
+<li><strong>Valid Return Types:</strong> The return type must either
+match or be a valid covariant type (e.g., a pointer or reference to a
+derived type).</li>
+</ol>
+<p>If any of these conditions are not satisfied, the compiler
+immediately halts with an error detailing that the marked function does
+not override any base class member.</p>
+<h3 id="common-scenarios-prevented-by-override">Common Scenarios
+Prevented by <code>override</code></h3>
+<p>Using <code>override</code> protects against several everyday
+refactoring and implementation pitfalls:</p>
+<ul>
+<li><strong>Signature Drift During Refactoring:</strong> If an engineer
+alters a virtual function in a base class—such as adding a default
+argument, changing an integer type, or adding a <code>const</code>
+qualifier—every derived class method marked with <code>override</code>
+that is not updated simultaneously will fail to compile. This
+immediately identifies all code that needs updating.</li>
+<li><strong>Typographical Errors:</strong> Typos in function names or
+parameter lists are converted from silent runtime bugs into direct
+compilation errors.</li>
+<li><strong>Cv-Qualifier Discrepancies:</strong> Accidental omission or
+addition of <code>const</code> or
+<code>&amp;</code>/<code>&amp;&amp;</code> ref-qualifiers is flagged
+instantly.</li>
+<li><strong>Non-Virtual Base Functions:</strong> If a base class
+developer removes the <code>virtual</code> keyword, the derived classes
+will trigger an error rather than silently reverting to static
+binding.</li>
+</ul>
+<p>By making developer intent explicit, the <code>override</code>
+specifier eliminates accidental member function hiding, transforming
+potential dynamic dispatch failures into immediate compile-time
+errors.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/using-c-override-to-prevent-function-hiding';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ One Definition Rule Across Translation Units - cpp</title>
+    <meta name="description" content="The One Definition Rule (ODR) is a foundational principle in C++ that dictates how entities—such as variables, functions, classes, and templates—can be declared and defined within a program. When a program consists of multiple translation units, the ODR e">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-one-definition-rule-across-translation-units">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ One Definition Rule Across Translation Units - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-one-definition-rule-across-translation-units" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The One Definition Rule (ODR) is a foundational principle in C++ that dictates how entities—such as variables, functions, classes, and templates—can be declared and defined within a program. When a program consists of multiple translation units, the ODR e" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-one-definition-rule-across-translation-units">C++ One
+Definition Rule Across Translation Units</h1>
+<p>The One Definition Rule (ODR) is a foundational principle in C++ that
+dictates how entities—such as variables, functions, classes, and
+templates—can be declared and defined within a program. When a program
+consists of multiple translation units, the ODR establishes precise
+boundaries to ensure that the compiler and linker can combine compiled
+units into a coherent executable without ambiguity or symbol conflicts.
+This article breaks down how the ODR governs declarations and
+definitions across translation units, the exceptions that permit
+identical definitions, and the consequences of rule violations.</p>
+<h3 id="translation-units-and-linkage-basics">Translation Units and
+Linkage Basics</h3>
+<p>A translation unit (TU) consists of a single source file together
+with all the headers and source code included by preprocessor
+<code>#include</code> directives. Because C++ compiles each translation
+unit independently into an object file, the linker is responsible for
+resolving cross-unit references based on the linkage of declared
+entities:</p>
+<ul>
+<li><strong>External Linkage:</strong> The name can be referred to from
+other translation units (e.g., standard non-static functions, global
+variables).</li>
+<li><strong>Internal Linkage:</strong> The name can only be referred to
+within its own translation unit (e.g., variables declared
+<code>static</code> or entities within unnamed/anonymous
+namespaces).</li>
+<li><strong>No Linkage:</strong> The name can only be referred to within
+its local scope (e.g., local block variables).</li>
+</ul>
+<p>The ODR applies strictly to names with external linkage when
+coordinating across translation units.</p>
+<h3 id="exactly-one-definition-for-non-inline-entities">Exactly One
+Definition for Non-Inline Entities</h3>
+<p>For non-inline functions and non-inline variables with external
+linkage, the ODR mandates that there must be <strong>exactly one
+definition in the entire program</strong>.</p>
+<p>You may declare these entities as many times as necessary across
+different translation units (typically via header files using the
+<code>extern</code> keyword for variables, or regular function
+signatures), but defining them more than once across separate
+translation units results in a build failure. For example:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// header.h</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">extern</span> <span class="dt">int</span> globalCounter<span class="op">;</span> <span class="co">// Allowed: declaration across multiple TUs</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> logMessage<span class="op">();</span>        <span class="co">// Allowed: declaration across multiple TUs</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// file1.cpp</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;header.h&quot;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> globalCounter <span class="op">=</span> <span class="dv">0</span><span class="op">;</span>    <span class="co">// Valid: single definition</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// file2.cpp</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;header.h&quot;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> globalCounter <span class="op">=</span> <span class="dv">5</span><span class="op">;</span>    <span class="co">// Violation: multiple definition linker error</span></span></code></pre></div>
+<h3
+id="multiple-definitions-allowed-classes-templates-and-inline-entities">Multiple
+Definitions Allowed: Classes, Templates, and Inline Entities</h3>
+<p>Certain entities are designed to be included across multiple
+translation units. The ODR explicitly permits the definition of the
+following constructs in more than one TU:</p>
+<ul>
+<li>Class definitions (structs, classes, unions)</li>
+<li>Enumerations</li>
+<li>Inline functions and inline variables (including functions defined
+inside class bodies)</li>
+<li>Class and function templates</li>
+</ul>
+<p>However, this permission comes with strict constraints. If an entity
+is defined in more than one TU, all of the following conditions must be
+satisfied:</p>
+<ol type="1">
+<li><strong>Token-by-Token Match:</strong> Each definition must consist
+of the exact same sequence of tokens.</li>
+<li><strong>Identical Semantic Meaning:</strong> Every token must carry
+the identical meaning in each translation unit. Name lookup within each
+definition must resolve to the exact same entities across all
+units.</li>
+<li><strong>Identical Calling Conventions and Layouts:</strong> Any
+sub-objects or internal members must have the same alignment, size, and
+layout rules applied across all TUs.</li>
+</ol>
+<p>If a class definition appears in <code>file1.cpp</code> and
+<code>file2.cpp</code> via a shared header, the definition is permitted.
+But if the header behavior changes depending on conditional compilation
+(<code>#ifdef</code>) macros that differ between the two TUs, the rule
+is violated.</p>
+<h3 id="diagnostic-rules-and-undefined-behavior">Diagnostic Rules and
+Undefined Behavior</h3>
+<p>A critical aspect of the ODR across translation units is compiler
+enforcement:</p>
+<ul>
+<li><strong>Diagnosed Violations:</strong> Duplicate definitions of
+non-inline functions and global variables are caught by the linker,
+yielding an error (such as <code>multiple definition of...</code>).</li>
+<li><strong>Non-Diagnosed Violations:</strong> If a class, inline
+function, or template is defined differently in two translation units,
+the C++ standard designates this as a violation for which <strong>no
+diagnostic is required</strong>.</li>
+</ul>
+<p>When a diagnostic is not required, the linker will arbitrarily choose
+one definition and discard the others without issuing a warning. This
+leads to undefined behavior, which often manifests as silent memory
+corruption, mismatched struct offsets, corrupted virtual method tables
+(vtables), or hard-to-trace runtime crashes.</p>
+<h3 id="preventing-odr-violations">Preventing ODR Violations</h3>
+<p>To comply with the One Definition Rule across multiple translation
+units:</p>
+<ul>
+<li>Define all non-inline functions and global variables in single
+implementation files (<code>.cpp</code>).</li>
+<li>Place only declarations, classes, templates, and <code>inline</code>
+definitions inside headers.</li>
+<li>Use include guards (<code>#pragma once</code> or
+<code>#ifndef</code> guards) to prevent multiple definitions within a
+single TU.</li>
+<li>Avoid using macro definitions to conditionally alter struct or class
+layouts across different compilation units.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-one-definition-rule-across-translation-units';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

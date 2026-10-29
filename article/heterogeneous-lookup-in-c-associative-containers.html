@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heterogeneous Lookup in C++ Associative Containers - cpp</title>
+    <meta name="description" content="Heterogeneous lookup, introduced in C++14 for ordered containers and expanded in C++20 to unordered containers, enables associative containers such as std::map, std::set, and std::unorderedmap to perform search operations using types different from the st">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/heterogeneous-lookup-in-c-associative-containers">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Heterogeneous Lookup in C++ Associative Containers - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/heterogeneous-lookup-in-c-associative-containers" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Heterogeneous lookup, introduced in C++14 for ordered containers and expanded in C++20 to unordered containers, enables associative containers such as std::map, std::set, and std::unorderedmap to perform search operations using types different from the st" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="heterogeneous-lookup-in-c-associative-containers">Heterogeneous
+Lookup in C++ Associative Containers</h1>
+<p>Heterogeneous lookup, introduced in C++14 for ordered containers and
+expanded in C++20 to unordered containers, enables associative
+containers such as <code>std::map</code>, <code>std::set</code>, and
+<code>std::unordered_map</code> to perform search operations using types
+different from the stored key type. By accepting lookup keys that can be
+compared directly to the stored key without type conversion, this
+feature completely eliminates the creation and destruction of expensive
+temporary objects—such as dynamic memory allocations caused by
+converting <code>const char*</code> or <code>std::string_view</code> to
+<code>std::string</code>.</p>
+<h2 id="the-traditional-lookup-problem">The Traditional Lookup
+Problem</h2>
+<p>In earlier C++ standards, container search member functions—including
+<code>find()</code>, <code>count()</code>, <code>lower_bound()</code>,
+and <code>equal_range()</code>—required an argument matching the
+container's <code>key_type</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>iterator find<span class="op">(</span><span class="at">const</span> Key<span class="op">&amp;</span> key<span class="op">);</span></span></code></pre></div>
+<p>When an associative container used <code>std::string</code> as its
+key, querying that container required an instance of
+<code>std::string</code>. If a developer queried the container using a
+string literal (<code>const char*</code>) or a
+<code>std::string_view</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>set<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">&gt;</span> my_set<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">// ...</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> it <span class="op">=</span> my_set<span class="op">.</span>find<span class="op">(</span><span class="st">&quot;query_string&quot;</span><span class="op">);</span></span></code></pre></div>
+<p>The compiler was forced to construct an implicit temporary
+<code>std::string</code> from the string literal to satisfy the
+parameter type <code>const std::string&amp;</code>. Even with Small
+String Optimization (SSO), constructing this temporary object incurs
+overhead, including calculating the string length and copying character
+buffers. If the string exceeds the SSO threshold, it triggers dynamic
+heap allocation and deallocation on every lookup call.</p>
+<h2 id="the-mechanism-of-heterogeneous-lookup">The Mechanism of
+Heterogeneous Lookup</h2>
+<p>Heterogeneous lookup replaces the fixed-type parameter with a
+templated member function overload:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> K<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>iterator find<span class="op">(</span><span class="at">const</span> K<span class="op">&amp;</span> x<span class="op">);</span></span></code></pre></div>
+<p>Instead of requiring an instance of <code>Key</code>, the member
+function accepts any type <code>K</code> that the container's comparator
+knows how to compare against <code>Key</code>.</p>
+<p>To prevent ambiguous conversions or unintended behaviors, this
+feature is opt-in. A comparator signals support for heterogeneous lookup
+by defining a nested type alias named <code>is_transparent</code>. When
+the container detects <code>Compare::is_transparent</code>, it enables
+the templated lookup overloads via SFINAE
+(<code>std::enable_if</code>).</p>
+<h2 id="ordered-containers-c14">Ordered Containers (C++14)</h2>
+<p>For ordered associative containers (<code>std::set</code>,
+<code>std::multiset</code>, <code>std::map</code>,
+<code>std::multimap</code>), heterogeneous lookup requires using a
+transparent comparison functor. The standard library provides
+transparent versions of its standard functors when invoked with
+<code>void</code> (the default template argument in C++14):</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;set&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string_view&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Enable heterogeneous lookup using std::less&lt;&gt;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>set<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">,</span> <span class="bu">std::</span>less<span class="op">&lt;&gt;&gt;</span> names <span class="op">=</span> <span class="op">{</span><span class="st">&quot;Alice&quot;</span><span class="op">,</span> <span class="st">&quot;Bob&quot;</span><span class="op">,</span> <span class="st">&quot;Charlie&quot;</span><span class="op">};</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string_view target <span class="op">=</span> <span class="st">&quot;Bob&quot;</span><span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Directly compares std::string_view to std::string without allocating a temporary std::string</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> it <span class="op">=</span> names<span class="op">.</span>find<span class="op">(</span>target<span class="op">);</span> </span></code></pre></div>
+<p>Because <code>std::less&lt;void&gt;</code> provides overloaded
+comparison operators that accept mixed operand types
+(<code>operator()(const std::string&amp;, std::string_view)</code>), the
+container compares the stored element with the input reference
+directly.</p>
+<h2 id="unordered-containers-c20">Unordered Containers (C++20)</h2>
+<p>In C++20, heterogeneous lookup was extended to unordered associative
+containers (<code>std::unordered_set</code>,
+<code>std::unordered_map</code>, etc.). Unordered containers require
+both a transparent hash function and a transparent equality
+predicate.</p>
+<p>To use heterogeneous lookup in an unordered container:</p>
+<ol type="1">
+<li>The <strong>hasher</strong> must define <code>is_transparent</code>
+and provide <code>operator()</code> overloads for both the stored key
+type and the search key types.</li>
+<li>The <strong>key equal predicate</strong> must define
+<code>is_transparent</code> (such as
+<code>std::equal_to&lt;&gt;</code>).</li>
+</ol>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unordered_set&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string_view&gt;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> StringHash <span class="op">{</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> is_transparent <span class="op">=</span> <span class="dt">void</span><span class="op">;</span> <span class="co">// Mark hasher as transparent</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">size_t</span> <span class="kw">operator</span><span class="op">()(</span><span class="bu">std::</span>string_view sv<span class="op">)</span> <span class="at">const</span> <span class="op">{</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">std::</span>hash<span class="op">&lt;</span><span class="bu">std::</span>string_view<span class="op">&gt;{}(</span>sv<span class="op">);</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Container setup with transparent hash and transparent equality</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>unordered_set<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">,</span> StringHash<span class="op">,</span> <span class="bu">std::</span>equal_to<span class="op">&lt;&gt;&gt;</span> dict<span class="op">;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> lookup<span class="op">(</span><span class="bu">std::</span>string_view sv<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Calculates hash of std::string_view and compares directly to std::string</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Zero heap allocations occur</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> it <span class="op">=</span> dict<span class="op">.</span>find<span class="op">(</span>sv<span class="op">);</span> </span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="summary-of-benefits">Summary of Benefits</h2>
+<ol type="1">
+<li><strong>Zero Temporary Allocations:</strong> Queries matching
+strings, raw pointers, or slices execute without heap allocations or
+buffer copies.</li>
+<li><strong>Improved Cache Locality:</strong> Eliminating intermediate
+temporary objects reduces cache pollution and minimizes stack
+traffic.</li>
+<li><strong>Drop-in Optimization:</strong> In ordered containers,
+switching from <code>std::set&lt;std::string&gt;</code> to
+<code>std::set&lt;std::string, std::less&lt;&gt;&gt;</code> activates
+the optimization without requiring any changes to lookup call
+sites.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/heterogeneous-lookup-in-c-associative-containers';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

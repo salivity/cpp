@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How C++ List Initialization Prevents Narrowing Conversions - cpp</title>
+    <meta name="description" content="List initialization, introduced in C++11 and commonly referred to as uniform initialization, significantly improves type safety by disallowing narrowing conversions at compile time. Traditional initialization methods, such as copy initialization or direct">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-c-list-initialization-prevents-narrowing-conversions">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How C++ List Initialization Prevents Narrowing Conversions - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-c-list-initialization-prevents-narrowing-conversions" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="List initialization, introduced in C++11 and commonly referred to as uniform initialization, significantly improves type safety by disallowing narrowing conversions at compile time. Traditional initialization methods, such as copy initialization or direct" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-c-list-initialization-prevents-narrowing-conversions">How
+C++ List Initialization Prevents Narrowing Conversions</h1>
+<p>List initialization, introduced in C++11 and commonly referred to as
+uniform initialization, significantly improves type safety by
+disallowing narrowing conversions at compile time. Traditional
+initialization methods, such as copy initialization or direct
+initialization using parentheses, often permit implicit numeric
+conversions that silently truncate data or alter values. By using braced
+syntax (<code>{}</code>), C++ ensures that any potential loss of
+precision or unexpected value mutation triggers a compilation error,
+thereby catching subtle numeric bugs early in the development cycle.</p>
+<h3 id="understanding-narrowing-conversions">Understanding Narrowing
+Conversions</h3>
+<p>A narrowing conversion occurs when a numeric value of one type is
+converted to another type that cannot represent all possible values of
+the original type. In classic C and earlier C++ standards, these
+conversions happened implicitly with little to no compiler
+diagnostics.</p>
+<p>According to the C++ standard, a conversion is classified as
+narrowing when:</p>
+<ul>
+<li>A floating-point type is converted to an integer type.</li>
+<li>A higher-precision floating-point type is converted to a
+lower-precision floating-point type (e.g., <code>double</code> to
+<code>float</code>), unless the source value is a constant expression
+that can be stored without loss of precision.</li>
+<li>An integer type is converted to a floating-point type that cannot
+represent all values of the integer type exactly (for example,
+converting a 64-bit integer to a 32-bit <code>float</code>).</li>
+<li>An integer type is converted to a smaller integer type or to an
+integer type of differing signedness, unless the source is a constant
+expression whose value fits completely within the target type.</li>
+</ul>
+<h3 id="traditional-initialization-vs-list-initialization">Traditional
+Initialization vs. List Initialization</h3>
+<p>Consider what happens when initializing variables using traditional
+assignment or parentheses:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Compiles silently, but truncates 3.9 to 3</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a <span class="op">=</span> <span class="fl">3.9</span><span class="op">;</span> </span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Compiles, but potentially overflows or truncates depending on the target width</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">long</span> <span class="dt">long</span> large_val <span class="op">=</span> <span class="dv">10000000000</span><span class="bu">LL</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> b<span class="op">(</span>large_val<span class="op">);</span> </span></code></pre></div>
+<p>In both cases, the compiler performs an implicit cast. The fractional
+part of <code>3.9</code> is discarded, and <code>large_val</code> is
+truncated to fit into an <code>int</code>, potentially causing severe
+runtime logic errors.</p>
+<p>With list initialization, the compiler enforces strict
+boundaries:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Compilation Error: narrowing conversion from &#39;double&#39; to &#39;int&#39;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a<span class="op">{</span><span class="fl">3.9</span><span class="op">};</span> </span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Compilation Error: narrowing conversion from &#39;long long&#39; to &#39;int&#39;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="dt">long</span> <span class="dt">long</span> large_val <span class="op">=</span> <span class="dv">10000000000</span><span class="bu">LL</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> b<span class="op">{</span>large_val<span class="op">};</span> </span></code></pre></div>
+<p>The compiler rejects these statements because the target type cannot
+guarantee that the exact value of the initializer is preserved.</p>
+<h3 id="constant-expressions-and-compile-time-checks">Constant
+Expressions and Compile-Time Checks</h3>
+<p>List initialization does not completely ban cross-type conversions;
+instead, it bans conversions that cannot guarantee value preservation.
+If the initializer is a constant expression known at compile time, and
+its value falls safely within the range of the target type, the
+initialization is permitted.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Allowed: 42 is a compile-time constant that safely fits into a char</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> c<span class="op">{</span><span class="dv">42</span><span class="op">};</span> </span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Compilation Error: 300 exceeds the range of a standard signed 8-bit char (-128 to 127)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> d<span class="op">{</span><span class="dv">300</span><span class="op">};</span> </span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Compilation Error: &#39;val&#39; is not constexpr, so the compiler cannot guarantee safety</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> val <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> e<span class="op">{</span>val<span class="op">};</span> </span></code></pre></div>
+<p>Because <code>val</code> is evaluated at runtime, the compiler cannot
+verify whether its value fits inside a <code>char</code>, and list
+initialization flags it as an ill-formed narrowing conversion.</p>
+<h3 id="practical-impact-on-software-safety">Practical Impact on
+Software Safety</h3>
+<p>By converting silent data corruption into hard compiler errors, list
+initialization serves as an essential tool for defensive programming in
+C++. It eliminates silent precision loss in calculations, prevents
+unexpected signedness mismatches, and forces developers to be explicit
+when a lossy conversion is genuinely intended, requiring an explicit
+<code>static_cast</code>.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-c-list-initialization-prevents-narrowing-conversions';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

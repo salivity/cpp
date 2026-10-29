@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forwarding Reference vs Rvalue Reference in C++ - cpp</title>
+    <meta name="description" content="In modern C++, both forwarding references (historically termed &quot;universal references&quot;) and standard rvalue references share the exact same &amp;&amp; token syntax, which frequently causes confusion. This article breaks down the syntactic and contextual difference">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/forwarding-reference-vs-rvalue-reference-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Forwarding Reference vs Rvalue Reference in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/forwarding-reference-vs-rvalue-reference-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, both forwarding references (historically termed &quot;universal references&quot;) and standard rvalue references share the exact same &amp;&amp; token syntax, which frequently causes confusion. This article breaks down the syntactic and contextual difference" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="forwarding-reference-vs-rvalue-reference-in-c">Forwarding
+Reference vs Rvalue Reference in C++</h1>
+<p>In modern C++, both forwarding references (historically termed
+"universal references") and standard rvalue references share the exact
+same <code>&amp;&amp;</code> token syntax, which frequently causes
+confusion. This article breaks down the syntactic and contextual
+differences between the two, explaining how type deduction and the
+presence of <code>const</code> determine whether an expression acts as a
+strict rvalue reference or as a flexible forwarding reference capable of
+binding to both lvalues and rvalues.</p>
+<h3 id="the-underlying-syntactic-identity">The Underlying Syntactic
+Identity</h3>
+<p>Both references use the double ampersand (<code>&amp;&amp;</code>).
+The compiler decides whether <code>&amp;&amp;</code> represents an
+rvalue reference or a forwarding reference based entirely on the
+presence of <strong>type deduction</strong>.</p>
+<ul>
+<li><strong>Rvalue Reference:</strong> Used when the type is fully known
+and fixed (no type deduction occurs).</li>
+<li><strong>Forwarding Reference:</strong> Used when the type being
+referenced is explicitly deduced by the compiler during function
+template instantiation or <code>auto</code> type inference.</li>
+</ul>
+<h3 id="syntax-of-an-rvalue-reference">Syntax of an Rvalue
+Reference</h3>
+<p>An rvalue reference binds strictly to rvalues (temporary objects and
+values explicitly cast via <code>std::move</code>). Its syntax requires
+a concrete, non-deduced type:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="dt">int</span><span class="op">&amp;&amp;</span> x<span class="op">);</span>         <span class="co">// Concrete type: rvalue reference</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="bu">std::</span>string<span class="op">&amp;&amp;</span> s<span class="op">);</span> <span class="co">// Concrete type: rvalue reference</span></span></code></pre></div>
+<p>Even inside a template class, an argument using
+<code>&amp;&amp;</code> might still be a normal rvalue reference if its
+type does not depend on a deduction taking place at the function call
+site:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Widget <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// T is deduced when the class is instantiated, NOT when push is called.</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Therefore, this is an rvalue reference, NOT a forwarding reference.</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> push<span class="op">(</span>T<span class="op">&amp;&amp;</span> item<span class="op">);</span> </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="syntax-of-a-forwarding-reference">Syntax of a Forwarding
+Reference</h3>
+<p>A forwarding reference must involve a type that is being deduced at
+the point of initialization or call. Syntactically, it appears in two
+primary forms:</p>
+<h4 id="1-function-templates-with-template-parameter-deduction">1.
+Function Templates with Template Parameter Deduction</h4>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span>T<span class="op">&amp;&amp;</span> arg<span class="op">);</span> <span class="co">// T is deduced here: forwarding reference</span></span></code></pre></div>
+<p>Because <code>T</code> is deduced when calling
+<code>process(val)</code>, passing an lvalue causes <code>T</code> to
+deduce as an lvalue reference (<code>int&amp;</code>), while passing an
+rvalue causes <code>T</code> to deduce as a non-reference type
+(<code>int</code>).</p>
+<h4 id="2-auto-type-deduction">2. Auto Type Deduction</h4>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span><span class="op">&amp;&amp;</span> var <span class="op">=</span> getValue<span class="op">();</span> <span class="co">// Forwarding reference</span></span></code></pre></div>
+<p>Like template deduction, <code>auto&amp;&amp;</code> inspects the
+initializer expression. If <code>getValue()</code> returns an lvalue,
+<code>var</code> becomes an lvalue reference; if it returns a temporary
+rvalue, <code>var</code> becomes an rvalue reference.</p>
+<h3 id="critical-rules-altering-the-syntax">Critical Rules Altering the
+Syntax</h3>
+<p>Small syntactic adjustments strip away forwarding capabilities,
+turning the reference back into a standard rvalue reference:</p>
+<ol type="1">
+<li><p><strong>The <code>const</code> Qualifier:</strong> Adding
+<code>const</code> disables forwarding behavior because a forwarding
+reference must be able to bind to a mutable lvalue without forcing
+<code>const</code> upon it.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="at">const</span> T<span class="op">&amp;&amp;</span> arg<span class="op">);</span> <span class="co">// Rvalue reference to const, NOT a forwarding reference.</span></span></code></pre></div></li>
+<li><p><strong>Container Modifiers:</strong> Wrapping the deduced type
+inside another type eliminates forwarding properties:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="bu">std::</span>vector<span class="op">&lt;</span>T<span class="op">&gt;&amp;&amp;</span> vec<span class="op">);</span> <span class="co">// Rvalue reference to a vector, NOT a forwarding reference.</span></span></code></pre></div></li>
+</ol>
+<h3 id="reference-collapsing-why-the-distinction-matters">Reference
+Collapsing: Why the Distinction Matters</h3>
+<p>The syntax dictates whether the C++ <strong>reference collapsing
+rules</strong> are triggered:</p>
+<ul>
+<li><code>&amp;</code> + <code>&amp;</code> <span
+class="math inline">\(\rightarrow\)</span> <code>&amp;</code></li>
+<li><code>&amp;</code> + <code>&amp;&amp;</code> <span
+class="math inline">\(\rightarrow\)</span> <code>&amp;</code></li>
+<li><code>&amp;&amp;</code> + <code>&amp;</code> <span
+class="math inline">\(\rightarrow\)</span> <code>&amp;</code></li>
+<li><code>&amp;&amp;</code> + <code>&amp;&amp;</code> <span
+class="math inline">\(\rightarrow\)</span> <code>&amp;&amp;</code></li>
+</ul>
+<p>Forwarding reference syntax relies on these rules to preserve the
+value category of the argument. Consequently, standard convention
+mandates using <code>std::move</code> on rvalue references (to transfer
+ownership) and <code>std::forward&lt;T&gt;</code> on forwarding
+references (to preserve whether the caller passed an lvalue or an
+rvalue).</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/forwarding-reference-vs-rvalue-reference-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

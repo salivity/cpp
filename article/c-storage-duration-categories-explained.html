@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Storage Duration Categories Explained - cpp</title>
+    <meta name="description" content="In C++, storage duration defines the lifetime of an object, dictating precisely when its storage is allocated and when it is deallocated. The language classifies storage duration into four distinct categories: automatic, static, dynamic, and thread storag">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-storage-duration-categories-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Storage Duration Categories Explained - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-storage-duration-categories-explained" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, storage duration defines the lifetime of an object, dictating precisely when its storage is allocated and when it is deallocated. The language classifies storage duration into four distinct categories: automatic, static, dynamic, and thread storag" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-storage-duration-categories-explained">C++ Storage Duration
+Categories Explained</h1>
+<p>In C++, storage duration defines the lifetime of an object, dictating
+precisely when its storage is allocated and when it is deallocated. The
+language classifies storage duration into four distinct categories:
+automatic, static, dynamic, and thread storage duration. Understanding
+how these categories function is critical for writing memory-safe,
+efficient, and bug-free C++ code, as managing object lifecycles directly
+affects resource management and program performance.</p>
+<h3 id="automatic-storage-duration">Automatic Storage Duration</h3>
+<p>Automatic storage duration is the default for all local objects
+declared inside a block or function, provided they are not declared with
+the <code>static</code>, <code>extern</code>, or
+<code>thread_local</code> specifiers. Storage for these objects is
+allocated automatically on the call stack when program execution enters
+the enclosing code block and is deallocated when execution leaves that
+block. Their lifetime is strictly bound to the scope in which they are
+defined, which forms the foundation of the Resource Acquisition Is
+Initialization (RAII) idiom in C++. Function parameters also have
+automatic storage duration.</p>
+<h3 id="static-storage-duration">Static Storage Duration</h3>
+<p>Objects with static storage duration persist for the entire runtime
+of the program. Their memory is allocated when the program starts and is
+deallocated when the program terminates. This category applies to:</p>
+<ul>
+<li>Global variables (declared outside of any function or class).</li>
+<li>Variables declared inside a namespace.</li>
+<li>Local variables declared with the <code>static</code> keyword inside
+a function (initialized only once, the first time execution passes
+through their declaration).</li>
+<li>Static data members of a class.</li>
+</ul>
+<p>Static objects are initialized before the execution of the
+<code>main()</code> function, except for local static variables, which
+undergo lazy initialization upon their first use.</p>
+<h3 id="dynamic-storage-duration">Dynamic Storage Duration</h3>
+<p>Dynamic storage duration applies to objects whose memory is allocated
+and deallocated explicitly at runtime on the free store (heap). These
+objects are created using the <code>new</code> or <code>new[]</code>
+operators (or C-style allocation functions like <code>malloc</code>) and
+remain alive until they are explicitly destroyed using
+<code>delete</code> or <code>delete[]</code> (or <code>free</code>).</p>
+<p>Because their lifecycles are independent of the scope in which they
+were created, failing to deallocate dynamically allocated objects leads
+to memory leaks, while deallocating them multiple times results in
+undefined behavior. Modern C++ heavily encourages managing dynamic
+storage duration through smart pointers like
+<code>std::unique_ptr</code> and <code>std::shared_ptr</code> rather
+than raw pointers to automate deallocation.</p>
+<h3 id="thread-storage-duration">Thread Storage Duration</h3>
+<p>Introduced in C++11, thread storage duration applies to objects
+declared with the <code>thread_local</code> specifier. An object with
+thread storage duration has a distinct instance created for each running
+thread. Its storage is allocated when the thread begins execution and is
+released when that specific thread terminates.</p>
+<p>Thread-local objects allow concurrent execution flows to read and
+modify data without race conditions or the need for synchronization
+primitives like mutexes, because each thread interacts exclusively with
+its own independent instance of the object.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-storage-duration-categories-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

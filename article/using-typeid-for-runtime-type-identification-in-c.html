@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using typeid for Runtime Type Identification in C++ - cpp</title>
+    <meta name="description" content="This article provides an overview of how the typeid operator enables runtime type identification (RTTI) in C++. It explains the distinction between static and dynamic type resolution, how compilers use virtual method tables (vtables) to retrieve runtime t">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/using-typeid-for-runtime-type-identification-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using typeid for Runtime Type Identification in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/using-typeid-for-runtime-type-identification-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of how the typeid operator enables runtime type identification (RTTI) in C++. It explains the distinction between static and dynamic type resolution, how compilers use virtual method tables (vtables) to retrieve runtime t" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-typeid-for-runtime-type-identification-in-c">Using typeid
+for Runtime Type Identification in C++</h1>
+<p>This article provides an overview of how the <code>typeid</code>
+operator enables runtime type identification (RTTI) in C++. It explains
+the distinction between static and dynamic type resolution, how
+compilers use virtual method tables (vtables) to retrieve runtime type
+metadata, and the practical requirements for correctly identifying
+derived classes through base class references or pointers.</p>
+<p>In C++, <code>typeid</code> is an operator used to query the type of
+an expression at runtime or compile time. It yields a reference to a
+constant <code>std::type_info</code> object defined in the
+<code>&lt;typeinfo&gt;</code> header, which holds implementation-defined
+metadata about the type, including its name and equality comparison
+capabilities.</p>
+<h3 id="static-vs-dynamic-resolution">Static vs. Dynamic Resolution</h3>
+<p>The behavior of <code>typeid</code> depends fundamentally on whether
+the evaluated expression involves a polymorphic type:</p>
+<ol type="1">
+<li><strong>Non-Polymorphic Types:</strong> If an expression is a
+fundamental type, a non-class type, or a class without any virtual
+functions, <code>typeid</code> resolves the type purely at compile time.
+The compiler inspects the static type of the operand, discarding any
+dynamic evaluation.</li>
+<li><strong>Polymorphic Types:</strong> If the operand is a dereferenced
+pointer or a reference to a class type that contains at least one
+<code>virtual</code> function, <code>typeid</code> defers evaluation to
+runtime. This allows it to determine the actual derived type of the
+object rather than the static type of the reference or pointer.</li>
+</ol>
+<h3 id="how-typeid-works-under-the-hood">How <code>typeid</code> Works
+Under the Hood</h3>
+<p>Dynamic type identification relies on the compiler's implementation
+of Run-Time Type Information (RTTI), which is integrated into the
+class's virtual table infrastructure:</p>
+<ul>
+<li><strong>The Virtual Table Pointer (<code>vptr</code>):</strong>
+Every instance of a polymorphic class contains an implicit pointer
+(<code>vptr</code>) that points to that class's virtual table
+(<code>vtable</code>).</li>
+<li><strong>Type Information Metadata:</strong> Modern ABIs (such as the
+Itanium C++ ABI used by GCC and Clang, as well as MSVC's ABI) allocate a
+pointer to a <code>std::type_info</code> structure alongside the virtual
+function pointers inside each class's <code>vtable</code>—typically at a
+fixed negative offset relative to the function pointers.</li>
+<li><strong>Runtime Lookup:</strong> When <code>typeid(*base_ptr)</code>
+is executed, the program follows the object's <code>vptr</code> to its
+<code>vtable</code>, reads the associated <code>std::type_info</code>
+pointer, and returns a reference to that specific instance's runtime
+type metadata.</li>
+</ul>
+<h3 id="practical-implementation">Practical Implementation</h3>
+<p>To inspect dynamic types correctly, the pointer must be dereferenced
+so that the operator inspects the object itself rather than the pointer
+variable:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;typeinfo&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Base <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="op">~</span>Base<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span> <span class="co">// Declares the class as polymorphic</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base <span class="op">{};</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    Base<span class="op">*</span> ptr <span class="op">=</span> <span class="kw">new</span> Derived<span class="op">();</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Querying the pointer yields static type &quot;Base*&quot;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="kw">typeid</span><span class="op">(</span>ptr<span class="op">).</span>name<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Querying the dereferenced object yields dynamic type &quot;Derived&quot;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="kw">typeid</span><span class="op">(*</span>ptr<span class="op">).</span>name<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Comparing types directly</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span><span class="kw">typeid</span><span class="op">(*</span>ptr<span class="op">)</span> <span class="op">==</span> <span class="kw">typeid</span><span class="op">(</span>Derived<span class="op">))</span> <span class="op">{</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Object is an instance of Derived</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">delete</span> ptr<span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="critical-considerations">Critical Considerations</h3>
+<ul>
+<li><strong>Dereferencing Null Pointers:</strong> If <code>typeid</code>
+is applied to a dereferenced null pointer of a polymorphic type (e.g.,
+<code>typeid(*ptr)</code> where <code>ptr</code> is
+<code>nullptr</code>), the C++ runtime throws a
+<code>std::bad_typeid</code> exception instead of causing undefined
+behavior.</li>
+<li><strong>Exact Matching vs. Inheritance:</strong> <code>typeid</code>
+checks for exact type identity. Unlike <code>dynamic_cast</code>,
+comparing <code>typeid(*ptr) == typeid(Base)</code> evaluates to
+<code>false</code> if <code>*ptr</code> is an instance of
+<code>Derived</code>, as it does not account for class hierarchy
+relationships.</li>
+<li><strong>Compiler Settings:</strong> RTTI can introduce a minor
+overhead in binary size and execution speed. Consequently, some
+environments allow disabling RTTI via compiler flags (such as
+<code>-fno-rtti</code> in GCC/Clang or <code>/GR-</code> in MSVC), which
+disables dynamic <code>typeid</code> evaluation.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/using-typeid-for-runtime-type-identification-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

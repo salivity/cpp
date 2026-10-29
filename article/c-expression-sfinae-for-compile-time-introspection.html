@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Expression SFINAE for Compile-Time Introspection - cpp</title>
+    <meta name="description" content="This article examines how Expression SFINAE (Substitution Failure Is Not An Error) facilitates compile-time introspection in C++. It covers the core mechanics of template argument deduction, demonstrates how invalid expressions are discarded without gener">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-expression-sfinae-for-compile-time-introspection">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Expression SFINAE for Compile-Time Introspection - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-expression-sfinae-for-compile-time-introspection" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article examines how Expression SFINAE (Substitution Failure Is Not An Error) facilitates compile-time introspection in C++. It covers the core mechanics of template argument deduction, demonstrates how invalid expressions are discarded without gener" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-expression-sfinae-for-compile-time-introspection">C++
+Expression SFINAE for Compile-Time Introspection</h1>
+<p>This article examines how Expression SFINAE (Substitution Failure Is
+Not An Error) facilitates compile-time introspection in C++. It covers
+the core mechanics of template argument deduction, demonstrates how
+invalid expressions are discarded without generating compilation errors,
+and explains how to query the capabilities of a type—such as detecting
+member functions, member types, or supported operators—before code
+generation.</p>
+<h3 id="the-mechanics-of-sfinae-and-expressions">The Mechanics of SFINAE
+and Expressions</h3>
+<p>SFINAE is a fundamental rule in C++ template instantiation: if an
+invalid type or expression is formed during template argument
+substitution within the immediate context of a function template
+signature, the compiler does not emit a hard error. Instead, it drops
+that specific candidate from the overload set.</p>
+<p>Expression SFINAE extends this principle from simple types to
+arbitrary expressions. By placing an expression inside a substitution
+context—typically using <code>decltype</code>, <code>sizeof</code>, or
+trailing return types—developers can test whether a given operation is
+syntactically valid for a given type.</p>
+<p>Two language utilities are essential for constructing these
+expressions:</p>
+<ul>
+<li><code>std::declval&lt;T&gt;()</code>: Allows the creation of
+pseudo-objects of type <code>T</code> within unevaluated contexts,
+enabling method calls and member access without requiring default
+constructors or public instantiation.</li>
+<li><code>decltype(...)</code>: Inspects the type of an expression. If
+the expression contains an invalid operation for type <code>T</code>,
+substitution fails.</li>
+</ul>
+<h3 id="implementing-type-introspection">Implementing Type
+Introspection</h3>
+<p>To inspect a type, the compiler is presented with two or more
+template overloads: one specialized overload that attempts the desired
+expression, and a fallback overload that is always valid.</p>
+<p>Consider detecting whether a class <code>T</code> has a
+<code>serialize()</code> member function:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;type_traits&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;utility&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Primary template: Fallback case</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="kw">typename</span> <span class="op">=</span> <span class="dt">void</span><span class="op">&gt;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> has_serialize <span class="op">:</span> <span class="bu">std::</span>false_type <span class="op">{};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Specialization: Selected if the expression in decltype is well-formed</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> has_serialize<span class="op">&lt;</span>T<span class="op">,</span> <span class="bu">std::</span>void_t<span class="op">&lt;</span><span class="kw">decltype</span><span class="op">(</span><span class="bu">std::</span>declval<span class="op">&lt;</span>T<span class="op">&gt;().</span>serialize<span class="op">())&gt;&gt;</span> </span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> <span class="bu">std::</span>true_type <span class="op">{};</span></span></code></pre></div>
+<p>In this idiom:</p>
+<ol type="1">
+<li><code>std::void_t</code> maps any valid type or sequence of types to
+<code>void</code>.</li>
+<li>When the compiler evaluates
+<code>has_serialize&lt;MyType&gt;</code>, it checks the specialization
+first.</li>
+<li>It substitutes <code>MyType</code> into
+<code>decltype(std::declval&lt;T&gt;().serialize())</code>.</li>
+<li>If <code>MyType</code> has a callable <code>serialize()</code>
+function, the expression is valid, <code>std::void_t</code> resolves to
+<code>void</code>, and the specialization matches the default template
+argument <code>typename = void</code>. The trait inherits from
+<code>std::true_type</code>.</li>
+<li>If <code>MyType</code> lacks <code>serialize()</code>, substitution
+fails. Because of SFINAE, compilation does not halt; the compiler
+discards the specialization and falls back to the primary template,
+inheriting from <code>std::false_type</code>.</li>
+</ol>
+<h3 id="introspecting-operators-and-conversions">Introspecting Operators
+and Conversions</h3>
+<p>Expression SFINAE is not limited to member functions. It can test any
+syntax allowed by the language:</p>
+<ul>
+<li><p><strong>Operator Support:</strong> Checking if two types can be
+added:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="kw">typename</span> U<span class="op">,</span> <span class="kw">typename</span> <span class="op">=</span> <span class="dt">void</span><span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> is_addable <span class="op">:</span> <span class="bu">std::</span>false_type <span class="op">{};</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="kw">typename</span> U<span class="op">&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> is_addable<span class="op">&lt;</span>T<span class="op">,</span> U<span class="op">,</span> <span class="bu">std::</span>void_t<span class="op">&lt;</span><span class="kw">decltype</span><span class="op">(</span><span class="bu">std::</span>declval<span class="op">&lt;</span>T<span class="op">&gt;()</span> <span class="op">+</span> <span class="bu">std::</span>declval<span class="op">&lt;</span>U<span class="op">&gt;())&gt;&gt;</span> </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">:</span> <span class="bu">std::</span>true_type <span class="op">{};</span></span></code></pre></div></li>
+<li><p><strong>Nested Types:</strong> Testing for internal type
+definitions (e.g., <code>typename T::value_type</code>).</p></li>
+<li><p><strong>Return Type Checking:</strong> Verifying that a function
+returns a specific type by wrapping the expression in
+<code>std::is_same</code> or <code>std::convertible_to</code>.</p></li>
+</ul>
+<h3 id="function-overload-selection-via-trailing-return-types">Function
+Overload Selection via Trailing Return Types</h3>
+<p>Introspection can also be performed directly on function templates to
+conditionally enable or disable implementations based on type
+properties:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Enabled only for types supporting &lt;&lt; on std::cout</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> print<span class="op">(</span><span class="at">const</span> T<span class="op">&amp;</span> item<span class="op">)</span> <span class="op">-&gt;</span> <span class="kw">decltype</span><span class="op">(</span><span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> item<span class="op">,</span> <span class="dt">void</span><span class="op">())</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> item <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Fallback for types that do not support &lt;&lt;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> print<span class="op">(...)</span> <span class="op">{</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Type cannot be streamed.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The comma operator <code>(std::cout &lt;&lt; item, void())</code>
+evaluates the left-hand expression for SFINAE validity while evaluating
+to <code>void</code> as the function's actual return type.</p>
+<h3 id="role-in-modern-c">Role in Modern C++</h3>
+<p>Expression SFINAE formed the foundation of the Detection Idiom
+standardized conceptually in C++17 via
+<code>std::experimental::is_detected</code>. While modern C++20
+introduces Concepts and <code>requires</code> expressions—which provide
+a cleaner, more readable syntax for compile-time
+introspection—Expression SFINAE remains the underlying mechanism used
+across legacy codebases and pre-C++20 standards to achieve safe, static
+interface verification.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-expression-sfinae-for-compile-time-introspection';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

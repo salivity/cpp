@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C and C++ Interoperability Mechanisms - cpp</title>
+    <meta name="description" content="Seamless interoperability between C and C++ relies on a shared ancestry, a common Application Binary Interface (ABI) foundation, and language-level linkage directives. This article outlines the core mechanisms that allow both languages to call each other&#39;">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-and-c-interoperability-mechanisms">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C and C++ Interoperability Mechanisms - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-and-c-interoperability-mechanisms" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Seamless interoperability between C and C++ relies on a shared ancestry, a common Application Binary Interface (ABI) foundation, and language-level linkage directives. This article outlines the core mechanisms that allow both languages to call each other&#39;" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-and-c-interoperability-mechanisms">C and C++ Interoperability
+Mechanisms</h1>
+<p>Seamless interoperability between C and C++ relies on a shared
+ancestry, a common Application Binary Interface (ABI) foundation, and
+language-level linkage directives. This article outlines the core
+mechanisms that allow both languages to call each other's functions and
+share data structures without runtime overhead. Key concepts covered
+include the <code>extern "C"</code> linkage specification, the
+<code>__cplusplus</code> preprocessor macro, standard-layout data types,
+calling conventions, and foreign function interface patterns such as
+opaque pointers.</p>
+<h3 id="the-extern-c-linkage-directive">The <code>extern "C"</code>
+Linkage Directive</h3>
+<p>The primary barrier to linking C and C++ code is name mangling (or
+name decoration). C++ compilers alter function names in the compiled
+object file to encode parameter types, enabling function overloading. In
+contrast, C compilers retain the exact symbol name defined in the source
+code.</p>
+<p>The <code>extern "C"</code> directive instructs the C++ compiler to
+use C-style linkage for the specified functions, disabling name
+mangling.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="at">extern</span> <span class="st">&quot;C&quot;</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> c_function<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">double</span> b<span class="op">);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> another_c_call<span class="op">(</span><span class="dt">void</span><span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When this directive is applied, the linker can match calls from C++
+code to the raw symbol names generated by a C compiler.</p>
+<h3 id="the-__cplusplus-header-guard-pattern">The
+<code>__cplusplus</code> Header Guard Pattern</h3>
+<p>To allow a single header file to be included in both C and C++ source
+files, developers use the built-in <code>__cplusplus</code> macro.
+Because pure C compilers do not recognize the <code>extern "C"</code>
+keyword, conditional compilation is required:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifndef MY_API_H</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MY_API_H</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifdef __cplusplus</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">extern</span> <span class="st">&quot;C&quot;</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> execute_task<span class="op">(</span><span class="dt">int</span> task_id<span class="op">);</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> calculate_result<span class="op">(</span><span class="dt">void</span><span class="op">);</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifdef __cplusplus</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span></code></pre></div>
+<p>When parsed by a C++ compiler, <code>extern "C"</code> is evaluated;
+when parsed by a C compiler, it is skipped entirely, maintaining strict
+C syntax validity.</p>
+<h3 id="calling-conventions-and-abi-compatibility">Calling Conventions
+and ABI Compatibility</h3>
+<p>For two languages to communicate, they must agree on an Application
+Binary Interface (ABI). This dictates how functions receive parameters,
+return values, and preserve register states.</p>
+<p>Most platforms provide standardized calling conventions (such as
+<code>cdecl</code> on x86, or the System V AMD64 ABI) that both C and
+C++ conform to by default. Because C++ was designed as a superset of C,
+standard C++ compilers automatically adhere to the host platform's C
+calling conventions when <code>extern "C"</code> is applied.</p>
+<h3 id="data-layout-and-type-compatibility">Data Layout and Type
+Compatibility</h3>
+<p>Data exchange requires identical in-memory representations. C++
+supports this via the concept of "Standard Layout" types (formerly
+referred to as Plain Old Data or POD).</p>
+<p>A C++ struct that contains no virtual functions, no virtual base
+classes, identical access control across all non-static data members,
+and standard primitive types possesses the same memory alignment, size,
+and field offsets as its C counterpart:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">/* Compatible in both C and C++ */</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> value<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> name<span class="op">[</span><span class="dv">32</span><span class="op">];</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> DataPayload<span class="op">;</span></span></code></pre></div>
+<p>As long as alignment rules and padding are identical—often enforced
+using fixed-width integers from <code>&lt;stdint.h&gt;</code>—pointers
+to these structures can be passed across the language boundary
+safely.</p>
+<h3 id="function-pointers-and-callbacks">Function Pointers and
+Callbacks</h3>
+<p>C and C++ share identical semantics for basic function pointers. A C
+API can accept a function pointer as a callback, and a C++ program can
+supply a regular function or a static member function, provided the
+target has <code>extern "C"</code> linkage:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// C++ side providing a callback to a C library</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="at">extern</span> <span class="st">&quot;C&quot;</span> <span class="dt">void</span> my_callback<span class="op">(</span><span class="dt">int</span> event_code<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Handle the event</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Calling the C API</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>register_listener<span class="op">(&amp;</span>my_callback<span class="op">);</span></span></code></pre></div>
+<p>Non-static member functions cannot be passed directly because they
+require an implicit <code>this</code> pointer, which is not supported by
+standard C function pointers.</p>
+<h3 id="encapsulation-with-opaque-pointers">Encapsulation with Opaque
+Pointers</h3>
+<p>To expose modern C++ features (such as classes, templates, and
+standard library containers) to a C codebase, developers use opaque
+pointers (the Opaque Type Pattern).</p>
+<ol type="1">
+<li>A forward-declared <code>struct</code> is declared in a C header
+without defining its body.</li>
+<li>In the C++ implementation file, the struct is defined, or a
+<code>reinterpret_cast</code> is used to map it to a C++ class
+instance.</li>
+<li>C code handles the object strictly through pointers, manipulating it
+via wrapper functions with <code>extern "C"</code> linkage.</li>
+</ol>
+<div class="sourceCode" id="cb5"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">/* In shared C/C++ header */</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="kw">struct</span> EngineWrapper EngineWrapper<span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>EngineWrapper<span class="op">*</span> engine_create<span class="op">(</span><span class="dt">void</span><span class="op">);</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> engine_start<span class="op">(</span>EngineWrapper<span class="op">*</span> engine<span class="op">);</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> engine_destroy<span class="op">(</span>EngineWrapper<span class="op">*</span> engine<span class="op">);</span></span></code></pre></div>
+<h3 id="exception-safety-at-the-boundary">Exception Safety at the
+Boundary</h3>
+<p>C lacks an exception mechanism and does not support the
+stack-unwinding models used by C++. If a C++ exception crosses an
+<code>extern "C"</code> boundary into C code, the behavior is undefined
+and generally leads to an immediate process crash
+(<code>std::terminate</code>).</p>
+<p>To maintain seamless interoperability, C++ functions exposed to C
+must catch all exceptions internally and translate them into
+C-compatible return values or error codes:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="at">extern</span> <span class="st">&quot;C&quot;</span> <span class="dt">int</span> safe_wrapper<span class="op">(</span><span class="dt">void</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        cpp_operation_that_may_throw<span class="op">();</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Success</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(...)</span> <span class="op">{</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">-</span><span class="dv">1</span><span class="op">;</span> <span class="co">// Error code returned to C</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-and-c-interoperability-mechanisms';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

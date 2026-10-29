@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Scope vs Block Scope Lookup in C++ - cpp</title>
+    <meta name="description" content="In C++, name lookup is the process by which the compiler associates an identifier with its corresponding declaration. Global namespace scope lookup resolves identifiers declared outside of all functions, classes, and explicit namespaces, making them acces">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/global-scope-vs-block-scope-lookup-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Global Scope vs Block Scope Lookup in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/global-scope-vs-block-scope-lookup-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, name lookup is the process by which the compiler associates an identifier with its corresponding declaration. Global namespace scope lookup resolves identifiers declared outside of all functions, classes, and explicit namespaces, making them acces" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="global-scope-vs-block-scope-lookup-in-c">Global Scope vs Block
+Scope Lookup in C++</h1>
+<p>In C++, name lookup is the process by which the compiler associates
+an identifier with its corresponding declaration. Global namespace scope
+lookup resolves identifiers declared outside of all functions, classes,
+and explicit namespaces, making them accessible across the entire
+translation unit. In contrast, block scope lookup searches for
+identifiers within a localized code block delimited by curly braces,
+such as within a function, loop, or conditional statement. This article
+explains the core differences between these two lookup mechanisms,
+detailing search order, name shadowing, and explicit scope
+resolution.</p>
+<h3 id="block-scope-lookup-mechanics">Block Scope Lookup Mechanics</h3>
+<p>Block scope lookup applies to identifiers declared inside a compound
+statement bounded by <code>{}</code>. This includes local variables,
+function parameters, and variables declared within control structures
+like <code>if</code>, <code>for</code>, and <code>while</code>
+statements.</p>
+<p>When the compiler encounters an unqualified name within a block:</p>
+<ol type="1">
+<li>It begins the search at the innermost block at the point of the
+call, moving backward to find a preceding declaration.</li>
+<li>If the name is not declared in the current block, the compiler
+searches the next enclosing outer block.</li>
+<li>The search stops immediately upon finding the first matching name,
+regardless of whether that entity is type-compatible with how it is
+used.</li>
+</ol>
+<p>Block scope declarations have automatic storage duration by default,
+meaning they are created upon entering the block and destroyed upon
+exiting.</p>
+<h3 id="global-namespace-scope-lookup-mechanics">Global Namespace Scope
+Lookup Mechanics</h3>
+<p>Global namespace scope (often referred to simply as the global scope)
+encompasses any entity declared at the file level outside of any nested
+namespace, class, or function block.</p>
+<p>When an unqualified lookup reaches the global level:</p>
+<ol type="1">
+<li>It occurs only after the compiler has searched all enclosing local
+block scopes, class scopes (if applicable), and nested namespaces
+without finding a match.</li>
+<li>Identifiers in this scope have static storage duration, existing for
+the entire duration of the program.</li>
+<li>They are visible to any code within the translation unit that
+appears after their declaration, unless shadowed by an inner
+declaration.</li>
+</ol>
+<h3 id="key-distinctions">Key Distinctions</h3>
+<h4 id="1-search-order-and-precedence">1. Search Order and
+Precedence</h4>
+<p>Unqualified name lookup in C++ proceeds from the inside out. Block
+scope always takes precedence over global namespace scope. If an
+identifier exists in both a local block and the global namespace,
+unqualified lookup will resolve to the block-scoped entity.</p>
+<h4 id="2-name-shadowing-hiding">2. Name Shadowing (Hiding)</h4>
+<p>Because lookup stops at the first matching declaration, a
+block-scoped variable shadows (hides) a global variable with the same
+name. Within that block and any nested child blocks, the global variable
+becomes inaccessible via unqualified lookup.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> value <span class="op">=</span> <span class="dv">100</span><span class="op">;</span> <span class="co">// Global namespace scope</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> value <span class="op">=</span> <span class="dv">20</span><span class="op">;</span> <span class="co">// Block scope; shadows global &#39;value&#39;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Unqualified lookup resolves to the local variable (20)</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h4 id="3-bypassing-block-lookup-with-scope-resolution">3. Bypassing
+Block Lookup with Scope Resolution</h4>
+<p>Global namespace scope possesses a dedicated mechanism for direct
+access that block scope does not. The unary scope resolution operator
+<code>::</code> explicitly instructs the compiler to bypass all
+enclosing block scopes and namespaces, resolving the name directly in
+the global namespace.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> value <span class="op">=</span> <span class="dv">20</span><span class="op">;</span> </span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> local_copy <span class="op">=</span> value<span class="op">;</span>   <span class="co">// Resolves via block scope lookup (20)</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> global_copy <span class="op">=</span> <span class="op">::</span>value<span class="op">;</span> <span class="co">// Bypasses block scope, resolves to global scope (100)</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Block scope does not have an operator to reference shadowed variables
+from an intermediate enclosing block; once shadowed by an inner block,
+an intermediate local variable cannot be explicitly qualified.</p>
+<h4 id="4-lifetime-and-linkage">4. Lifetime and Linkage</h4>
+<p>Block-scoped names generally possess no linkage and are bound to the
+execution of their block. Global namespace entities can have internal or
+external linkage (using keywords like <code>static</code> or
+<code>extern</code>), enabling them to be referenced across multiple
+translation units, an ability entirely absent from block-scoped
+entities.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/global-scope-vs-block-scope-lookup-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

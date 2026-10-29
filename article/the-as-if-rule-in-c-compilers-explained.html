@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The As-If Rule in C++ Compilers Explained - cpp</title>
+    <meta name="description" content="In C++, the &quot;as-if&quot; rule is a foundational optimization principle that grants compilers the freedom to restructure, modify, or eliminate program code, provided the program&#39;s observable behavior remains strictly identical to what the written code specifies">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/the-as-if-rule-in-c-compilers-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="The As-If Rule in C++ Compilers Explained - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/the-as-if-rule-in-c-compilers-explained" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, the &quot;as-if&quot; rule is a foundational optimization principle that grants compilers the freedom to restructure, modify, or eliminate program code, provided the program&#39;s observable behavior remains strictly identical to what the written code specifies" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="the-as-if-rule-in-c-compilers-explained">The As-If Rule in C++
+Compilers Explained</h1>
+<p>In C++, the "as-if" rule is a foundational optimization principle
+that grants compilers the freedom to restructure, modify, or eliminate
+program code, provided the program's observable behavior remains
+strictly identical to what the written code specifies. This article
+explains the boundaries of observable behavior, the specific
+transformations compilers are permitted to perform under this rule, and
+the few explicit exceptions where observable behavior can change.</p>
+<h2 id="definition-of-observable-behavior">Definition of Observable
+Behavior</h2>
+<p>The C++ standard defines a program's execution in terms of an
+abstract machine. According to the as-if rule, a compiler can deviate
+from the exact steps dictated by this abstract machine as long as the
+"observable behavior" is preserved.</p>
+<p>Under the standard, observable behavior consists of:</p>
+<ul>
+<li>Reads and writes to <code>volatile</code> objects.</li>
+<li>Input and output operations (such as writing to standard output or
+modifying files).</li>
+<li>Program termination and the return status passed to the operating
+system.</li>
+<li>Data races and synchronization operations in multithreaded
+contexts.</li>
+</ul>
+<p>Any code or operation that does not directly or indirectly influence
+these observable effects is fair game for the compiler to alter or
+eliminate.</p>
+<h2 id="what-compilers-are-permitted-to-do">What Compilers Are Permitted
+to Do</h2>
+<p>Because the compiler only needs to reproduce the observable outcome,
+it can apply aggressive transformations during the optimization
+phase:</p>
+<h3 id="1-dead-code-and-unused-variable-elimination">1. Dead Code and
+Unused Variable Elimination</h3>
+<p>If a variable is computed but its value is never used to affect an
+observable outcome (such as a volatile write or an I/O operation), the
+compiler can completely remove the variable, its calculations, and any
+associated logic.</p>
+<h3 id="2-constant-folding-and-propagation">2. Constant Folding and
+Propagation</h3>
+<p>Compilers can evaluate complex arithmetic, expressions, and function
+calls at compile time if the inputs are known. The runtime execution
+only receives the precomputed result, skipping intermediate CPU
+instructions entirely.</p>
+<h3 id="3-loop-transformations-and-elimination">3. Loop Transformations
+and Elimination</h3>
+<p>Compilers are permitted to radically alter loops:</p>
+<ul>
+<li><strong>Vectorization:</strong> Transforming sequential iterations
+into single-instruction, multiple-data (SIMD) operations.</li>
+<li><strong>Loop Unrolling:</strong> Duplicating loop bodies to reduce
+branching overhead.</li>
+<li><strong>Complete Elimination:</strong> If a loop performs
+calculations that have no side effects and whose final state is unused,
+the compiler can omit the loop entirely, regardless of how many
+iterations the source code specified.</li>
+</ul>
+<h3 id="4-instruction-reordering">4. Instruction Reordering</h3>
+<p>A compiler can execute statements in an order different from how they
+appear in the source code, provided that data dependencies are respected
+and the observable behavior remains identical. This allows the compiler
+to maximize CPU pipeline efficiency and register usage.</p>
+<h3 id="5-function-inlining">5. Function Inlining</h3>
+<p>The compiler can replace a function call site directly with the body
+of the called function, removing the overhead of stack frame setup,
+argument passing, and jump instructions.</p>
+<h3 id="6-allocation-elision">6. Allocation Elision</h3>
+<p>In modern C++, compilers are permitted to omit or combine heap
+allocations (such as calls to <code>new</code> and <code>delete</code>)
+under specific conditions, transforming heap-allocated objects into
+stack-allocated data or eliminating them entirely if their lifetime can
+be proven to fall within a bounded scope.</p>
+<h2 id="exceptions-to-the-as-if-rule">Exceptions to the As-If Rule</h2>
+<p>The C++ standard allows a few specific scenarios where compilers may
+alter behavior even if it results in a difference in observable side
+effects:</p>
+<ul>
+<li><strong>Copy and Move Elision (RVO/NRVO):</strong> Compilers are
+explicitly permitted to omit the copying or moving of objects (such as
+Return Value Optimization), even if the copy/move constructors or
+destructors contain observable side effects like printing to
+<code>std::cout</code>.</li>
+<li><strong>Undefined Behavior (UB):</strong> The as-if rule only
+applies to well-defined programs. If a program encounters undefined
+behavior (such as signed integer overflow, null pointer dereferencing,
+or out-of-bounds access), the guarantees of the abstract machine are
+voided, allowing the compiler to optimize under the assumption that such
+states are unreachable.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/the-as-if-rule-in-c-compilers-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

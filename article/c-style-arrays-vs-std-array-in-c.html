@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C-Style Arrays vs std::array in C++ - cpp</title>
+    <meta name="description" content="In modern C++, developers can choose between traditional C-style arrays and the Standard Template Library&#39;s std::array container introduced in C++11. While both structures allocate fixed-size memory sequentially on the stack with zero runtime overhead, th">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-style-arrays-vs-std-array-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C-Style Arrays vs std::array in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-style-arrays-vs-std-array-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, developers can choose between traditional C-style arrays and the Standard Template Library&#39;s std::array container introduced in C++11. While both structures allocate fixed-size memory sequentially on the stack with zero runtime overhead, th" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-style-arrays-vs-stdarray-in-c">C-Style Arrays vs std::array in
+C++</h1>
+<p>In modern C++, developers can choose between traditional C-style
+arrays and the Standard Template Library's <code>std::array</code>
+container introduced in C++11. While both structures allocate fixed-size
+memory sequentially on the stack with zero runtime overhead, they differ
+substantially in type safety, standard library integration, and syntax.
+This article examines the core technical differences between C-style
+arrays and <code>std::array</code>, focusing on pointer decay, size
+awareness, value semantics, and safety features.</p>
+<h2 id="pointer-decay">Pointer Decay</h2>
+<p>The most dangerous characteristic of a C-style array is
+<strong>array-to-pointer decay</strong>. When passed to a function or
+assigned to a pointer variable, a C-style array automatically loses its
+type and size information, degenerating into a raw pointer to its first
+element:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> inspectCArray<span class="op">(</span><span class="dt">int</span> arr<span class="op">[])</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// arr is treated as int*, losing the original array size</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In contrast, <code>std::array</code> is a thin class wrapper around a
+fixed-size internal array. It does not implicitly decay into a pointer.
+When passed to a function, it maintains its complete type signature,
+which includes both the element type and its fixed size
+(<code>std::array&lt;T, N&gt;</code>).</p>
+<h2 id="size-tracking">Size Tracking</h2>
+<ul>
+<li><strong>C-Style Arrays:</strong> A C-style array does not store or
+know its own length at runtime. Determining the size typically requires
+manual tracking, passing a separate <code>size_t</code> variable to
+functions, or using the <code>sizeof(arr) / sizeof(arr[0])</code> idiom
+(which fails completely if the array has already decayed to a
+pointer).</li>
+<li><strong><code>std::array</code>:</strong> Because
+<code>std::array</code> is an STL container, it provides a
+<code>.size()</code> member function that runs in constant time (<span
+class="math inline">\(O(1)\)</span>) and can be evaluated at compile
+time (<code>constexpr</code>).</li>
+</ul>
+<h2 id="copying-and-assignment-value-semantics">Copying and Assignment
+(Value Semantics)</h2>
+<p>C-style arrays lack first-class object value semantics. You cannot
+copy or assign one C-style array directly to another:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a<span class="op">[</span><span class="dv">3</span><span class="op">]</span> <span class="op">=</span> <span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">};</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> b<span class="op">[</span><span class="dv">3</span><span class="op">];</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> a<span class="op">;</span> <span class="co">// Compiler error</span></span></code></pre></div>
+<p>To copy a C-style array, you must write an explicit loop or use
+memory manipulation functions like <code>std::memcpy</code>.</p>
+<p><code>std::array</code> behaves like any standard C++ object. It
+supports the copy constructor and copy assignment operator natively:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>array<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="dv">3</span><span class="op">&gt;</span> a <span class="op">=</span> <span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">};</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>array<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="dv">3</span><span class="op">&gt;</span> b<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>b <span class="op">=</span> a<span class="op">;</span> <span class="co">// Valid: copies all elements from a to b</span></span></code></pre></div>
+<h2 id="stl-integration-and-iterators">STL Integration and
+Iterators</h2>
+<p><code>std::array</code> provides standard container interfaces,
+making it immediately compatible with C++ algorithms
+(<code>&lt;algorithm&gt;</code>) and range-based <code>for</code> loops.
+It offers:</p>
+<ul>
+<li>Standard iterator methods: <code>begin()</code>, <code>end()</code>,
+<code>rbegin()</code>, <code>rend()</code>, and their <code>const</code>
+variants.</li>
+<li>Container typedefs such as <code>value_type</code>,
+<code>size_type</code>, and <code>iterator</code>.</li>
+<li>Compatibility with tuple-like interface functions
+(<code>std::get</code>, <code>std::tuple_size</code>).</li>
+</ul>
+<p>While modern C++ allows free functions like <code>std::begin()</code>
+and <code>std::end()</code> on raw arrays, raw arrays lack the native
+container methods that standard algorithms and generic templates
+frequently require.</p>
+<h2 id="bounds-checking-and-safety">Bounds Checking and Safety</h2>
+<p>Accessing elements beyond the boundaries of an array leads to
+undefined behavior. Both types provide unchecked subscript access via
+the <code>[]</code> operator for optimal performance.</p>
+<p>However, <code>std::array</code> also provides the
+<code>.at(size_type index)</code> member function. The
+<code>.at()</code> method checks whether the requested index is within
+valid bounds and throws a <code>std::out_of_range</code> exception if it
+is not, providing a safe alternative when handling untrusted
+indices.</p>
+<h2 id="memory-and-performance-comparison">Memory and Performance
+Comparison</h2>
+<p>In terms of memory footprint and execution speed,
+<code>std::array</code> and C-style arrays are identical:</p>
+<ul>
+<li><strong>Memory:</strong> A <code>std::array&lt;T, N&gt;</code>
+occupies exactly the same amount of memory as <code>T[N]</code>. It
+contains no hidden pointers, vtables, or dynamic allocations.</li>
+<li><strong>Speed:</strong> Accessing elements via the <code>[]</code>
+operator generates identical assembly instructions in optimized builds
+for both structures.</li>
+</ul>
+<h2 id="summary">Summary</h2>
+<p>Use <code>std::array</code> by default for fixed-size collections in
+C++. It eliminates the hazards of pointer decay, provides STL
+compatibility, and adds copy semantics without incurring any memory or
+performance penalties compared to raw C-style arrays. C-style arrays
+should generally be reserved for low-level C API compatibility or
+specialized embedded environments.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-style-arrays-vs-std-array-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

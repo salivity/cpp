@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compile-Time Impact of C++ [[deprecated]] Messages - cpp</title>
+    <meta name="description" content="The [[deprecated]] attribute in modern C++ allows developers to mark entities such as functions, classes, and variables as obsolete, optionally accepting a custom string literal to provide contextual migration advice. While introducing additional metadata">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/compile-time-impact-of-c-deprecated-messages">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Compile-Time Impact of C++ [[deprecated]] Messages - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/compile-time-impact-of-c-deprecated-messages" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The [[deprecated]] attribute in modern C++ allows developers to mark entities such as functions, classes, and variables as obsolete, optionally accepting a custom string literal to provide contextual migration advice. While introducing additional metadata" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="compile-time-impact-of-c-deprecated-messages">Compile-Time
+Impact of C++ [[deprecated]] Messages</h1>
+<p>The <code>[[deprecated]]</code> attribute in modern C++ allows
+developers to mark entities such as functions, classes, and variables as
+obsolete, optionally accepting a custom string literal to provide
+contextual migration advice. While introducing additional metadata into
+headers can raise concerns regarding translation unit processing speed,
+the compile-time impact of using <code>[[deprecated("...")]]</code> is
+practically negligible in modern build systems. This article analyzes
+how C++ compilers parse and evaluate custom deprecation messages,
+assesses the direct overhead during compilation, and outlines the edge
+cases where performance shifts can actually be detected.</p>
+<h3 id="compiler-mechanics-parsing-and-ast-representation">Compiler
+Mechanics: Parsing and AST Representation</h3>
+<p>When a compiler encounters <code>[[deprecated("message")]]</code>, it
+executes two distinct steps:</p>
+<ol type="1">
+<li><strong>Syntactic Lexing and Parsing:</strong> The attribute is
+tokenized, and the string literal is stored directly in the compiler's
+Abstract Syntax Tree (AST) node or symbol table entry corresponding to
+that declaration.</li>
+<li><strong>Diagnostic Evaluation:</strong> The compiler does not
+process the string content beyond standard literal validation until the
+deprecated symbol is referenced in an expression.</li>
+</ol>
+<p>Because the message is held as a simple string reference within the
+compiler’s internal memory pool, the memory and processing overhead per
+declaration consists only of allocating and storing a few dozen bytes of
+character data during the front-end parsing stage.</p>
+<h3 id="impact-on-unreferenced-symbols">Impact on Unreferenced
+Symbols</h3>
+<p>In large codebases, heavily shared headers often expose hundreds of
+deprecated symbols that any given translation unit may never directly
+call.</p>
+<p>For unreferenced symbols, the compile-time impact is limited strictly
+to tokenization and AST node creation. Modern compilers (such as GCC,
+Clang, and MSVC) parse string literals at tens of megabytes per second.
+Microbenchmarks evaluating thousands of uncalled functions marked with
+<code>[[deprecated("Use bar() instead")]]</code> against unadorned
+functions demonstrate an execution time delta that falls entirely within
+the margin of standard measurement noise (typically less than a fraction
+of a percent).</p>
+<h3 id="impact-on-referenced-symbols-and-diagnostics">Impact on
+Referenced Symbols and Diagnostics</h3>
+<p>When a deprecated symbol is invoked, the compiler triggers a
+diagnostic event:</p>
+<ul>
+<li><strong>Attribute Check:</strong> The compiler checks the
+declaration's attribute bitmask.</li>
+<li><strong>Diagnostic Formatting:</strong> If marked deprecated, the
+compiler looks up the stored string literal.</li>
+<li><strong>Message Emission:</strong> The compiler appends the custom
+message to the warning stream (e.g.,
+<code>warning: 'foo' is deprecated: Use bar() instead</code>).</li>
+</ul>
+<p>The computational cost of checking the attribute and retrieving the
+string is effectively instantaneous, relying on straightforward pointer
+dereferencing in memory. The actual compile-time cost at this stage is
+dictated by <strong>diagnostic emission and I/O overhead</strong>, not
+the attribute mechanics themselves.</p>
+<h3 id="io-bottlenecks-and-warning-floods">I/O Bottlenecks and Warning
+Floods</h3>
+<p>The only scenario where <code>[[deprecated("message")]]</code>
+creates a measurable build slowdown occurs when deprecations are
+triggered repeatedly in large, deeply nested templates or macro
+expansions across thousands of translation units:</p>
+<ul>
+<li><strong>Text Formatting Overhead:</strong> Formatting detailed
+compiler diagnostics across hundreds of thousands of warning instances
+introduces CPU overhead in string interpolation and column
+tracking.</li>
+<li><strong>Terminal and Log I/O:</strong> Writing massive volumes of
+warning text to <code>stdout</code>, <code>stderr</code>, or disk-based
+build log files can saturate I/O pipelines, especially in parallelized
+continuous integration (CI) environments.</li>
+<li><strong>IDE Language Servers:</strong> Tools utilizing Clangd or
+Visual Studio IntelliSense must parse and surface these messages in real
+time, which can slightly increase memory usage in long-running language
+server processes if warnings are ubiquitous.</li>
+</ul>
+<h3 id="conclusion-and-practical-recommendations">Conclusion and
+Practical Recommendations</h3>
+<p>The addition of custom contextual messages to the
+<code>[[deprecated]]</code> attribute does not pose any meaningful
+compile-time penalty during the parsing, semantic analysis, or code
+generation phases. To ensure optimal build efficiency:</p>
+<ul>
+<li>Use explicit, actionable deprecation messages to guide callers
+efficiently.</li>
+<li>Address deprecation warnings promptly to prevent warning pollution
+and terminal I/O saturation.</li>
+<li>Leverage compiler flags like
+<code>-Wno-deprecated-declarations</code> (GCC/Clang) or
+<code>/wd4996</code> (MSVC) in third-party dependency configurations to
+completely bypass diagnostic formatting paths where updates are out of
+your control.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/compile-time-impact-of-c-deprecated-messages';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

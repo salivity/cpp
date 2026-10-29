@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maximal Munch Rule and Nested Templates in C++ - cpp</title>
+    <meta name="description" content="This article provides an overview of the maximal munch rule in compiler design, its historical impact on nested template declarations in C++, and how modern C++ standards resolved the issue. Readers will learn the definition of the maximal munch principle">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/maximal-munch-rule-and-nested-templates-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Maximal Munch Rule and Nested Templates in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/maximal-munch-rule-and-nested-templates-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of the maximal munch rule in compiler design, its historical impact on nested template declarations in C++, and how modern C++ standards resolved the issue. Readers will learn the definition of the maximal munch principle" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="maximal-munch-rule-and-nested-templates-in-c">Maximal Munch Rule
+and Nested Templates in C++</h1>
+<p>This article provides an overview of the maximal munch rule in
+compiler design, its historical impact on nested template declarations
+in C++, and how modern C++ standards resolved the issue. Readers will
+learn the definition of the maximal munch principle, understand why the
+sequence <code>&gt;&gt;</code> caused compilation errors in earlier
+versions of the language, and see how the compiler specification was
+adapted to eliminate the need for manual spacing between closing
+template brackets.</p>
+<h2 id="what-is-the-maximal-munch-rule">What is the Maximal Munch
+Rule?</h2>
+<p>The maximal munch rule (also known as the longest match rule) is a
+fundamental principle of lexical analysis in programming language
+compilers. During the tokenization phase, the lexer scans the source
+code from left to right and gathers characters to form tokens. According
+to the maximal munch rule, whenever there is ambiguity regarding where
+one token ends and another begins, the lexer must choose the longest
+valid sequence of characters that forms a token.</p>
+<p>For example, given the expression <code>a+++b</code>, the lexer
+evaluates <code>+</code> characters greedily. Because <code>++</code> is
+a valid two-character token and is longer than the single-character
+token <code>+</code>, the expression is tokenized as <code>a</code>,
+<code>++</code>, <code>+</code>, <code>b</code> rather than
+<code>a</code>, <code>+</code>, <code>++</code>, <code>b</code>.</p>
+<h2 id="the-nested-template-problem-pre-c11">The Nested Template Problem
+Pre-C++11</h2>
+<p>In C++98 and C++03, the maximal munch rule created a well-known issue
+with nested template instantiations, such as:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>list<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&gt;</span> nestedList<span class="op">;</span></span></code></pre></div>
+<p>Because the lexer operates before the parser understands the semantic
+context of template brackets, it applies the maximal munch rule
+strictly. When encountering the two adjacent greater-than symbols
+<code>&gt;&gt;</code>, the lexer combines them into a single right-shift
+operator token (<code>&gt;&gt;</code>) instead of two separate closing
+angle bracket tokens (<code>&gt;</code> followed by
+<code>&gt;</code>).</p>
+<p>Consequently, the parser received a right-shift operator where it
+expected two closing template delimiters, causing a syntax error:</p>
+<pre class="text"><code>error: &#39;&gt;&gt;&#39; should be &#39;&gt; &gt;&#39; within a nested template argument list</code></pre>
+<p>To work around this limitation, developers were required to manually
+insert whitespace between closing brackets:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>list<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> <span class="op">&gt;</span> nestedList<span class="op">;</span> <span class="co">// Valid in C++98/03</span></span></code></pre></div>
+<h2 id="how-modern-c-resolves--in-templates">How Modern C++ Resolves
+<code>&gt;&gt;</code> in Templates</h2>
+<p>Starting with C++11, the C++ standard introduced a specific exception
+to the maximal munch rule to improve developer ergonomics. Rather than
+treating tokenization as entirely independent of grammar, the standard
+introduced a context-sensitive rule for template syntax.</p>
+<p>Under the updated specification, when the compiler is inside the
+context of a template argument list:</p>
+<ol type="1">
+<li>A <code>&gt;</code> character that would normally be treated as the
+first character of a multi-character token (such as
+<code>&gt;&gt;</code>, <code>&gt;&gt;=</code>, or <code>&gt;=</code>) is
+treated as a standalone closing angle bracket token if it terminates a
+template argument list.</li>
+<li>If <code>&gt;&gt;</code> appears, the lexer/parser splits the symbol
+into two distinct <code>&gt;</code> tokens, each capable of closing an
+open template declaration.</li>
+</ol>
+<p>As a result, modern C++ compilers allow consecutive closing brackets
+without whitespace:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>map<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">&gt;&gt;</span> dictionary<span class="op">;</span> <span class="co">// Fully valid in C++11 and later</span></span></code></pre></div>
+<p>This resolution maintains backward compatibility with the bitwise
+right-shift operator in arithmetic expressions while contextualizing
+token boundaries within template declarations.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/maximal-munch-rule-and-nested-templates-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

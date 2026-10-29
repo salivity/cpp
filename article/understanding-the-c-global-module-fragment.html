@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding the C++ Global Module Fragment - cpp</title>
+    <meta name="description" content="The global module fragment in C++20 is a dedicated section at the beginning of a module unit designed to bridge the gap between traditional preprocessor-based header files and modern module systems. This article explains what the global module fragment is">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/understanding-the-c-global-module-fragment">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding the C++ Global Module Fragment - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/understanding-the-c-global-module-fragment" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The global module fragment in C++20 is a dedicated section at the beginning of a module unit designed to bridge the gap between traditional preprocessor-based header files and modern module systems. This article explains what the global module fragment is" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-the-c-global-module-fragment">Understanding the
+C++ Global Module Fragment</h1>
+<p>The global module fragment in C++20 is a dedicated section at the
+beginning of a module unit designed to bridge the gap between
+traditional preprocessor-based header files and modern module systems.
+This article explains what the global module fragment is, its specific
+syntax, and the exact scenarios where authoring it is required to
+prevent macro leakage, avoid One Definition Rule (ODR) violations, and
+maintain compatibility with legacy libraries.</p>
+<h2 id="what-is-the-global-module-fragment">What Is the Global Module
+Fragment?</h2>
+<p>The global module fragment (GMF) is an optional prologue placed at
+the very start of a module file. It begins with the bare keyword
+sequence <code>module;</code> (with no module name) and ends at the
+primary module declaration (e.g., <code>export module my_module;</code>
+or <code>module my_module;</code>).</p>
+<p>Declarations introduced within this region do not belong to the named
+module being authored; instead, they reside in the global module. Code
+inside the GMF is compiled in the traditional global scope, preserving
+backward compatibility while isolating preprocessor behavior.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">module</span><span class="op">;</span> <span class="co">// Begins the global module fragment</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cmath&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;legacy_c_header.h&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#define BUFFER_SIZE </span><span class="dv">1024</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">export</span> <span class="kw">module</span> math_utils<span class="op">;</span> <span class="co">// Ends the global module fragment</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">export</span> <span class="kw">namespace</span> math_utils <span class="op">{</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> calculate<span class="op">(</span><span class="dt">double</span> input<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">std::</span>sqrt<span class="op">(</span>input<span class="op">)</span> <span class="op">*</span> BUFFER_SIZE<span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="restrictions-of-the-global-module-fragment">Restrictions of the
+Global Module Fragment</h2>
+<p>The GMF is strictly reserved for preprocessor directives. Standard
+C++ enforces the following rules inside this block:</p>
+<ul>
+<li><strong>Directive-Only Content:</strong> Only preprocessor
+directives—such as <code>#include</code>, <code>#define</code>,
+<code>#undef</code>, <code>#ifdef</code>, and <code>#pragma</code>—are
+permitted. You cannot write raw C++ language statements, functions,
+variables, or namespace declarations directly in this block outside of
+an included file.</li>
+<li><strong>Macro Isolation:</strong> Macros defined or imported within
+the GMF do not leak to files that <code>import</code> the module. They
+are available exclusively within that single translation unit.</li>
+<li><strong>Discarded Entities:</strong> Any entity defined in the GMF
+that is not referenced by the module unit is discarded and not baked
+into the module's compiled interface (BMI).</li>
+</ul>
+<h2 id="when-is-the-global-module-fragment-required">When Is the Global
+Module Fragment Required?</h2>
+<p>When authoring C++ modules, the global module fragment is required in
+the following scenarios:</p>
+<h3
+id="1-including-traditional-headers-that-rely-on-preprocessor-macros">1.
+Including Traditional Headers That Rely on Preprocessor Macros</h3>
+<p>Modules do not export preprocessor macros by default. If your module
+implementation depends on headers that define configuration macros,
+feature flags, or function-like macros (such as standard C headers
+<code>&lt;assert.h&gt;</code> or <code>&lt;setjmp.h&gt;</code>), these
+files cannot simply be imported using
+<code>import &lt;header&gt;;</code>. They must be included using
+<code>#include</code> inside the GMF so the preprocessor can expand them
+locally without polluting the consumers of your module.</p>
+<h3 id="2-working-with-legacy-libraries-without-header-unit-support">2.
+Working with Legacy Libraries Without Header Unit Support</h3>
+<p>Not all third-party libraries or legacy codebases are "clean" enough
+to be imported as C++20 header units (<code>import "legacy.h";</code>).
+Headers that contain order-dependent includes, undeclared dependencies,
+or non-modular macros will fail to compile as header units. Placing
+these legacy files in the GMF allows them to compile as standard textual
+includes.</p>
+<h3 id="3-avoiding-one-definition-rule-odr-violations">3. Avoiding One
+Definition Rule (ODR) Violations</h3>
+<p>If a consumer application imports your module and also includes an
+old C-style header file directly, defining types from that header inside
+a named module would result in two distinct entities under the C++ type
+system, causing linker errors or ODR violations. Entities declared
+within the GMF remain in the global namespace, ensuring that the module
+and non-modular code refer to the exact same entity definitions.</p>
+<h3 id="4-interfacing-with-platform-specific-apis">4. Interfacing with
+Platform-Specific APIs</h3>
+<p>Platform APIs such as the Windows SDK
+(<code>&lt;windows.h&gt;</code>) or POSIX headers
+(<code>&lt;unistd.h&gt;</code>) rely extensively on macro configurations
+and global types. These headers cannot be reliably imported as modern
+module units. The GMF is necessary to wrap these platform headers,
+allowing you to consume the platform APIs internally while exporting a
+clean, macro-free modern C++ interface.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/understanding-the-c-global-module-fragment';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

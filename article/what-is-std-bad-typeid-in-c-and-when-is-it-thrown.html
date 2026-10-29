@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is std::bad_typeid in C++ and When Is It Thrown? - cpp</title>
+    <meta name="description" content="In the C++ programming language, std::badtypeid is a standard runtime exception defined in the &lt;typeinfo&gt; header that signals an invalid use of the typeid operator. This article explains the definition of std::badtypeid, details the exact conditions requi">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/what-is-std-bad-typeid-in-c-and-when-is-it-thrown">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is std::bad_typeid in C++ and When Is It Thrown? - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/what-is-std-bad-typeid-in-c-and-when-is-it-thrown" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C++ programming language, std::badtypeid is a standard runtime exception defined in the &lt;typeinfo&gt; header that signals an invalid use of the typeid operator. This article explains the definition of std::badtypeid, details the exact conditions requi" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-stdbad_typeid-in-c-and-when-is-it-thrown">What Is
+std::bad_typeid in C++ and When Is It Thrown?</h1>
+<p>In the C++ programming language, <code>std::bad_typeid</code> is a
+standard runtime exception defined in the <code>&lt;typeinfo&gt;</code>
+header that signals an invalid use of the <code>typeid</code> operator.
+This article explains the definition of <code>std::bad_typeid</code>,
+details the exact conditions required for the C++ runtime to throw it,
+contrasts its behavior with non-polymorphic types, and provides a clear
+code example demonstrating how it is triggered and handled.</p>
+<h3 id="what-is-stdbad_typeid">What Is std::bad_typeid?</h3>
+<p><code>std::bad_typeid</code> is a standard exception class derived
+directly from <code>std::exception</code>. It is part of the Run-Time
+Type Information (RTTI) mechanism in C++. When dynamic type
+identification cannot be safely performed because an object reference
+does not actually exist at runtime, the implementation throws this
+exception to prevent undefined memory access.</p>
+<h3 id="conditions-under-which-stdbad_typeid-is-thrown">Conditions Under
+Which std::bad_typeid Is Thrown</h3>
+<p>The C++ runtime throws <code>std::bad_typeid</code> under a very
+specific condition:</p>
+<ol type="1">
+<li><strong>The <code>typeid</code> operator is applied to a
+dereferenced pointer:</strong> The expression takes the form
+<code>typeid(*ptr)</code>.</li>
+<li><strong>The pointer is null:</strong> The pointer value evaluates to
+<code>nullptr</code> (or <code>0</code>).</li>
+<li><strong>The type is polymorphic:</strong> The static type of the
+pointer points to a polymorphic class—meaning the class declares or
+inherits at least one <code>virtual</code> function.</li>
+</ol>
+<p>Because the class is polymorphic, C++ must determine the actual
+dynamic type of the object at runtime by inspecting its virtual method
+table (vtable) pointer. When the runtime attempts to inspect
+<code>*ptr</code> and discovers that <code>ptr</code> is null, it cannot
+read the type metadata. Rather than causing undefined behavior or a
+direct segmentation fault, the runtime throws
+<code>std::bad_typeid</code>.</p>
+<h3 id="behavior-with-non-polymorphic-types">Behavior with
+Non-Polymorphic Types</h3>
+<p>If the class or type is <strong>non-polymorphic</strong> (it contains
+no virtual functions), <code>typeid</code> is evaluated entirely at
+compile time based on the static type of the expression. In that
+scenario:</p>
+<ul>
+<li>Writing <code>typeid(*ptr)</code> on a null pointer to a
+non-polymorphic type does <strong>not</strong> evaluate the pointer at
+runtime.</li>
+<li>The runtime check never executes.</li>
+<li><code>std::bad_typeid</code> is <strong>never</strong> thrown for
+non-polymorphic types.</li>
+</ul>
+<h3 id="code-example">Code Example</h3>
+<p>The following example demonstrates how dereferencing a null pointer
+to a polymorphic type triggers <code>std::bad_typeid</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;typeinfo&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> PolymorphicBase <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="op">~</span>PolymorphicBase<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span> <span class="co">// Makes the class polymorphic</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    PolymorphicBase<span class="op">*</span> ptr <span class="op">=</span> <span class="kw">nullptr</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Attempting to evaluate dynamic type of a dereferenced null pointer</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="kw">typeid</span><span class="op">(*</span>ptr<span class="op">).</span>name<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>endl<span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>bad_typeid<span class="op">&amp;</span> e<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="st">&quot;Caught std::bad_typeid: &quot;</span> <span class="op">&lt;&lt;</span> e<span class="op">.</span>what<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>endl<span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="prevention-and-best-practices">Prevention and Best
+Practices</h3>
+<p>To avoid encountering <code>std::bad_typeid</code>, ensure that any
+polymorphic pointer is verified to be non-null before dereferencing it
+inside a <code>typeid</code> expression:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>ptr <span class="op">!=</span> <span class="kw">nullptr</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="kw">typeid</span><span class="op">(*</span>ptr<span class="op">).</span>name<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When handling generic or dynamically loaded types where null states
+cannot be statically ruled out, wrap the <code>typeid</code> evaluation
+in a <code>try...catch (const std::bad_typeid&amp;)</code> block.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/what-is-std-bad-typeid-in-c-and-when-is-it-thrown';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

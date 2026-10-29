@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lambda Capture by Value and Reference in C++ - cpp</title>
+    <meta name="description" content="Lambda expressions in modern C++ allow anonymous functions to capture variables from their enclosing scope, determining how data outside the lambda is accessed and managed. This article explains how variable capture works in C++, focusing on capture by va">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/lambda-capture-by-value-and-reference-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Lambda Capture by Value and Reference in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/lambda-capture-by-value-and-reference-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Lambda expressions in modern C++ allow anonymous functions to capture variables from their enclosing scope, determining how data outside the lambda is accessed and managed. This article explains how variable capture works in C++, focusing on capture by va" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="lambda-capture-by-value-and-reference-in-c">Lambda Capture by
+Value and Reference in C++</h1>
+<p>Lambda expressions in modern C++ allow anonymous functions to capture
+variables from their enclosing scope, determining how data outside the
+lambda is accessed and managed. This article explains how variable
+capture works in C++, focusing on capture by value versus capture by
+reference, the syntax for explicit and default captures, the behavior of
+the <code>mutable</code> keyword, and best practices for avoiding common
+pitfalls such as dangling references.</p>
+<hr />
+<h3 id="the-capture-clause">The Capture Clause</h3>
+<p>A lambda expression introduces variable captures through its capture
+clause, denoted by brackets <code>[]</code> at the beginning of the
+expression. Variables within the surrounding lexical scope can be
+captured explicitly by name or implicitly via capture defaults.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="op">[</span>capture_list<span class="op">](</span>parameters<span class="op">)</span> <span class="op">-&gt;</span> <span class="dt">return_type</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// function body</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<hr />
+<h3 id="capture-by-value">Capture by Value</h3>
+<p>When a variable is captured by value, the lambda creates an
+independent copy of that variable at the moment the lambda is
+defined.</p>
+<h4 id="syntax">Syntax</h4>
+<p>To capture a variable <code>x</code> by value, include its name
+inside the brackets without an ampersand:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> x <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> lambda <span class="op">=</span> <span class="op">[</span>x<span class="op">]()</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x <span class="op">*</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h4 id="immutability-and-the-mutable-keyword">Immutability and the
+<code>mutable</code> Keyword</h4>
+<p>By default, the function call operator (<code>operator()</code>) of a
+lambda is marked <code>const</code>. This means captured-by-value
+variables cannot be modified inside the lambda body.</p>
+<p>To modify the local copy of a captured-by-value variable, declare the
+lambda as <code>mutable</code>:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> count <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> increment <span class="op">=</span> <span class="op">[</span>count<span class="op">]()</span> <span class="at">mutable</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    count<span class="op">++;</span> <span class="co">// Modifies the local copy, not the external &#39;count&#39;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> count<span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>increment<span class="op">();</span> <span class="co">// returns 1</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>increment<span class="op">();</span> <span class="co">// returns 2</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">// The external &#39;count&#39; variable remains 0.</span></span></code></pre></div>
+<h4 id="advantages-and-risks">Advantages and Risks</h4>
+<ul>
+<li><strong>Advantage:</strong> Safe for asynchronous or delayed
+execution (e.g., thread pools or callbacks) because the lambda owns its
+own copy of the data.</li>
+<li><strong>Risk:</strong> Copying large objects can cause performance
+overhead.</li>
+</ul>
+<hr />
+<h3 id="capture-by-reference">Capture by Reference</h3>
+<p>When a variable is captured by reference, the lambda stores a
+reference to the original variable rather than making a copy. Any reads
+or writes within the lambda directly interact with the original
+object.</p>
+<h4 id="syntax-1">Syntax</h4>
+<p>To capture a variable by reference, prefix the variable name with an
+ampersand <code>&amp;</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> total <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> addToTotal <span class="op">=</span> <span class="op">[&amp;</span>total<span class="op">](</span><span class="dt">int</span> amount<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    total <span class="op">+=</span> amount<span class="op">;</span> <span class="co">// Directly modifies the external &#39;total&#39;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>addToTotal<span class="op">(</span><span class="dv">5</span><span class="op">);</span> <span class="co">// &#39;total&#39; is now 5</span></span></code></pre></div>
+<p>Because the lambda operates on references, modifying the variable
+does not require the <code>mutable</code> specifier unless the
+referenced variable itself is <code>const</code>.</p>
+<h4 id="advantages-and-risks-1">Advantages and Risks</h4>
+<ul>
+<li><strong>Advantage:</strong> Zero copying overhead, making it ideal
+for passing heavy objects or accumulating state.</li>
+<li><strong>Risk (Dangling References):</strong> If a lambda outlives
+the scope of the captured variable (such as returning a lambda from a
+function or passing it to an asynchronous worker), accessing the
+captured reference causes undefined behavior.</li>
+</ul>
+<hr />
+<h3 id="default-captures">Default Captures</h3>
+<p>C++ provides shorthand syntax to capture all referenced external
+variables automatically:</p>
+<ul>
+<li><strong><code>[=]</code> (Default Capture by Value):</strong>
+Implicitly captures any variable used within the lambda body by
+value.</li>
+<li><strong><code>[&amp;]</code> (Default Capture by
+Reference):</strong> Implicitly captures any variable used within the
+lambda body by reference.</li>
+</ul>
+<h4 id="mixed-captures">Mixed Captures</h4>
+<p>You can combine a default capture mode with explicit exceptions:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> a <span class="op">=</span> <span class="dv">1</span><span class="op">,</span> b <span class="op">=</span> <span class="dv">2</span><span class="op">,</span> c <span class="op">=</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Capture everything by value, but capture &#39;c&#39; by reference</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> lambda1 <span class="op">=</span> <span class="op">[=,</span> <span class="op">&amp;</span>c<span class="op">]()</span> <span class="op">{</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    c <span class="op">=</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Capture everything by reference, but capture &#39;a&#39; by value</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> lambda2 <span class="op">=</span> <span class="op">[&amp;,</span> a<span class="op">]()</span> <span class="op">{</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    b <span class="op">+=</span> a<span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p><em>Note: You cannot use the same capture mode explicitly that is
+already established by the default (e.g., <code>[=, a]</code> is
+invalid).</em></p>
+<hr />
+<h3 id="summary-of-differences">Summary of Differences</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Capture by Value (<code>[x]</code>)</th>
+<th style="text-align: left;">Capture by Reference
+(<code>[&amp;x]</code>)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Data Mechanism</strong></td>
+<td style="text-align: left;">Stores an internal copy</td>
+<td style="text-align: left;">Stores a reference to the original</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Original Variable</strong></td>
+<td style="text-align: left;">Remains unchanged</td>
+<td style="text-align: left;">Modified by changes inside the lambda</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Default Mutability</strong></td>
+<td style="text-align: left;">Read-only (requires <code>mutable</code>
+to edit)</td>
+<td style="text-align: left;">Read/Write (if original is non-const)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Lifetime Safety</strong></td>
+<td style="text-align: left;">Safe across scope boundaries</td>
+<td style="text-align: left;">Vulnerable to dangling references</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Performance</strong></td>
+<td style="text-align: left;">Incurs copy cost for large types</td>
+<td style="text-align: left;">Zero copy cost</td>
+</tr>
+</tbody>
+</table></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/lambda-capture-by-value-and-reference-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

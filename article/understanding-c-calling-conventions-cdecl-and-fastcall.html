@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding C++ Calling Conventions: cdecl and fastcall - cpp</title>
+    <meta name="description" content="A calling convention is a standardized, low-level protocol that governs how functions exchange data with their callers at the machine-code level. In C++, calling conventions define how parameters are passed, how values are returned, which CPU registers ar">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/understanding-c-calling-conventions-cdecl-and-fastcall">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding C++ Calling Conventions: cdecl and fastcall - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/understanding-c-calling-conventions-cdecl-and-fastcall" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="A calling convention is a standardized, low-level protocol that governs how functions exchange data with their callers at the machine-code level. In C++, calling conventions define how parameters are passed, how values are returned, which CPU registers ar" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="understanding-c-calling-conventions-cdecl-and-fastcall">Understanding
+C++ Calling Conventions: cdecl and fastcall</h1>
+<p>A calling convention is a standardized, low-level protocol that
+governs how functions exchange data with their callers at the
+machine-code level. In C++, calling conventions define how parameters
+are passed, how values are returned, which CPU registers are used, and
+whether the caller or the callee is responsible for cleaning up the call
+stack. This article explains what calling conventions are and details
+how traditional conventions like <code>cdecl</code> and
+<code>fastcall</code> handle register usage and stack management.</p>
+<h2 id="what-is-a-calling-convention">What is a Calling Convention?</h2>
+<p>When a C++ program calls a function, the compiler must translate that
+call into machine instructions. For this transfer of execution to
+succeed, both the calling function (the caller) and the receiving
+function (the callee) must adhere to the same contract. This contract is
+the calling convention.</p>
+<p>A calling convention dictates:</p>
+<ul>
+<li><strong>Argument Placement:</strong> Whether parameters are placed
+into general-purpose CPU registers or pushed onto the execution
+stack.</li>
+<li><strong>Evaluation Order:</strong> The order in which arguments are
+evaluated and placed onto the stack (typically right-to-left or
+left-to-right).</li>
+<li><strong>Stack Cleanup:</strong> Whether the caller or the callee
+restores the stack pointer to its previous position after the function
+completes.</li>
+<li><strong>Register Preservation:</strong> Which registers the callee
+must preserve (callee-saved/non-volatile) and which registers the callee
+may overwrite (caller-saved/volatile).</li>
+</ul>
+<h2 id="the-cdecl-calling-convention">The <code>cdecl</code> Calling
+Convention</h2>
+<p>The <code>cdecl</code> (C declaration) convention is the historic
+default for C and C++ programs on 32-bit x86 architectures.</p>
+<h3 id="register-usage-in-cdecl">Register Usage in
+<code>cdecl</code></h3>
+<p>Under <code>cdecl</code>, general-purpose registers are
+<strong>not</strong> used to pass arguments. Instead:</p>
+<ul>
+<li><strong>Argument Storage:</strong> All function arguments are pushed
+onto the call stack in right-to-left order.</li>
+<li><strong>Return Values:</strong> Simple return types (integers,
+pointers) are returned via a register, typically <code>EAX</code> in
+32-bit architectures. Floating-point numbers are returned in the
+floating-point register stack (<code>ST(0)</code>).</li>
+<li><strong>Volatile Registers:</strong> Registers <code>EAX</code>,
+<code>ECX</code>, and <code>EDX</code> are designated as caller-saved.
+If the caller needs their contents preserved across the call, it must
+save them to the stack.</li>
+<li><strong>Stack Management:</strong> The <strong>caller</strong> is
+responsible for cleaning up the stack after the function returns (by
+adjusting the stack pointer, e.g., <code>add esp, N</code>). Because the
+caller handles cleanup, <code>cdecl</code> natively supports variadic
+functions, such as <code>printf</code>, where the callee does not know
+ahead of time how many arguments were passed.</li>
+</ul>
+<h2 id="the-fastcall-calling-convention">The <code>fastcall</code>
+Calling Convention</h2>
+<p>The <code>__fastcall</code> convention was created to optimize
+function invocation speed by minimizing costly memory access operations
+on the stack.</p>
+<h3 id="register-usage-in-fastcall">Register Usage in
+<code>fastcall</code></h3>
+<p>Under <code>fastcall</code>, general-purpose CPU registers are
+directly allocated for the initial parameters:</p>
+<ul>
+<li><strong>Argument Storage via Registers:</strong> In typical 32-bit
+x86 implementations (such as Microsoft's compiler), the first two
+arguments that fit within 32 bits are placed directly into the
+<code>ECX</code> and <code>EDX</code> registers.</li>
+<li><strong>Stack Overflow:</strong> Any remaining arguments beyond the
+first two are pushed onto the stack in right-to-left order, identical to
+<code>cdecl</code>.</li>
+<li><strong>Return Values:</strong> Like <code>cdecl</code>, return
+values are placed in <code>EAX</code> (or <code>ST(0)</code> for
+floating-point values).</li>
+<li><strong>Stack Management:</strong> Unlike <code>cdecl</code>, the
+<strong>callee</strong> typically restores the stack pointer using a
+return instruction that pops bytes (e.g., <code>ret N</code>). Because
+the callee must know the exact number of bytes pushed to clean up the
+stack, <code>fastcall</code> does not support variadic functions.</li>
+</ul>
+<p>By keeping the initial arguments in <code>ECX</code> and
+<code>EDX</code>, the CPU avoids writing those arguments to RAM (the
+stack) and reading them back immediately inside the function body,
+yielding faster execution for short, frequently called functions.</p>
+<h2 id="architectural-context-x86-vs-x86-64">Architectural Context: x86
+vs. x86-64</h2>
+<p>On 32-bit systems, developers frequently chose between
+<code>__cdecl</code>, <code>__stdcall</code>, and
+<code>__fastcall</code> to balance performance and binary size.</p>
+<p>On modern 64-bit architectures (x86-64), these traditional 32-bit
+conventions are largely unified into standardized Application Binary
+Interfaces (ABIs):</p>
+<ul>
+<li><strong>Microsoft x64 ABI:</strong> Uses a 4-register fast-call
+convention where the first four arguments are passed in
+<code>RCX</code>, <code>RDX</code>, <code>R8</code>, and <code>R9</code>
+(or <code>XMM0</code>–<code>XMM3</code> for floating-point).</li>
+<li><strong>System V AMD64 ABI (Linux/macOS):</strong> Passes up to six
+integer/pointer arguments via registers: <code>RDI</code>,
+<code>RSI</code>, <code>RDX</code>, <code>RCX</code>, <code>R8</code>,
+and <code>R9</code>, and up to eight floating-point arguments via
+<code>XMM0</code>–<code>XMM7</code>.</li>
+</ul>
+<p>In modern 64-bit C++, explicit keywords like <code>__cdecl</code> or
+<code>__fastcall</code> are typically ignored or mapped directly to the
+underlying 64-bit ABI, making aggressive register usage the default
+behavior across all standard function calls.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/understanding-c-calling-conventions-cdecl-and-fastcall';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

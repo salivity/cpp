@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Undefined vs Implementation-Defined Behavior in C++ - cpp</title>
+    <meta name="description" content="In C++, understanding how the compiler interprets code is essential for writing safe, predictable software. The C++ standard categorizes non-uniform program behaviors into distinct groups, the most important of which are implementation-defined behavior an">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/undefined-vs-implementation-defined-behavior-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Undefined vs Implementation-Defined Behavior in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/undefined-vs-implementation-defined-behavior-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, understanding how the compiler interprets code is essential for writing safe, predictable software. The C++ standard categorizes non-uniform program behaviors into distinct groups, the most important of which are implementation-defined behavior an" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="undefined-vs-implementation-defined-behavior-in-c">Undefined vs
+Implementation-Defined Behavior in C++</h1>
+<p>In C++, understanding how the compiler interprets code is essential
+for writing safe, predictable software. The C++ standard categorizes
+non-uniform program behaviors into distinct groups, the most important
+of which are implementation-defined behavior and undefined behavior.
+While both describe scenarios where the standard does not mandate a
+single universal outcome across all machines, they differ fundamentally
+in contract, predictability, and safety: implementation-defined behavior
+guarantees a documented, consistent result on a specific compiler,
+whereas undefined behavior completely voids all guarantees, allowing for
+arbitrary and potentially catastrophic program execution.</p>
+<h2 id="implementation-defined-behavior">Implementation-Defined
+Behavior</h2>
+<p>Implementation-defined behavior occurs when the C++ standard allows a
+compiler to choose how it handles a specific construct, with the strict
+requirement that the compiler vendor must document this choice.</p>
+<p>When your code relies on implementation-defined behavior, it remains
+well-formed and safe on the targeted platform. The program's execution
+is deterministic and predictable under that specific compiler and
+environment.</p>
+<p>Common examples include:</p>
+<ul>
+<li><strong>Sizes of fundamental types:</strong> The standard defines
+minimum size requirements, but the exact size of types like
+<code>int</code>, <code>long</code>, or pointer types depends on the
+compiler and target architecture (e.g., <code>sizeof(long)</code> is
+typically 4 bytes on 64-bit Windows, but 8 bytes on 64-bit Linux).</li>
+<li><strong>Sign of plain <code>char</code>:</strong> Whether the
+<code>char</code> type is signed or unsigned by default is left to the
+compiler implementation.</li>
+<li><strong>Bitwise operations on signed values:</strong> Certain
+aspects of bitwise shifting on negative values historically fell under
+implementation-defined behavior.</li>
+</ul>
+<p>While implementation-defined behavior is safe on a single toolchain,
+it reduces software portability. Code that relies on specific type sizes
+or signedness may behave unexpectedly when compiled with a different
+compiler or for a different CPU architecture.</p>
+<h2 id="undefined-behavior-ub">Undefined Behavior (UB)</h2>
+<p>Undefined behavior represents a complete absence of rules. The C++
+standard places no requirements on the compiler or runtime environment
+when encountering undefined behavior. The language assumes that UB can
+never happen in a valid program.</p>
+<p>Because the compiler assumes code is free of UB, the optimizer may
+reorder, alter, or entirely eliminate code paths containing it.
+Consequently, the manifestations of undefined behavior are completely
+unpredictable:</p>
+<ul>
+<li>The program may crash instantly (e.g., via a segmentation
+fault).</li>
+<li>It may run correctly under debug builds but fail in release builds
+due to aggressive optimizations.</li>
+<li>It may silently corrupt memory, yielding incorrect calculations or
+creating severe security vulnerabilities.</li>
+</ul>
+<p>Common examples include:</p>
+<ul>
+<li><strong>Dereferencing a null or dangling pointer.</strong></li>
+<li><strong>Signed integer overflow</strong> (e.g., incrementing
+<code>INT_MAX</code>).</li>
+<li><strong>Accessing an array out of bounds.</strong></li>
+<li><strong>Reading uninitialized variables.</strong></li>
+<li><strong>Data races</strong> across multiple threads accessing shared
+memory without synchronization.</li>
+</ul>
+<h2 id="key-differences">Key Differences</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Implementation-Defined Behavior</th>
+<th style="text-align: left;">Undefined Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Documentation</strong></td>
+<td style="text-align: left;">Mandatory; the compiler vendor must
+document the behavior.</td>
+<td style="text-align: left;">None; the standard imposes no
+requirements.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Program Validity</strong></td>
+<td style="text-align: left;">The program is valid and safe on that
+specific implementation.</td>
+<td style="text-align: left;">The entire program is considered
+invalid.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Predictability</strong></td>
+<td style="text-align: left;">Consistent and reproducible on a given
+platform.</td>
+<td style="text-align: left;">Completely unpredictable; may vary by
+optimization flag.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Optimizer Impact</strong></td>
+<td style="text-align: left;">The compiler generates code according to
+documented rules.</td>
+<td style="text-align: left;">The compiler optimizes under the
+assumption that UB never occurs.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Risk Level</strong></td>
+<td style="text-align: left;">Portability issues across different
+platforms.</td>
+<td style="text-align: left;">Crashes, memory corruption, and security
+exploits.</td>
+</tr>
+</tbody>
+</table>
+<p>Implementation-defined behavior requires developers to read
+documentation and write platform-agnostic code to ensure portability.
+Undefined behavior, on the other hand, is a critical programming defect
+that must be eliminated entirely to ensure correctness.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/undefined-vs-implementation-defined-behavior-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

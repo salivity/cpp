@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Is Pragma Once Not Standardized in C++? - cpp</title>
+    <meta name="description" content="Despite being supported by nearly every major compiler—including GCC, Clang, and MSVC—#pragma once has never been adopted into the official ISO C++ standard. This directive acts as an alternative to traditional header guards, instructing the preprocessor">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/why-is-pragma-once-not-standardized-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Is Pragma Once Not Standardized in C++? - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/why-is-pragma-once-not-standardized-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Despite being supported by nearly every major compiler—including GCC, Clang, and MSVC—#pragma once has never been adopted into the official ISO C++ standard. This directive acts as an alternative to traditional header guards, instructing the preprocessor" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-is-pragma-once-not-standardized-in-c">Why Is Pragma Once Not
+Standardized in C++?</h1>
+<p>Despite being supported by nearly every major compiler—including GCC,
+Clang, and MSVC—<code>#pragma once</code> has never been adopted into
+the official ISO C++ standard. This directive acts as an alternative to
+traditional header guards, instructing the preprocessor to include a
+file only once during compilation. While developers favor it for its
+brevity and immunity to copy-paste naming collisions, the ISO C++
+committee has consistently avoided standardizing it due to the
+near-impossible task of creating an unambiguous, portable definition of
+file identity, the presence of optimized include guards, and the
+emergence of C++20 modules.</p>
+<p>The primary technical roadblock to standardizing
+<code>#pragma once</code> is determining what constitutes "the same
+file." The C++ Standard operates on an abstract machine that
+historically avoided dependencies on specific operating systems or
+filesystem implementations. In modern development environments,
+identifying whether two paths refer to the exact same file is fraught
+with edge cases:</p>
+<ul>
+<li><strong>Hard Links and Symbolic Links:</strong> Two completely
+different paths can point to the same physical file on disk. A compiler
+tracking included files by absolute path string will treat a symlink as
+a distinct file, accidentally including it multiple times.</li>
+<li><strong>Network Filesystems (NFS/SMB):</strong> Network mounts and
+distributed caching systems often lack persistent, unique file
+identifiers (like inode numbers) or may report inconsistent metadata
+across different compilation nodes.</li>
+<li><strong>Build Systems and Containers:</strong> Build systems often
+map the same source file into multiple directories, mount identical
+files in temporary scratchspaces, or generate identical files in
+distinct build trees.</li>
+<li><strong>Case-Insensitive Systems:</strong> Operating systems like
+Windows and macOS handle casing differently than Linux. Resolving
+canonical names reliably across all host and target platform
+combinations introduces significant overhead and platform-specific edge
+cases.</li>
+</ul>
+<p>To standardize <code>#pragma once</code>, the ISO committee would
+have to mandate precise semantics for file equivalence that work
+uniformly across every platform that supports C++, from standard desktop
+OSs to obscure bare-metal embedded environments without a traditional
+filesystem.</p>
+<p>Another major reason for the lack of standardization is that the
+problem had already been solved deterministically by standard header
+guards:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifndef MY_HEADER_H</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#define MY_HEADER_H</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Declarations</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span></code></pre></div>
+<p>While verbose and susceptible to naming conflicts, macro guards
+operate entirely within the lexical and preprocessor scope defined by
+the standard. They do not depend on the underlying host filesystem.
+Furthermore, all major modern compilers implement an optimization known
+as the "multiple-include optimization." Once the preprocessor detects
+that an entire file is wrapped in an <code>#ifndef</code> guard, it
+records the controlling macro and skips opening or parsing the file on
+subsequent includes if that macro is defined. Consequently, the
+performance difference between <code>#pragma once</code> and standard
+header guards in production compilers is negligible.</p>
+<p>Finally, the focus of the C++ standard committee moved away from
+patching the legacy preprocessor mechanism toward structural language
+improvements. With the introduction of C++20 Modules, the entire
+paradigm of textual header inclusion was superseded. Modules eliminate
+the need for header guards and <code>#pragma once</code> entirely by
+treating imported translation units as distinct, pre-compiled semantic
+interfaces rather than raw text injected via <code>#include</code>.
+Standardizing <code>#pragma once</code> today would expend committee
+resources on standardizing a flawed, legacy preprocessor feature that
+the language is actively moving away from.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/why-is-pragma-once-not-standardized-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

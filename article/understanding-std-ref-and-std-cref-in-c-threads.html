@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding std::ref and std::cref in C++ Threads - cpp</title>
+    <meta name="description" content="In C++, std::ref and std::cref are utility functions that wrap objects in std::referencewrapper to allow passing references to callable objects and threading utilities like std::thread and std::jthread. Because threading constructors copy or move their ar">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/understanding-std-ref-and-std-cref-in-c-threads">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding std::ref and std::cref in C++ Threads - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/understanding-std-ref-and-std-cref-in-c-threads" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, std::ref and std::cref are utility functions that wrap objects in std::referencewrapper to allow passing references to callable objects and threading utilities like std::thread and std::jthread. Because threading constructors copy or move their ar" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-stdref-and-stdcref-in-c-threads">Understanding
+std::ref and std::cref in C++ Threads</h1>
+<p>In C++, <code>std::ref</code> and <code>std::cref</code> are utility
+functions that wrap objects in <code>std::reference_wrapper</code> to
+allow passing references to callable objects and threading utilities
+like <code>std::thread</code> and <code>std::jthread</code>. Because
+threading constructors copy or move their arguments by default to ensure
+thread safety and avoid dangling references, passing variables directly
+will not bind to reference parameters in a worker function. This article
+explains why the C++ threading mechanism enforces by-value decay, how
+<code>std::ref</code> and <code>std::cref</code> bypass this behavior,
+and the safety considerations required when using them.</p>
+<h3 id="the-default-argument-passing-behavior-in-stdthread">The Default
+Argument Passing Behavior in <code>std::thread</code></h3>
+<p>When you construct a <code>std::thread</code>, the constructor takes
+the callable target and its arguments by forwarding reference
+(<code>Args&amp;&amp;...</code>), decaying them using
+<code>std::decay_t</code>. This design choice mirrors utilities like
+<code>std::bind</code> and <code>std::make_tuple</code>.</p>
+<p>The decay ensures that values passed to the thread are copied or
+moved into internal thread-storage. If a worker function expects a
+non-const reference parameter:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> increment<span class="op">(</span><span class="dt">int</span><span class="op">&amp;</span> value<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">++</span>value<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Attempting to launch a thread by simply passing an integer variable
+directly will cause a compilation error:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> counter <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>thread t<span class="op">(</span>increment<span class="op">,</span> counter<span class="op">);</span> <span class="co">// Compilation Error: cannot bind rvalue to non-const lvalue reference</span></span></code></pre></div>
+<p>The <code>std::thread</code> constructor creates a decayed copy of
+<code>counter</code> internally. When it attempts to invoke
+<code>increment</code> with this temporary copy, the language rules
+prevent binding a non-const lvalue reference (<code>int&amp;</code>) to
+a temporary value (rvalue), resulting in a compiler error.</p>
+<h3 id="the-role-of-stdref-and-stdcref">The Role of
+<code>std::ref</code> and <code>std::cref</code></h3>
+<p>To bypass decay and ensure that the worker function operates on the
+original object rather than a copy, you must explicitly wrap the
+variable using <code>std::ref</code> or <code>std::cref</code>:</p>
+<ul>
+<li><strong><code>std::ref</code></strong>: Generates a
+<code>std::reference_wrapper&lt;T&gt;</code>, which behaves like a
+non-const reference (<code>T&amp;</code>).</li>
+<li><strong><code>std::cref</code></strong>: Generates a
+<code>std::reference_wrapper&lt;const T&gt;</code>, which behaves like a
+constant reference (<code>const T&amp;</code>).</li>
+</ul>
+<p>The thread infrastructure copies the lightweight
+<code>std::reference_wrapper</code> object instead of the actual data.
+Upon executing the target function, the wrapper implicitly converts back
+to a reference bound to the original object.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;thread&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;functional&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> modify_data<span class="op">(</span><span class="dt">int</span><span class="op">&amp;</span> val<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    val <span class="op">+=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> print_data<span class="op">(</span><span class="at">const</span> <span class="dt">int</span><span class="op">&amp;</span> val<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Value: &quot;</span> <span class="op">&lt;&lt;</span> val <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> data <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Passing by reference using std::ref</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>thread t1<span class="op">(</span>modify_data<span class="op">,</span> <span class="bu">std::</span>ref<span class="op">(</span>data<span class="op">));</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>    t1<span class="op">.</span>join<span class="op">();</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Passing by const reference using std::cref</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>thread t2<span class="op">(</span>print_data<span class="op">,</span> <span class="bu">std::</span>cref<span class="op">(</span>data<span class="op">));</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    t2<span class="op">.</span>join<span class="op">();</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="key-use-cases">Key Use Cases</h3>
+<ol type="1">
+<li><strong>Mutating State in Worker Threads:</strong> When a thread
+must update an external accumulator, buffer, or state variable managed
+by the parent context.</li>
+<li><strong>Preventing Expensive Copies:</strong> When passing large
+objects (such as complex structs, large containers, or matrices) to
+read-only threads where copying overhead is prohibitive,
+<code>std::cref</code> allows passing by <code>const&amp;</code>
+efficiently.</li>
+<li><strong>Working with Non-Copyable Types:</strong> When an object
+manages exclusive resources (like <code>std::mutex</code>) and cannot be
+copied, passing it to a task requires either moving it or using
+<code>std::ref</code>.</li>
+</ol>
+<h3 id="crucial-safety-considerations">Crucial Safety
+Considerations</h3>
+<p>While <code>std::ref</code> and <code>std::cref</code> are necessary
+for reference forwarding, they introduce concurrency risks:</p>
+<ul>
+<li><strong>Lifetime Management:</strong> The programmer is strictly
+responsible for guaranteeing that the referenced object outlives the
+spawned thread. If the owning scope exits while the thread is still
+running, the reference becomes dangling, leading to undefined
+behavior.</li>
+<li><strong>Data Races:</strong> Passing a non-const reference via
+<code>std::ref</code> allows concurrent mutation. If multiple threads
+access or modify the underlying object simultaneously, adequate
+synchronization mechanisms (such as <code>std::mutex</code> or
+<code>std::atomic</code>) must be implemented to prevent race
+conditions.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/understanding-std-ref-and-std-cref-in-c-threads';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

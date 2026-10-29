@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The ABA Problem in C++ Lock-Free Programming - cpp</title>
+    <meta name="description" content="The ABA problem is a critical synchronization hazard in multithreaded environments where a memory location is read, modified to a new value, and then restored to its original value, causing an atomic Compare-And-Swap (CAS) operation to falsely conclude th">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/the-aba-problem-in-c-lock-free-programming">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="The ABA Problem in C++ Lock-Free Programming - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/the-aba-problem-in-c-lock-free-programming" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The ABA problem is a critical synchronization hazard in multithreaded environments where a memory location is read, modified to a new value, and then restored to its original value, causing an atomic Compare-And-Swap (CAS) operation to falsely conclude th" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="the-aba-problem-in-c-lock-free-programming">The ABA Problem in
+C++ Lock-Free Programming</h1>
+<p>The ABA problem is a critical synchronization hazard in multithreaded
+environments where a memory location is read, modified to a new value,
+and then restored to its original value, causing an atomic
+Compare-And-Swap (CAS) operation to falsely conclude that no state
+changes occurred. This article explains the mechanics of the ABA problem
+within lock-free data structures, illustrates how it causes data
+corruption, and outlines the standard techniques used to address it in
+modern C++, including tagged pointers, hazard pointers, and atomic
+shared pointers.</p>
+<h2 id="understanding-the-aba-problem">Understanding the ABA
+Problem</h2>
+<p>Lock-free algorithms rely heavily on the Compare-And-Swap (CAS)
+primitive—represented in C++ by
+<code>std::atomic::compare_exchange_weak</code> and
+<code>std::atomic::compare_exchange_strong</code>. A CAS operation
+checks whether an atomic variable matches an expected value; if it does,
+it updates the variable to a new value.</p>
+<p>The ABA sequence occurs when:</p>
+<ol type="1">
+<li><strong>Thread 1</strong> reads memory location <code>L</code>,
+observing value <code>A</code>.</li>
+<li><strong>Thread 1</strong> is suspended before it can execute a CAS
+operation.</li>
+<li><strong>Thread 2</strong> modifies <code>L</code> from
+<code>A</code> to <code>B</code>.</li>
+<li><strong>Thread 2</strong> (or another thread) modifies
+<code>L</code> from <code>B</code> back to <code>A</code>.</li>
+<li><strong>Thread 1</strong> resumes and executes
+<code>CAS(L, expected: A, desired: C)</code>.</li>
+</ol>
+<p>Because the value at <code>L</code> is currently <code>A</code>, the
+CAS operation succeeds. However, the underlying system state may have
+changed dramatically between the initial read and the CAS, violating the
+algorithm's correctness guarantees.</p>
+<h2 id="the-problem-in-practice-the-lock-free-stack">The Problem in
+Practice: The Lock-Free Stack</h2>
+<p>The most common manifestation of the ABA problem occurs in
+pointer-based dynamic data structures, such as a lock-free Treiber
+stack.</p>
+<p>Consider a stack with the layout:
+<code>Top -&gt; NodeA -&gt; NodeB -&gt; NodeC</code>.</p>
+<ol type="1">
+<li><strong>Thread 1</strong> prepares to pop a node. It reads
+<code>Top</code> as <code>NodeA</code> and determines the new top should
+be <code>NodeA-&gt;next</code>, which points to <code>NodeB</code>.</li>
+<li><strong>Thread 1</strong> is preempted before executing
+<code>compare_exchange_strong(Top, NodeA, NodeB)</code>.</li>
+<li><strong>Thread 2</strong> pops <code>NodeA</code> and
+<code>NodeB</code>. The stack now has <code>Top -&gt; NodeC</code>.</li>
+<li><code>NodeB</code> is deleted.</li>
+<li><strong>Thread 2</strong> pushes a new node or reuses the allocated
+memory for <code>NodeA</code>, pushing it back onto the stack. The stack
+is now: <code>Top -&gt; NodeA -&gt; NodeC</code>.</li>
+<li><strong>Thread 1</strong> resumes. Its CAS checks if
+<code>Top == NodeA</code>. Since <code>Top</code> points to
+<code>NodeA</code> again, the CAS succeeds and sets <code>Top</code> to
+<code>NodeB</code>.</li>
+</ol>
+<p>Because <code>NodeB</code> was already freed in step 4,
+<code>Top</code> now points to invalid, deallocated memory, leading to
+silent memory corruption, segmentation faults, or undefined
+behavior.</p>
+<h2 id="mitigations-in-c">Mitigations in C++</h2>
+<p>Addressing the ABA problem requires ensuring that either the identity
+of a state cannot be duplicated inadvertently or that memory is not
+recycled while concurrent readers exist.</p>
+<h3 id="1-tagged-pointers-double-word-cas">1. Tagged Pointers
+(Double-Word CAS)</h3>
+<p>The most common hardware-level solution is associating a monotonic
+sequence counter (tag or generation counter) with the pointer. Every
+time the pointer is modified, the counter increments.</p>
+<p>In C++, this can be implemented by packing a pointer and an integer
+into a single 128-bit structure on 64-bit architectures, relying on
+double-word CAS instructions (such as <code>CMPXCHG16B</code> on
+x86-64):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> TaggedPointer <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    Node<span class="op">*</span> ptr<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uintptr_t</span> tag<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>atomic<span class="op">&lt;</span>TaggedPointer<span class="op">&gt;</span> top<span class="op">;</span></span></code></pre></div>
+<p>Even if <code>ptr</code> changes from <code>NodeA</code> to
+<code>NodeB</code> and back to <code>NodeA</code>, <code>tag</code> will
+have advanced from <code>N</code> to <code>N + 2</code>. The CAS will
+compare both <code>ptr</code> and <code>tag</code>, detect the mismatch,
+and fail safely.</p>
+<p>Alternatively, on 64-bit platforms where virtual address spaces only
+use 48 bits, the unused upper 16 bits of a pointer can store the version
+tag directly, fitting into a standard 64-bit
+<code>std::atomic&lt;uintptr_t&gt;</code>.</p>
+<h3 id="2-hazard-pointers">2. Hazard Pointers</h3>
+<p>Hazard pointers solve the problem at the memory reclamation layer.
+When a thread reads a pointer, it registers the address in a
+thread-local "hazard pointer" array visible to all threads.</p>
+<p>Before any thread frees memory:</p>
+<ol type="1">
+<li>It retires the node to a private reclamation list.</li>
+<li>It scans all threads' hazard pointers.</li>
+<li>If a retired node’s address matches an active hazard pointer,
+deallocation is postponed.</li>
+</ol>
+<p>Because <code>NodeA</code> cannot be freed while Thread 1 retains a
+reference to it, its address cannot be recycled and pushed back to the
+stack during Thread 1's operation. Hazard pointers are integrated into
+the C++ standard library starting in C++26 via
+<code>&lt;hazard_pointer&gt;</code> (<code>std::hazard_pointer</code>),
+but can be implemented manually in earlier standards.</p>
+<h3 id="3-epoch-based-reclamation-ebr">3. Epoch-Based Reclamation
+(EBR)</h3>
+<p>Similar to hazard pointers, Epoch-Based Reclamation defers memory
+deallocation. Global time is divided into logical epochs. Threads
+announce their arrival in the current epoch when entering a critical
+lock-free section.</p>
+<p>A node is only deleted once all threads have advanced past the epoch
+in which that node was removed from the active data structure. This
+prevents rapid pointer recycling, ensuring that a memory address cannot
+be reused while an older thread is still attempting a CAS on it.</p>
+<h3 id="4-atomic-shared-pointers-stdatomicstdshared_ptrt">4. Atomic
+Shared Pointers
+(<code>std::atomic&lt;std::shared_ptr&lt;T&gt;&gt;</code>)</h3>
+<p>In C++20, <code>std::atomic&lt;std::shared_ptr&lt;T&gt;&gt;</code>
+provides atomic operations on reference-counted pointers.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>atomic<span class="op">&lt;</span><span class="bu">std::</span>shared_ptr<span class="op">&lt;</span>Node<span class="op">&gt;&gt;</span> top<span class="op">;</span></span></code></pre></div>
+<p>When a thread reads <code>top</code>, the reference count increments.
+Even if another thread pops the node, the memory is not deleted because
+the reading thread still holds an active reference. Because memory
+cannot be recycled while a thread holds the pointer, the exact pointer
+identity cannot be reintroduced via memory reallocation, avoiding the
+ABA hazard entirely.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/the-aba-problem-in-c-lock-free-programming';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

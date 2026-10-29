@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advantages of std::print Over std::cout in C++ - cpp</title>
+    <meta name="description" content="C++23 introduced std::print, modernizing how developers output text by replacing the decades-old streams library with a faster, cleaner, and safer alternative. This article explores the primary advantages of std::print over traditional std::cout formattin">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/advantages-of-std-print-over-std-cout-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Advantages of std::print Over std::cout in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/advantages-of-std-print-over-std-cout-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="C++23 introduced std::print, modernizing how developers output text by replacing the decades-old streams library with a faster, cleaner, and safer alternative. This article explores the primary advantages of std::print over traditional std::cout formattin" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="advantages-of-stdprint-over-stdcout-in-c">Advantages of
+std::print Over std::cout in C++</h1>
+<p>C++23 introduced <code>std::print</code>, modernizing how developers
+output text by replacing the decades-old streams library with a faster,
+cleaner, and safer alternative. This article explores the primary
+advantages of <code>std::print</code> over traditional
+<code>std::cout</code> formatting streams, focusing on its ergonomic
+syntax, improved execution speed, reduced binary overhead, better thread
+safety, and native support for Unicode.</p>
+<h3 id="cleaner-and-more-readable-syntax">Cleaner and More Readable
+Syntax</h3>
+<p>The traditional <code>std::cout</code> approach relies on chaining
+stream insertion operators (<code>&lt;&lt;</code>), which quickly
+becomes verbose, fragmented, and difficult to read. Complex formatting
+requires inserting stateful manipulators like <code>std::setw</code>,
+<code>std::setprecision</code>, and <code>std::hex</code>, which pollute
+the stream and alter its state globally for subsequent calls.</p>
+<p>In contrast, <code>std::print</code> adopts Python-style format
+strings inherited from C++20's <code>std::format</code>. Placeholders
+(<code>{}</code>) keep the entire message intact within a single string
+literal, while formatting specifications (e.g., <code>"{:.2f}"</code>)
+are applied locally without mutating global formatting state.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Verbose and fragmented with std::cout</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;User: &quot;</span> <span class="op">&lt;&lt;</span> username <span class="op">&lt;&lt;</span> <span class="st">&quot; | Balance: $&quot;</span> </span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>          <span class="op">&lt;&lt;</span> <span class="bu">std::</span>fixed <span class="op">&lt;&lt;</span> <span class="bu">std::</span>setprecision<span class="op">(</span><span class="dv">2</span><span class="op">)</span> <span class="op">&lt;&lt;</span> balance <span class="op">&lt;&lt;</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Clear and concise with std::print</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>print<span class="op">(</span><span class="st">&quot;User: </span><span class="sc">{}</span><span class="st"> | Balance: $</span><span class="sc">{:.2f}\n</span><span class="st">&quot;</span><span class="op">,</span> username<span class="op">,</span> balance<span class="op">);</span></span></code></pre></div>
+<h3 id="superior-performance">Superior Performance</h3>
+<p><code>std::print</code> significantly outperforms
+<code>std::cout</code>. Stream operations in C++ carry the baggage of
+virtual function calls, dynamic locale allocations, and formatting
+layers that write piece-by-piece to an underlying buffer. Furthermore,
+developers frequently misuse <code>std::endl</code>, triggering
+redundant buffer flushes that degrade throughput.</p>
+<p><code>std::print</code> parses the format string at compile time
+where possible, pre-computes buffer requirements, and formats the output
+into a contiguous memory block before dispatching it to the system. By
+bypassing the overhead of standard stream buffers,
+<code>std::print</code> provides execution speeds that often rival or
+beat C's <code>printf</code> while maintaining complete type safety.</p>
+<h3 id="proper-unicode-and-utf-8-support">Proper Unicode and UTF-8
+Support</h3>
+<p>Historically, sending UTF-8 encoded text to the terminal through
+<code>std::cout</code> produced garbled output or required complex
+platform-specific workarounds, especially on Windows where the console
+requires wide-character APIs.</p>
+<p><code>std::print</code> addresses this fundamental flaw directly. It
+is explicitly designed to handle UTF-8 text reliably across platforms.
+On Windows, if the destination is a console device,
+<code>std::print</code> automatically uses the native Unicode APIs (such
+as <code>WriteConsoleW</code>) to display characters correctly,
+regardless of the system's active code page.</p>
+<h3 id="smaller-binary-footprint">Smaller Binary Footprint</h3>
+<p>The <code>&lt;iostream&gt;</code> header is notoriously heavy.
+Including it introduces massive template instantiations, virtual table
+hierarchies, and static initialization routines required to construct
+global stream objects like <code>std::cin</code> and
+<code>std::cout</code>.</p>
+<p><code>std::print</code> relies on lighter machinery, largely based on
+type-erased formatting helpers under the hood. This architectural shift
+significantly decreases template bloat, leading to faster compilation
+times and smaller final binary sizes.</p>
+<h3 id="elimination-of-interleaved-output">Elimination of Interleaved
+Output</h3>
+<p>When using <code>std::cout &lt;&lt; a &lt;&lt; b &lt;&lt; c;</code>,
+each <code>&lt;&lt;</code> invocation represents a distinct function
+call. In multithreaded environments, output from concurrent threads can
+interleave mid-statement, resulting in scrambled log messages unless
+explicitly guarded by an external mutex.</p>
+<p>Because <code>std::print</code> formats the entire string into a
+unified buffer before writing it to the standard output in a single
+operation, the risk of character-by-character or token-by-token
+interleaving between concurrent print statements is substantially
+reduced.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/advantages-of-std-print-over-std-cout-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

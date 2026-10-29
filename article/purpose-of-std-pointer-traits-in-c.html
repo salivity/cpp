@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purpose of std::pointer_traits in C++ - cpp</title>
+    <meta name="description" content="This article examines std::pointertraits, a utility template introduced in C++11 to provide a uniform interface for inspecting and manipulating both raw pointers and &quot;fancy&quot; or smart pointers. By standardizing access to underlying types and operations—suc">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/purpose-of-std-pointer-traits-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Purpose of std::pointer_traits in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/purpose-of-std-pointer-traits-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article examines std::pointertraits, a utility template introduced in C++11 to provide a uniform interface for inspecting and manipulating both raw pointers and &quot;fancy&quot; or smart pointers. By standardizing access to underlying types and operations—suc" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="purpose-of-stdpointer_traits-in-c">Purpose of
+std::pointer_traits in C++</h1>
+<p>This article examines <code>std::pointer_traits</code>, a utility
+template introduced in C++11 to provide a uniform interface for
+inspecting and manipulating both raw pointers and "fancy" or smart
+pointers. By standardizing access to underlying types and
+operations—such as obtaining a pointer from a reference or rebinding a
+pointer type to a different pointee
+type—<code>std::pointer_traits</code> enables generic containers and
+custom allocators to support non-standard pointer representations
+seamlessly.</p>
+<h2 id="the-core-problem-it-solves">The Core Problem It Solves</h2>
+<p>In generic C++ programming, template code often needs to work with
+pointer-like types. While raw pointers (<code>T*</code>) have
+well-known, built-in semantics, custom pointer types—such as
+<code>boost::interprocess::offset_ptr</code> for shared memory, or smart
+pointers like <code>std::shared_ptr</code>—may differ in how they define
+metadata and operations.</p>
+<p>Prior to C++11, templates interacting with allocator-provided pointer
+types had no standardized mechanism to query characteristics like the
+pointed-to type, compute address offsets, or cast the pointer type to
+refer to a different type. <code>std::pointer_traits</code> establishes
+this uniform compile-time interface.</p>
+<h2 id="key-member-types-and-methods">Key Member Types and Methods</h2>
+<p>The template <code>std::pointer_traits&lt;Ptr&gt;</code> provides
+several member types and a static member function:</p>
+<ul>
+<li><strong><code>pointer</code></strong>: The pointer type itself
+(<code>Ptr</code>).</li>
+<li><strong><code>element_type</code></strong>: The type of the object
+being pointed to. If <code>Ptr</code> is a class template like
+<code>Template&lt;T, Args...&gt;</code>, <code>element_type</code>
+defaults to <code>T</code> unless explicitly defined within
+<code>Ptr</code>.</li>
+<li><strong><code>difference_type</code></strong>: The type used to
+represent the difference between two pointers. Defaults to
+<code>Ptr::difference_type</code> or <code>std::ptrdiff_t</code>.</li>
+<li><strong><code>rebind&lt;U&gt;</code></strong>: A member alias
+template representing the pointer type pointing to <code>U</code>
+instead of <code>element_type</code>. For example, if <code>Ptr</code>
+is <code>MyPtr&lt;int&gt;</code>, <code>rebind&lt;double&gt;</code>
+evaluates to <code>MyPtr&lt;double&gt;</code>.</li>
+<li><strong><code>pointer_to(element_type&amp; r)</code></strong>: A
+static function that returns a pointer of type <code>pointer</code>
+dereferencing to <code>r</code>. For raw pointers, this is equivalent to
+<code>std::addressof(r)</code>.</li>
+</ul>
+<h2 id="raw-pointer-specialization">Raw Pointer Specialization</h2>
+<p>The standard library provides an explicit partial specialization for
+native pointers: <code>std::pointer_traits&lt;T*&gt;</code>.</p>
+<p>For any raw pointer <code>T*</code>:</p>
+<ul>
+<li><code>element_type</code> is <code>T</code></li>
+<li><code>difference_type</code> is <code>std::ptrdiff_t</code></li>
+<li><code>rebind&lt;U&gt;</code> is <code>U*</code></li>
+<li><code>pointer_to(r)</code> returns
+<code>std::addressof(r)</code></li>
+</ul>
+<p>This specialization allows template algorithms to handle raw pointers
+and user-defined pointer types interchangeably without conditional
+branching or template overloads.</p>
+<h2 id="primary-use-case-custom-allocators-and-containers">Primary Use
+Case: Custom Allocators and Containers</h2>
+<p>The primary consumer of <code>std::pointer_traits</code> is
+<code>std::allocator_traits</code>. Standard library containers (such as
+<code>std::vector</code>, <code>std::list</code>, or
+<code>std::map</code>) do not interact with raw pointers directly; they
+interact with the <code>pointer</code> type exposed by their
+allocator.</p>
+<p>When an allocator defines a fancy pointer (for instance, an
+offset-based pointer designed to remain valid across different processes
+mapping the same shared-memory segment), container implementations use
+<code>std::pointer_traits</code> to:</p>
+<ol type="1">
+<li>Convert reference types to the allocator's pointer type via
+<code>pointer_to</code>.</li>
+<li>Allocate internal bookkeeping nodes by using <code>rebind</code>
+(e.g., transforming a user data pointer <code>Alloc::pointer</code> into
+an internal tree or list node pointer).</li>
+<li>Deduce the pointee type when the pointer type is defined without an
+explicit <code>element_type</code> alias.</li>
+</ol>
+<p>Through this abstraction, <code>std::pointer_traits</code> makes
+advanced memory models and specialized pointer types first-class
+citizens in modern C++.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/purpose-of-std-pointer-traits-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

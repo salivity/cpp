@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Concepts: Subsumption Rules Explained - cpp</title>
+    <meta name="description" content="In C++20, constraints and concepts allow developers to restrict template arguments and overload templates based on type capabilities. When multiple constrained templates match a set of template arguments, the compiler relies on subsumption rules to evalua">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-concepts-subsumption-rules-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Concepts: Subsumption Rules Explained - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-concepts-subsumption-rules-explained" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++20, constraints and concepts allow developers to restrict template arguments and overload templates based on type capabilities. When multiple constrained templates match a set of template arguments, the compiler relies on subsumption rules to evalua" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-concepts-subsumption-rules-explained">C++ Concepts:
+Subsumption Rules Explained</h1>
+<p>In C++20, constraints and concepts allow developers to restrict
+template arguments and overload templates based on type capabilities.
+When multiple constrained templates match a set of template arguments,
+the compiler relies on subsumption rules to evaluate which constraint is
+more specialized. This article explains how constraint normalization
+works, how subsumption determines when one constraint implies another,
+and how overload resolution uses these relationships to select the most
+specific template.</p>
+<h2 id="constraint-normalization">Constraint Normalization</h2>
+<p>Before the compiler can compare two constraints, it transforms them
+through a process called normalization. Normalization decomposes complex
+requirement expressions into logical combinations of atomic
+constraints.</p>
+<p>The normalization process performs the following steps:</p>
+<ol type="1">
+<li><strong>Concept Expansion:</strong> References to concepts are
+recursively expanded until only expressions joined by the logical
+operators <code>&amp;&amp;</code> and <code>||</code> remain.</li>
+<li><strong>Atomic Constraint Identification:</strong> An atomic
+constraint is an expression evaluated as a boolean value that cannot be
+further broken down into <code>&amp;&amp;</code> or <code>||</code>
+operations. For example, in
+<code>requires (sizeof(T) &gt; 4 &amp;&amp; std::is_integral_v&lt;T&gt;)</code>,
+the normalization yields two separate atomic constraints:
+<code>sizeof(T) &gt; 4</code> and
+<code>std::is_integral_v&lt;T&gt;</code>.</li>
+<li><strong>Form Conversion:</strong> Constraints are logically
+represented as sets of clauses (Conjunctive Normal Form or Disjunctive
+Normal Form) composed of these atomic constraints.</li>
+</ol>
+<h2 id="the-definition-of-subsumption">The Definition of
+Subsumption</h2>
+<p>Subsumption is the formal compile-time mechanism used to determine
+logical implication between normalized constraints. A constraint <span
+class="math inline">\(P\)</span> subsumes a constraint <span
+class="math inline">\(Q\)</span> if and only if it can be proven that
+<span class="math inline">\(P \implies Q\)</span> (P implies Q) under
+the rules of propositional logic.</p>
+<p>The basic rules for subsumption are:</p>
+<ul>
+<li>A conjunction <code>A &amp;&amp; B</code> subsumes <code>A</code>,
+as well as <code>B</code>. If both <code>A</code> and <code>B</code> are
+true, <code>A</code> must inherently be true.</li>
+<li>An atomic constraint <code>A</code> subsumes a disjunction
+<code>A || B</code>. If <code>A</code> is true, the compound expression
+<code>A || B</code> is satisfied.</li>
+<li>Two identical atomic constraints subsume each other.</li>
+</ul>
+<p>For a compound constraint <span class="math inline">\(P\)</span> to
+subsume <span class="math inline">\(Q\)</span>, every clause in the
+normalized form of <span class="math inline">\(Q\)</span> must be
+satisfied by the conditions provided by <span
+class="math inline">\(P\)</span>.</p>
+<h2 id="the-identity-of-atomic-constraints">The Identity of Atomic
+Constraints</h2>
+<p>A critical aspect of subsumption is atomic constraint identity. Two
+atomic constraints are considered identical if and only if they
+originate from the exact same syntactic expression in the source code
+and have identical template parameter mappings.</p>
+<p>Consider the following example:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">concept</span> Signed <span class="op">=</span> <span class="bu">std::</span>is_signed_v<span class="op">&lt;</span>T<span class="op">&gt;;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">concept</span> SignedInt <span class="op">=</span> <span class="bu">std::</span>is_signed_v<span class="op">&lt;</span>T<span class="op">&gt;</span> <span class="op">&amp;&amp;</span> <span class="bu">std::</span>is_integral_v<span class="op">&lt;</span>T<span class="op">&gt;;</span></span></code></pre></div>
+<p>In this case, <code>SignedInt&lt;T&gt;</code> subsumes
+<code>Signed&lt;T&gt;</code> because both reference the exact same
+underlying concept expression, allowing the compiler to recognize
+<code>std::is_signed_v&lt;T&gt;</code> as the same atomic
+constraint.</p>
+<p>Conversely, if constraints use raw expressions rather than shared
+concepts:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span> <span class="kw">requires</span> <span class="op">(</span><span class="kw">sizeof</span><span class="op">(</span>T<span class="op">)</span> <span class="op">&gt;</span> <span class="dv">4</span><span class="op">)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span>T<span class="op">);</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span> <span class="kw">requires</span> <span class="op">(</span><span class="kw">sizeof</span><span class="op">(</span>T<span class="op">)</span> <span class="op">&gt;</span> <span class="dv">4</span> <span class="op">&amp;&amp;</span> <span class="bu">std::</span>is_integral_v<span class="op">&lt;</span>T<span class="op">&gt;)</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span>T<span class="op">);</span></span></code></pre></div>
+<p>Even though <code>sizeof(T) &gt; 4</code> appears in both
+declarations, they are separate syntactic entities. Because they are not
+defined within the same concept, the compiler treats them as distinct
+atomic constraints. As a result, the second overload does not subsume
+the first, causing an ambiguous call error during compilation.</p>
+<h2 id="overload-resolution-and-specificity">Overload Resolution and
+Specificity</h2>
+<p>During overload resolution, candidate function templates are ranked
+based on viability. When multiple templates with different constraints
+are viable for a given set of arguments:</p>
+<ol type="1">
+<li>The compiler checks if constraint <span
+class="math inline">\(P\)</span> of the first candidate subsumes
+constraint <span class="math inline">\(Q\)</span> of the second
+candidate.</li>
+<li>The compiler checks if constraint <span
+class="math inline">\(Q\)</span> subsumes constraint <span
+class="math inline">\(P\)</span>.</li>
+<li>If <span class="math inline">\(P\)</span> subsumes <span
+class="math inline">\(Q\)</span>, but <span
+class="math inline">\(Q\)</span> does not subsume <span
+class="math inline">\(P\)</span>, then <span
+class="math inline">\(P\)</span> is deemed <strong>more
+constrained</strong> (more specific) than <span
+class="math inline">\(Q\)</span>.</li>
+</ol>
+<p>The candidate with the more constrained requirement is chosen as the
+best match. If neither constraint subsumes the other, or if both subsume
+each other without other tie-breaking factors (such as non-template
+functions or standard conversion sequences), the call is flagged as
+ambiguous.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-concepts-subsumption-rules-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

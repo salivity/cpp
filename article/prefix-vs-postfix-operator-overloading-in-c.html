@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prefix vs Postfix Operator Overloading in C++ - cpp</title>
+    <meta name="description" content="In C++, overloading the increment operator (++) requires distinguishing between its prefix (++obj) and postfix (obj++) forms. While both operators increase an object&#39;s value, their overloading mechanisms differ in function signatures, parameter lists, ret">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/prefix-vs-postfix-operator-overloading-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Prefix vs Postfix Operator Overloading in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/prefix-vs-postfix-operator-overloading-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, overloading the increment operator (++) requires distinguishing between its prefix (++obj) and postfix (obj++) forms. While both operators increase an object&#39;s value, their overloading mechanisms differ in function signatures, parameter lists, ret" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="prefix-vs-postfix-operator-overloading-in-c">Prefix vs Postfix
+Operator Overloading in C++</h1>
+<p>In C++, overloading the increment operator (<code>++</code>) requires
+distinguishing between its prefix (<code>++obj</code>) and postfix
+(<code>obj++</code>) forms. While both operators increase an object's
+value, their overloading mechanisms differ in function signatures,
+parameter lists, return types, and internal behaviors. This guide
+explores the syntax, implementation details, and performance
+implications that differentiate prefix and postfix operator
+overloading.</p>
+<h3 id="function-signatures-and-the-dummy-parameter">Function Signatures
+and the Dummy Parameter</h3>
+<p>The C++ compiler uses the function signature to determine whether a
+prefix or postfix call is being made. Because both use the same operator
+symbol, C++ introduces a dummy <code>int</code> parameter to distinguish
+the postfix version.</p>
+<ul>
+<li><p><strong>Prefix Signature:</strong></p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>ReturnType<span class="op">&amp;</span> <span class="kw">operator</span><span class="op">++();</span></span></code></pre></div>
+<p>The prefix operator takes no arguments when defined as a member
+function.</p></li>
+<li><p><strong>Postfix Signature:</strong></p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>ReturnType <span class="kw">operator</span><span class="op">++(</span><span class="dt">int</span><span class="op">);</span></span></code></pre></div>
+<p>The postfix operator accepts an unnamed <code>int</code> parameter.
+This parameter is solely a tag used by the compiler to select the
+postfix overload; no actual integer value is passed or used during
+execution.</p></li>
+</ul>
+<h3 id="return-types-and-value-semantics">Return Types and Value
+Semantics</h3>
+<p>The fundamental behavioral difference between prefix and postfix
+increment affects their return types:</p>
+<ol type="1">
+<li><strong>Prefix (<code>++obj</code>):</strong> Increments the value
+first, then evaluates to the updated object. Because the modified object
+already exists in the current scope, it returns a reference to itself
+(<code>*this</code>). This allows for chaining (e.g.,
+<code>++++obj</code>).</li>
+<li><strong>Postfix (<code>obj++</code>):</strong> Evaluates to the
+original value before the increment occurs. To achieve this, the
+function must capture the state of the object before modifying it and
+return that preserved state by value. Chaining is not typically
+supported on postfix expressions because it operates on a temporary
+copy.</li>
+</ol>
+<h3 id="code-implementation">Code Implementation</h3>
+<p>The following example demonstrates how to overload both operators
+within a class:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Counter <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> value<span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    Counter<span class="op">(</span><span class="dt">int</span> val <span class="op">=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">:</span> value<span class="op">(</span>val<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Prefix increment: ++obj</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    Counter<span class="op">&amp;</span> <span class="kw">operator</span><span class="op">++()</span> <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="op">++</span>value<span class="op">;</span>            <span class="co">// Increment state</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">*</span><span class="kw">this</span><span class="op">;</span>       <span class="co">// Return reference to current object</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Postfix increment: obj++</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    Counter <span class="kw">operator</span><span class="op">++(</span><span class="dt">int</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        Counter temp <span class="op">=</span> <span class="op">*</span><span class="kw">this</span><span class="op">;</span> <span class="co">// Save current state</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="op">++</span>value<span class="op">;</span>              <span class="co">// Increment state</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> temp<span class="op">;</span>          <span class="co">// Return saved state by value</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> getValue<span class="op">()</span> <span class="at">const</span> <span class="op">{</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> value<span class="op">;</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="performance-considerations">Performance Considerations</h3>
+<p>Prefix increment is generally more efficient than postfix increment
+for user-defined types.</p>
+<p>The postfix operator requires the creation of a temporary copy to
+preserve the initial state before modification, followed by a
+return-by-value operation. For complex classes managing dynamic memory
+or large data structures, this copy operation incurs measurable
+overhead. The prefix operator avoids this entirely by modifying the
+object in place and returning a reference. Therefore, prefix increment
+is preferred in C++ whenever the previous value is not explicitly
+required (such as in loop iterations).</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/prefix-vs-postfix-operator-overloading-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

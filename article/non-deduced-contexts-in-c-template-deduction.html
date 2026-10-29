@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Non-Deduced Contexts in C++ Template Deduction - cpp</title>
+    <meta name="description" content="Template argument deduction allows the C++ compiler to automatically determine template arguments from the types of function call arguments. However, certain syntactic positions—formally defined as non-deduced contexts—prevent the compiler from deducing t">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/non-deduced-contexts-in-c-template-deduction">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Non-Deduced Contexts in C++ Template Deduction - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/non-deduced-contexts-in-c-template-deduction" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Template argument deduction allows the C++ compiler to automatically determine template arguments from the types of function call arguments. However, certain syntactic positions—formally defined as non-deduced contexts—prevent the compiler from deducing t" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="non-deduced-contexts-in-c-template-deduction">Non-Deduced
+Contexts in C++ Template Deduction</h1>
+<p>Template argument deduction allows the C++ compiler to automatically
+determine template arguments from the types of function call arguments.
+However, certain syntactic positions—formally defined as non-deduced
+contexts—prevent the compiler from deducing these types automatically.
+This article examines what non-deduced contexts are, how the compiler
+behaves when encountering them, common scenarios where they occur, and
+how developers intentionally utilize them to control overload resolution
+and enforce explicit type specification.</p>
+<hr />
+<h3 id="what-is-a-non-deduced-context">What Is a Non-Deduced
+Context?</h3>
+<p>During template argument deduction, the compiler inspects the types
+of function arguments supplied at a call site and compares them against
+the parameter types declared in the function template. When a template
+parameter appears in a construct where deduction cannot
+deterministically or unambiguously infer the original type, the C++
+standard classifies that construct as a non-deduced context.</p>
+<p>In these contexts, the compiler does not attempt deduction on that
+specific parameter. The type must either be deduced from another
+function argument where the parameter appears in a deducible context,
+supplied via a default template argument, or provided explicitly at the
+call site. If the parameter cannot be resolved through any of these
+means, the compiler issues a deduction failure, causing the template to
+be removed from the candidate set via SFINAE or resulting in a hard
+compilation error.</p>
+<hr />
+<h3 id="common-non-deduced-contexts">Common Non-Deduced Contexts</h3>
+<p>The C++ standard (specifically [temp.deduct.type]) enumerates the
+syntactic forms that create non-deduced contexts. The most common
+include:</p>
+<h4 id="1-nested-name-specifiers-dependent-scopes">1.
+Nested-Name-Specifiers (Dependent Scopes)</h4>
+<p>When a template parameter is qualified with the scope resolution
+operator (<code>::</code>), the compiler cannot invert the mapping to
+find the enclosing type:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> inspect<span class="op">(</span><span class="kw">typename</span> T<span class="op">::</span><span class="dt">value_type</span> value<span class="op">);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Usage:</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>inspect<span class="op">(</span><span class="dv">42</span><span class="op">);</span> <span class="co">// Error: T cannot be deduced from typename T::value_type</span></span></code></pre></div>
+<p>Because multiple distinct types could define a member type alias
+named <code>value_type</code> with the identical underlying type, the
+mapping from <code>T::value_type</code> back to <code>T</code> is not
+injective. Therefore, <code>T</code> sits in a non-deduced context.</p>
+<h4 id="2-non-type-template-parameters-involving-expressions">2.
+Non-Type Template Parameters Involving Expressions</h4>
+<p>If a non-type template parameter is part of an expression other than
+a single, isolated parameter, deduction cannot run backward:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="dt">int</span> N<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> buffer<span class="op">(</span><span class="dt">char</span> <span class="op">(&amp;</span>arr<span class="op">)[</span>N <span class="op">+</span> <span class="dv">1</span><span class="op">]);</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span> data<span class="op">[</span><span class="dv">10</span><span class="op">];</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>buffer<span class="op">(</span>data<span class="op">);</span> <span class="co">// Error: N + 1 is an expression, creating a non-deduced context for N</span></span></code></pre></div>
+<p>The compiler does not perform algebraic inversion to deduce that
+<code>N = 9</code>.</p>
+<h4 id="3-template-parameters-used-in-decltype-expressions">3. Template
+Parameters Used in <code>decltype</code> Expressions</h4>
+<p>Types dependent on expressions inside <code>decltype</code> that
+depend on other un-deduced template arguments typically create
+non-deduced contexts.</p>
+<h4 id="4-arguments-to-pack-expansions-in-trailing-positions">4.
+Arguments to Pack Expansions in Trailing Positions</h4>
+<p>When an argument corresponds to a parameter pack that is not at the
+end of the parameter list, or when multiple expansions interact
+ambiguously, non-deduced contexts can arise.</p>
+<hr />
+<h3 id="how-the-deduction-engine-resolves-types">How the Deduction
+Engine Resolves Types</h3>
+<p>When an argument appears in a non-deduced context, the compiler
+follows a strict sequence:</p>
+<ol type="1">
+<li><strong>Bypass Deduction:</strong> The deduction engine skips
+examining the function parameter in the non-deduced context.</li>
+<li><strong>Alternative Deduction:</strong> The compiler checks the
+remaining parameters. If the same template parameter appears in a
+deduced context in another argument, the parameter is deduced from that
+argument.</li>
+<li><strong>Explicit Specification:</strong> If the template parameter
+is explicitly provided at the call site (e.g.,
+<code>inspect&lt;MyContainer&gt;(42)</code>), the explicit type is
+substituted.</li>
+<li><strong>Consistency Check:</strong> Once the template parameter is
+known (via other arguments or explicit specification), the compiler
+substitutes the concrete type into the non-deduced context. It then
+verifies whether the argument passed can implicitly convert to the
+substituted parameter type. If conversion fails, deduction fails.</li>
+</ol>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span>T primary<span class="op">,</span> <span class="kw">typename</span> T<span class="op">::</span><span class="dt">value_type</span> secondary<span class="op">);</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Container <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> <span class="dt">value_type</span> <span class="op">=</span> <span class="dt">int</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>Container c<span class="op">;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>process<span class="op">(</span>c<span class="op">,</span> <span class="dv">10</span><span class="op">);</span> <span class="co">// OK: T is deduced from &#39;c&#39; as Container.</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>                <span class="co">// typename Container::value_type evaluates to int.</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>                <span class="co">// 10 matches int.</span></span></code></pre></div>
+<hr />
+<h3 id="deliberate-use-controlling-overloads-and-conversions">Deliberate
+Use: Controlling Overloads and Conversions</h3>
+<p>Non-deduced contexts are frequently introduced on purpose to prevent
+deduction on specific function parameters, thereby enabling implicit
+conversions or resolving ambiguous function overloads.</p>
+<h4 id="preventing-ambiguity-in-two-argument-functions">Preventing
+Ambiguity in Two-Argument Functions</h4>
+<p>Consider a <code>min</code> function:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>T min<span class="op">(</span>T a<span class="op">,</span> T b<span class="op">);</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>min<span class="op">(</span><span class="dv">10</span><span class="op">,</span> <span class="fl">20.5</span><span class="op">);</span> <span class="co">// Error: deduced conflicting types for parameter &#39;T&#39; (int vs double)</span></span></code></pre></div>
+<p>By placing one parameter into a non-deduced context, deduction only
+occurs on the first parameter, while the second parameter accepts any
+type convertible to <code>T</code>:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>T min<span class="op">(</span>T a<span class="op">,</span> <span class="kw">typename</span> <span class="bu">std::</span>type_identity<span class="op">&lt;</span>T<span class="op">&gt;::</span>type b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>b <span class="op">&lt;</span> a<span class="op">)</span> <span class="op">?</span> b <span class="op">:</span> a<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>min<span class="op">(</span><span class="dv">10</span><span class="op">,</span> <span class="fl">20.5</span><span class="op">);</span> <span class="co">// OK: T is deduced as int from the first argument.</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>               <span class="co">// The second parameter becomes int, and 20.5 is converted to 20.</span></span></code></pre></div>
+<h4 id="the-stdtype_identity-idiom-c20">The
+<code>std::type_identity</code> Idiom (C++20)</h4>
+<p>Before C++20, developers manually defined an identity
+metafunction:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> identity <span class="op">{</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> type <span class="op">=</span> T<span class="op">;</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>C++20 formalized this pattern into <code>&lt;type_traits&gt;</code>
+with <code>std::type_identity</code> and the convenience alias
+<code>std::type_identity_t</code>:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;type_traits&gt;</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> configure<span class="op">(</span>T key<span class="op">,</span> <span class="bu">std::</span>type_identity_t<span class="op">&lt;</span>T<span class="op">&gt;</span> fallback<span class="op">);</span></span></code></pre></div>
+<p>Because <code>std::type_identity_t&lt;T&gt;</code> resolves via
+<code>typename std::type_identity&lt;T&gt;::type</code>, it immediately
+forms a nested-name-specifier, forcing the compiler to treat
+<code>fallback</code> as a non-deduced context.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/non-deduced-contexts-in-c-template-deduction';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

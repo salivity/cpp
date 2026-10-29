@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++23 flat_map and flat_set Implementation - cpp</title>
+    <meta name="description" content="This article provides an overview of std::flatset and std::flatmap, two container adaptors standardized in C++23. It explores their architectural implementation strategy, how they differ from traditional node-based associative containers like std::set and">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-23-flat-map-and-flat-set-implementation">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++23 flat_map and flat_set Implementation - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-23-flat-map-and-flat-set-implementation" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of std::flatset and std::flatmap, two container adaptors standardized in C++23. It explores their architectural implementation strategy, how they differ from traditional node-based associative containers like std::set and" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c23-flat_map-and-flat_set-implementation">C++23 flat_map and
+flat_set Implementation</h1>
+<p>This article provides an overview of <code>std::flat_set</code> and
+<code>std::flat_map</code>, two container adaptors standardized in
+C++23. It explores their architectural implementation strategy, how they
+differ from traditional node-based associative containers like
+<code>std::set</code> and <code>std::map</code>, their underlying memory
+layout, and the performance trade-offs associated with cache locality,
+lookup speed, and element modification.</p>
+<h3 id="container-adaptor-architecture">Container Adaptor
+Architecture</h3>
+<p>Unlike traditional C++ associative containers (<code>std::set</code>,
+<code>std::map</code>), which are node-based structures typically
+implemented as red-black trees, <code>std::flat_set</code> and
+<code>std::flat_map</code> are container adaptors. Rather than managing
+nodes and pointers directly, they wrap underlying sequence
+containers.</p>
+<p>By default, both adaptors use <code>std::vector</code> as their
+backing storage, but developers can substitute any sequence container
+that provides random-access iterators, such as <code>std::deque</code>
+or custom contiguous allocators.</p>
+<h3 id="memory-layout-and-storage-strategy">Memory Layout and Storage
+Strategy</h3>
+<p>The implementation strategy differs slightly between the set and map
+variants:</p>
+<ul>
+<li><strong><code>std::flat_set</code></strong>: Stores elements in a
+single sorted sequence container (e.g.,
+<code>std::vector&lt;Key&gt;</code>).</li>
+<li><strong><code>std::flat_map</code></strong>: Implements a
+Structure-of-Arrays (SoA) layout by default. It maintains two distinct,
+parallel sequence containers: one for keys
+(<code>std::vector&lt;Key&gt;</code>) and one for mapped values
+(<code>std::vector&lt;Value&gt;</code>).</li>
+</ul>
+<p>The SoA layout in <code>std::flat_map</code> provides significant
+cache benefits over an Array-of-Structures (AoS) layout (such as
+<code>std::vector&lt;std::pair&lt;Key, Value&gt;&gt;</code>). Because
+keys are packed tightly in contiguous memory, key searches do not load
+value data into CPU cache lines until a match is confirmed,
+substantially reducing cache thrashing.</p>
+<h3 id="search-and-lookup-efficiency">Search and Lookup Efficiency</h3>
+<p>All lookups in flat containers utilize binary search algorithms
+(equivalent to <code>std::lower_bound</code>).</p>
+<p>While both red-black trees and flat containers share an algorithmic
+time complexity of <span class="math inline">\(O(\log N)\)</span> for
+lookups, flat containers perform considerably faster on modern hardware.
+Traditional trees involve node allocations scattered throughout memory,
+leading to pointer chasing and frequent CPU cache misses. In contrast,
+flat containers take full advantage of contiguous memory allocation,
+maximizing hardware prefetching and L1/L2 cache line utilization.</p>
+<h3 id="insertion-erasure-and-performance-trade-offs">Insertion,
+Erasure, and Performance Trade-offs</h3>
+<p>The primary trade-off for cache-friendly lookups is the cost of
+mutation:</p>
+<ul>
+<li><strong>Insertions and Deletions</strong>: Inserting or removing
+elements requires linear time (<span
+class="math inline">\(O(N)\)</span>) because elements must be shifted to
+maintain sorted order within the underlying contiguous array.</li>
+<li><strong>Bulk Insertion</strong>: To mitigate the cost of repeated
+single-element insertions, both containers provide constructors and
+insert functions that accept ranges. These functions insert elements all
+at once and perform a single sort and deduplication pass, reducing
+overhead from <span class="math inline">\(O(N^2)\)</span> to <span
+class="math inline">\(O(N \log N)\)</span>.</li>
+<li><strong>Iterator Invalidation</strong>: Any operation that inserts
+or erases elements may invalidate iterators, references, and pointers to
+the elements, matching the invalidation rules of the underlying sequence
+container.</li>
+</ul>
+<h3 id="ideal-use-cases">Ideal Use Cases</h3>
+<p>The standard flat container implementation strategy is optimal for
+workloads characterized by:</p>
+<ol type="1">
+<li><strong>Read-Heavy Scenarios</strong>: Frequent searches with
+infrequent insertions or deletions.</li>
+<li><strong>Phase-Oriented Lifecycles</strong>: Applications where all
+elements are loaded and sorted during initialization, followed
+exclusively by lookups during execution.</li>
+<li><strong>Small-to-Medium Datasets</strong>: Scenarios where the sheer
+speed of contiguous memory traversal outperforms tree balancing
+overhead, even for small modification batches.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-23-flat-map-and-flat-set-implementation';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

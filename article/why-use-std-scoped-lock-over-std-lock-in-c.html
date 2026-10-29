@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Use std::scoped_lock Over std::lock in C++ - cpp</title>
+    <meta name="description" content="Introduced in C++17, std::scopedlock provides a modern, RAII-based mechanism for acquiring multiple mutexes simultaneously without risking deadlocks. While the legacy std::lock function also avoids deadlocks across multiple locks, it merely acquires the l">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/why-use-std-scoped-lock-over-std-lock-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Use std::scoped_lock Over std::lock in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/why-use-std-scoped-lock-over-std-lock-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++17, std::scopedlock provides a modern, RAII-based mechanism for acquiring multiple mutexes simultaneously without risking deadlocks. While the legacy std::lock function also avoids deadlocks across multiple locks, it merely acquires the l" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-use-stdscoped_lock-over-stdlock-in-c">Why Use
+std::scoped_lock Over std::lock in C++</h1>
+<p>Introduced in C++17, <code>std::scoped_lock</code> provides a modern,
+RAII-based mechanism for acquiring multiple mutexes simultaneously
+without risking deadlocks. While the legacy <code>std::lock</code>
+function also avoids deadlocks across multiple locks, it merely acquires
+the locks without managing their lifetimes, requiring additional
+boilerplate to ensure they are properly released. This article outlines
+the key advantages of using <code>std::scoped_lock</code> over
+<code>std::lock</code>, highlighting improvements in exception safety,
+boilerplate reduction, and overall code clarity.</p>
+<h3 id="built-in-raii-and-automatic-unlocking">Built-in RAII and
+Automatic Unlocking</h3>
+<p>The most significant advantage of <code>std::scoped_lock</code> is
+its adherence to the Resource Acquisition Is Initialization (RAII)
+idiom.</p>
+<p>When using <code>std::lock</code>, the function locks the supplied
+mutexes, but it does not unlock them. To prevent resource leaks, you
+must manually bind each locked mutex to an RAII wrapper like
+<code>std::lock_guard</code> or <code>std::unique_lock</code> using the
+<code>std::adopt_lock</code> tag:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Legacy approach with std::lock</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>lock<span class="op">(</span>mutexA<span class="op">,</span> mutexB<span class="op">);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>lock_guard<span class="op">&lt;</span><span class="bu">std::</span>mutex<span class="op">&gt;</span> lockA<span class="op">(</span>mutexA<span class="op">,</span> <span class="bu">std::</span>adopt_lock<span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>lock_guard<span class="op">&lt;</span><span class="bu">std::</span>mutex<span class="op">&gt;</span> lockB<span class="op">(</span>mutexB<span class="op">,</span> <span class="bu">std::</span>adopt_lock<span class="op">);</span></span></code></pre></div>
+<p>In contrast, <code>std::scoped_lock</code> handles both acquisition
+and release within a single object:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Modern approach with std::scoped_lock</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>scoped_lock lock<span class="op">(</span>mutexA<span class="op">,</span> mutexB<span class="op">);</span></span></code></pre></div>
+<p>When <code>lock</code> leaves scope, both <code>mutexA</code> and
+<code>mutexB</code> are automatically unlocked in reverse order of
+destruction, eliminating the risk of dangling locks.</p>
+<h3 id="robust-exception-safety">Robust Exception Safety</h3>
+<p>Using <code>std::lock</code> introduces a subtle exception-safety
+vulnerability. If an exception occurs after <code>std::lock</code>
+succeeds but before all corresponding <code>std::lock_guard</code>
+objects are instantiated, the mutexes remain locked permanently, leading
+to application-wide deadlocks.</p>
+<p><code>std::scoped_lock</code> eliminates this window entirely. Its
+constructor guarantees that if an exception is thrown during lock
+acquisition, any mutexes that were already locked during the process are
+automatically released before the exception propagates.</p>
+<h3
+id="reduced-boilerplate-with-class-template-argument-deduction-ctad">Reduced
+Boilerplate with Class Template Argument Deduction (CTAD)</h3>
+<p><code>std::scoped_lock</code> leverages variadic templates and C++17
+Class Template Argument Deduction (CTAD). Developers do not need to
+explicitly specify the types of mutexes being locked.</p>
+<p>Instead of declaring multiple verbose wrapper lines, a single
+statement locks an arbitrary number of mutex types—even heterogeneous
+ones, such as a <code>std::mutex</code> alongside a
+<code>std::shared_mutex</code> or a custom BasicLockable type:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>scoped_lock lock<span class="op">(</span>standardMutex<span class="op">,</span> sharedMutex<span class="op">,</span> customMutex<span class="op">);</span></span></code></pre></div>
+<h3 id="unified-mutex-management">Unified Mutex Management</h3>
+<p><code>std::scoped_lock</code> is designed as a direct, strictly
+superior replacement for <code>std::lock_guard</code>. It functions
+equally well with a single mutex:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>scoped_lock lock<span class="op">(</span>singleMutex<span class="op">);</span> <span class="co">// Fully replaces std::lock_guard</span></span></code></pre></div>
+<p>When given a single mutex, <code>std::scoped_lock</code> avoids the
+overhead of the multi-lock deadlock avoidance algorithm and simply
+invokes <code>lock()</code> on the single object. By standardizing on
+<code>std::scoped_lock</code>, codebases can maintain a single,
+consistent locking pattern for both single-lock and multi-lock critical
+sections.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/why-use-std-scoped-lock-over-std-lock-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

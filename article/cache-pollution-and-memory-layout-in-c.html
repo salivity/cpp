@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cache Pollution and Memory Layout in C++ - cpp</title>
+    <meta name="description" content="This article explores the concept of cache pollution, its detrimental impact on software performance, and the practical techniques C++ developers use to optimize memory layout. By understanding how hardware fetches data in fixed-size cache lines, develope">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/cache-pollution-and-memory-layout-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Cache Pollution and Memory Layout in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/cache-pollution-and-memory-layout-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the concept of cache pollution, its detrimental impact on software performance, and the practical techniques C++ developers use to optimize memory layout. By understanding how hardware fetches data in fixed-size cache lines, develope" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="cache-pollution-and-memory-layout-in-c">Cache Pollution and
+Memory Layout in C++</h1>
+<p>This article explores the concept of cache pollution, its detrimental
+impact on software performance, and the practical techniques C++
+developers use to optimize memory layout. By understanding how hardware
+fetches data in fixed-size cache lines, developers can structure their
+types, split hot and cold data, and leverage data-oriented patterns like
+Struct of Arrays (SoA) to prevent memory bandwidth starvation and ensure
+that every byte brought into high-speed CPU caches serves an active
+computational purpose.</p>
+<h2 id="understanding-cache-pollution">Understanding Cache
+Pollution</h2>
+<p>Modern processors rely on a hierarchy of small, extremely fast
+hardware caches (L1, L2, and L3) to bridge the speed gap between
+high-frequency CPU cores and comparatively slow main memory (RAM). When
+a CPU requests a specific memory address, it does not fetch only that
+requested byte. Instead, the hardware memory controller fetches a
+contiguous block of data called a <strong>cache line</strong>, which is
+typically 64 bytes wide on modern x86 and ARM architectures.</p>
+<p><strong>Cache pollution</strong> occurs when the cache is populated
+with data that is either never used or accessed infrequently, displacing
+data that the CPU needs immediately or repeatedly. Because cache
+capacity is severely limited, loading unneeded bytes pushes "hot" data
+out into slower memory tiers. This results in frequent cache misses,
+stall cycles while waiting for DRAM, and degraded throughput across the
+entire application.</p>
+<h2 id="how-memory-layout-causes-cache-pollution">How Memory Layout
+Causes Cache Pollution</h2>
+<p>In C++, the memory layout of classes, structs, and containers
+dictates which bytes reside next to one another in physical memory.
+Poorly planned layout directly causes cache pollution in two primary
+ways:</p>
+<ol type="1">
+<li><strong>Unused Sibling Data:</strong> If an algorithm repeatedly
+iterates over a specific field across a collection of objects, any
+adjacent member variables packed inside that same object are still
+pulled into the 64-byte cache line.</li>
+<li><strong>Excessive Padding:</strong> Compilers insert padding bytes
+into structures to align member variables according to hardware
+constraints. If structs are arranged haphazardly, a significant portion
+of each cache line consists of dead padding.</li>
+</ol>
+<h2 id="minimizing-unnecessary-loads-in-c">Minimizing Unnecessary Loads
+in C++</h2>
+<p>To eliminate cache pollution, memory layouts must be organized around
+how the data is <em>accessed</em>, rather than strictly how entities are
+conceptually modeled.</p>
+<h3
+id="1-shifting-from-array-of-structures-aos-to-struct-of-arrays-soa">1.
+Shifting from Array of Structures (AoS) to Struct of Arrays (SoA)</h3>
+<p>The traditional object-oriented paradigm naturally produces an Array
+of Structures (AoS):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Particle <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> x<span class="op">,</span> y<span class="op">,</span> z<span class="op">;</span>    <span class="co">// 12 bytes</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> vx<span class="op">,</span> vy<span class="op">,</span> vz<span class="op">;</span> <span class="co">// 12 bytes</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> id<span class="op">;</span>           <span class="co">// 4 bytes</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> name<span class="op">[</span><span class="dv">32</span><span class="op">];</span>    <span class="co">// 32 bytes</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Total: ~60-64 bytes</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span>Particle<span class="op">&gt;</span> particles<span class="op">;</span></span></code></pre></div>
+<p>If a physics update loop only needs to update positions using
+velocities, iterating through <code>particles</code> will pull the
+<code>id</code> and <code>name</code> fields into the cache line
+alongside the coordinates. Over 50% of the cache bandwidth is wasted on
+data the loop never reads.</p>
+<p>By restructuring the layout into a Struct of Arrays (SoA), related
+data is grouped together:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> ParticleSystem <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">float</span><span class="op">&gt;</span> x<span class="op">,</span> y<span class="op">,</span> z<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">float</span><span class="op">&gt;</span> vx<span class="op">,</span> vy<span class="op">,</span> vz<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> id<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">&gt;</span> name<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>When updating physics, the processor reads only contiguous streams of
+floats. Every single byte in every loaded cache line is directly
+consumed by the arithmetic logic units, yielding peak cache efficiency
+and facilitating hardware vectorization (SIMD).</p>
+<h3 id="2-hotcold-splitting">2. Hot/Cold Splitting</h3>
+<p>When an entity requires multiple fields that cannot easily be
+separated into an SoA model, developers can separate frequently accessed
+("hot") members from rarely accessed ("cold") members.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Poor layout: 64-byte cache line loads errors and metadata during every process() call</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Connection <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint64_t</span> socket_fd<span class="op">;</span>     <span class="co">// Hot</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint32_t</span> bytes_sent<span class="op">;</span>    <span class="co">// Hot</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint32_t</span> bytes_recv<span class="op">;</span>    <span class="co">// Hot</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> error_log<span class="op">[</span><span class="dv">256</span><span class="op">];</span>    <span class="co">// Cold (only used on failure)</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> peer_cert<span class="op">[</span><span class="dv">512</span><span class="op">];</span>    <span class="co">// Cold</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Separating these members into two structures ensures the hot
+structure fits snugly in a single cache line:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> ConnectionColdData <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> error_log<span class="op">[</span><span class="dv">256</span><span class="op">];</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> peer_cert<span class="op">[</span><span class="dv">512</span><span class="op">];</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Connection <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint64_t</span> socket_fd<span class="op">;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint32_t</span> bytes_sent<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint32_t</span> bytes_recv<span class="op">;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>unique_ptr<span class="op">&lt;</span>ConnectionColdData<span class="op">&gt;</span> cold_data<span class="op">;</span> <span class="co">// Pointer to cold data</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>During regular execution loops, only the high-frequency metrics are
+read, preventing hundreds of bytes of diagnostic text from occupying
+critical L1/L2 cache slots.</p>
+<h3 id="3-struct-member-ordering-and-alignment">3. Struct Member
+Ordering and Alignment</h3>
+<p>Compilers align data types to their natural boundaries. Placing
+smaller types between larger types introduces padding:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Inefficient <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> a<span class="op">;</span>    <span class="co">// 1 byte + 7 bytes padding</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> b<span class="op">;</span>  <span class="co">// 8 bytes</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> c<span class="op">;</span>    <span class="co">// 1 byte + 7 bytes padding</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> d<span class="op">;</span>  <span class="co">// 8 bytes</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span> <span class="co">// Total: 32 bytes (18 bytes of padding/dead space)</span></span></code></pre></div>
+<p>Reordering members from largest to smallest eliminates internal
+padding:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Efficient <span class="op">{</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> b<span class="op">;</span>  <span class="co">// 8 bytes</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> d<span class="op">;</span>  <span class="co">// 8 bytes</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> a<span class="op">;</span>    <span class="co">// 1 byte</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> c<span class="op">;</span>    <span class="co">// 1 byte</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span> <span class="co">// Total: 18 bytes + 6 bytes tail padding = 24 bytes</span></span></code></pre></div>
+<p>This simple reorganization saves 8 bytes per instance, allowing 25%
+more elements to fit within the same cache footprint.</p>
+<h3 id="4-preferring-contiguous-memory-over-node-based-structures">4.
+Preferring Contiguous Memory Over Node-Based Structures</h3>
+<p>Containers such as <code>std::list</code>, <code>std::map</code>, and
+pointer-heavy trees allocate nodes individually on the free store
+(heap). This produces pointer chasing, where nodes are scattered
+arbitrarily across memory.</p>
+<p>Accessing a linked list node brings in a full 64-byte cache line just
+to read a single pointer and a payload value, evicting other data in the
+process. Replacing node-based containers with contiguous arrays
+(<code>std::vector</code>, <code>std::deque</code>, or flat maps)
+ensures that cache prefetchers can accurately predict upcoming addresses
+and saturate every cache line with meaningful application data.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/cache-pollution-and-memory-layout-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

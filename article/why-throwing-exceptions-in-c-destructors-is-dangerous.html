@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Throwing Exceptions in C++ Destructors Is Dangerous - cpp</title>
+    <meta name="description" content="In C++, throwing an exception from a class destructor is widely considered an anti-pattern that can lead to catastrophic application failures. When a destructor emits an unhandled exception, it risks triggering an immediate and abnormal program terminatio">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/why-throwing-exceptions-in-c-destructors-is-dangerous">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Throwing Exceptions in C++ Destructors Is Dangerous - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/why-throwing-exceptions-in-c-destructors-is-dangerous" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, throwing an exception from a class destructor is widely considered an anti-pattern that can lead to catastrophic application failures. When a destructor emits an unhandled exception, it risks triggering an immediate and abnormal program terminatio" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-throwing-exceptions-in-c-destructors-is-dangerous">Why
+Throwing Exceptions in C++ Destructors Is Dangerous</h1>
+<p>In C++, throwing an exception from a class destructor is widely
+considered an anti-pattern that can lead to catastrophic application
+failures. When a destructor emits an unhandled exception, it risks
+triggering an immediate and abnormal program termination via
+<code>std::terminate</code>, bypassing critical cleanup logic and
+leaving the system in an indeterminate state. This article explains the
+technical reasons why throwing exceptions during destruction is
+hazardous, how it interacts with stack unwinding, and how to safely
+handle failures during object cleanup.</p>
+<h3 id="the-double-exception-problem-during-stack-unwinding">The
+Double-Exception Problem During Stack Unwinding</h3>
+<p>The primary hazard of throwing an exception from a destructor arises
+during stack unwinding. When an exception is thrown in C++, the runtime
+begins unwinding the call stack to find a matching <code>catch</code>
+block. During this unwinding process, the destructors of all local
+objects created within the exited scopes are invoked automatically to
+release resources.</p>
+<p>If one of these destructors throws a new exception while stack
+unwinding is already underway, the C++ runtime finds itself with two
+active, concurrent exceptions. C++ does not support handling two
+simultaneous active exceptions. Faced with this ambiguity, the runtime
+immediately calls <code>std::terminate()</code>. This results in the
+abrupt abortion of the entire process without unwinding the rest of the
+stack, preventing other destructors from executing and leaving files
+unclosed, database connections hanging, and system state corrupted.</p>
+<h3 id="destructors-are-implicitly-noexcept">Destructors Are Implicitly
+<code>noexcept</code></h3>
+<p>Beginning with C++11, destructors are implicitly declared as
+<code>noexcept(true)</code> unless explicitly marked otherwise or unless
+the class contains a member with a throwing destructor.</p>
+<p>Because of this implicit declaration, if an exception escapes a
+destructor—even when no prior exception was in flight—the program will
+not search for an enclosing <code>try-catch</code> block. Instead,
+violating the <code>noexcept</code> specification immediately results in
+a call to <code>std::terminate()</code>. While a developer can
+technically declare a destructor as <code>noexcept(false)</code>, doing
+so simply re-enables the double-exception risk during stack unwinding
+and is strongly discouraged by the C++ Core Guidelines.</p>
+<h3 id="incomplete-object-destruction-and-resource-leaks">Incomplete
+Object Destruction and Resource Leaks</h3>
+<p>A destructor is responsible for finalizing an object and releasing
+all of its held resources, such as heap memory, mutex locks, and file
+descriptors. If an exception is thrown partway through a destructor's
+execution:</p>
+<ol type="1">
+<li>The execution of that destructor stops immediately at the throw
+site.</li>
+<li>Any subsequent cleanup code within that destructor is skipped.</li>
+<li>Resources intended to be released after the throw point are
+leaked.</li>
+</ol>
+<p>Even if the caller manages to catch the exception, the object whose
+destructor threw it is left in a partially destroyed state, making
+recovery unreliable and complex.</p>
+<h3 id="safe-alternatives-for-error-prone-cleanup">Safe Alternatives for
+Error-Prone Cleanup</h3>
+<p>Destructors should always succeed. When designing classes that manage
+operations that might fail (such as flushing data to a disk or closing a
+network socket), follow these best practices:</p>
+<ul>
+<li><strong>Swallow Exceptions Internally:</strong> If an operation
+inside a destructor might throw, wrap it in a
+<code>try-catch(...)</code> block within the destructor. Log the error
+or handle it silently rather than allowing it to escape.</li>
+<li><strong>Provide an Explicit Cleanup Method:</strong> Implement a
+distinct member function (such as <code>close()</code>,
+<code>flush()</code>, or <code>commit()</code>) that the caller can
+invoke manually during normal execution. This function can throw
+exceptions, allowing callers to catch and handle errors appropriately.
+The destructor then serves solely as a fallback that performs silent
+cleanup if the caller did not execute the explicit method.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/why-throwing-exceptions-in-c-destructors-is-dangerous';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

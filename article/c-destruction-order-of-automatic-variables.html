@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Destruction Order of Automatic Variables - cpp</title>
+    <meta name="description" content="In C++, the lifetime management of local automatic variables is strictly deterministic and forms the foundation of the Resource Acquisition Is Initialization (RAII) pattern. The C++ standard explicitly guarantees that local automatic variables are destroy">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-destruction-order-of-automatic-variables">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Destruction Order of Automatic Variables - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-destruction-order-of-automatic-variables" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, the lifetime management of local automatic variables is strictly deterministic and forms the foundation of the Resource Acquisition Is Initialization (RAII) pattern. The C++ standard explicitly guarantees that local automatic variables are destroy" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-destruction-order-of-automatic-variables">C++ Destruction
+Order of Automatic Variables</h1>
+<p>In C++, the lifetime management of local automatic variables is
+strictly deterministic and forms the foundation of the Resource
+Acquisition Is Initialization (RAII) pattern. The C++ standard
+explicitly guarantees that local automatic variables are destroyed in
+the exact reverse order of their construction within their respective
+scopes. This article details the mechanics of this Last-In, First-Out
+(LIFO) destruction rule, how it functions across block exits,
+exceptions, arrays, and conditional control flows.</p>
+<h3 id="the-core-rule-last-in-first-out-lifo">The Core Rule: Last-In,
+First-Out (LIFO)</h3>
+<p>The fundamental guarantee provided by the ISO C++ standard is that
+automatic objects declared within a given block scope are destroyed in
+reverse order of the completion of their construction.</p>
+<p>If variable <code>A</code> is constructed before variable
+<code>B</code> in the same scope, <code>B</code> is guaranteed to be
+destroyed before <code>A</code>. This design ensures safety when objects
+hold dependencies on one another; if <code>B</code> relies on resources
+managed by <code>A</code>, <code>B</code> will cleanly shut down before
+<code>A</code> releases those underlying resources.</p>
+<h3 id="scope-termination-and-control-flow">Scope Termination and
+Control Flow</h3>
+<p>Destruction occurs automatically when execution leaves the block in
+which the variables were declared. The C++ standard guarantees that this
+reverse-order destruction applies regardless of how the block is exited,
+including:</p>
+<ul>
+<li>Reaching the closing brace (<code>}</code>) of the compound
+statement.</li>
+<li>Executing a <code>return</code> statement.</li>
+<li>Executing transfer-of-control statements such as <code>break</code>,
+<code>continue</code>, or <code>goto</code>.</li>
+<li>Leaving the block due to an exception (known as stack
+unwinding).</li>
+</ul>
+<p>In all cases, every fully constructed automatic variable in the scope
+being exited will have its destructor invoked before control passes out
+of that scope.</p>
+<h3 id="loop-scopes">Loop Scopes</h3>
+<p>Variables declared inside the body of a loop (<code>for</code>,
+<code>while</code>, or <code>do-while</code>) are tied to the scope of
+each iteration. They are constructed upon declaration and destroyed in
+reverse order at the end of that specific iteration. They do not persist
+across iterations.</p>
+<p>For variables declared within a <code>for</code> loop header (e.g.,
+<code>for (int i = 0; ...)</code>), their lifetime spans the entire
+duration of the loop, and they are destroyed only after the final
+iteration completes and loop-body objects have already been
+destroyed.</p>
+<h3 id="array-elements">Array Elements</h3>
+<p>When an array of automatic objects is declared, the elements are
+constructed in order of increasing subscript
+(<code>0, 1, 2, ...</code>). The standard mandates that their
+destruction must occur in the exact reverse order, from the highest
+index down to zero (<code>... 2, 1, 0</code>), before the scope
+containing the array is terminated.</p>
+<h3 id="behavior-during-exceptions">Behavior During Exceptions</h3>
+<p>If an unhandled exception is thrown, the runtime initiates stack
+unwinding. During unwinding, the runtime identifies all automatic
+objects in scopes that are being exited and destroys them in reverse
+order of their construction.</p>
+<p>If an exception occurs during the construction of a specific object,
+that object’s destructor will not be called because its construction
+never completed. However, any sub-objects, base classes, or previously
+declared local variables that were already fully constructed will be
+destroyed in reverse order of their construction.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-destruction-order-of-automatic-variables';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

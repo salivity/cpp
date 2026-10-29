@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding C++ Feature Test Macros - cpp</title>
+    <meta name="description" content="Feature test macros in C++ provide a standardized mechanism for querying whether a compiler and standard library implementation support specific language or library features. Introduced formally in C++20 and rooted in the earlier SD-6 technical report, th">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/understanding-c-feature-test-macros">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding C++ Feature Test Macros - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/understanding-c-feature-test-macros" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Feature test macros in C++ provide a standardized mechanism for querying whether a compiler and standard library implementation support specific language or library features. Introduced formally in C++20 and rooted in the earlier SD-6 technical report, th" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-c-feature-test-macros">Understanding C++ Feature
+Test Macros</h1>
+<p>Feature test macros in C++ provide a standardized mechanism for
+querying whether a compiler and standard library implementation support
+specific language or library features. Introduced formally in C++20 and
+rooted in the earlier SD-6 technical report, these macros enable
+developers to write portable, cross-platform code that adapts to varying
+levels of language support across different toolchains. This article
+explains the purpose of feature test macros, how they solve traditional
+compiler-detection problems, and how to effectively use them in modern
+C++ projects.</p>
+<h3 id="the-problem-with-traditional-compiler-detection">The Problem
+with Traditional Compiler Detection</h3>
+<p>Historically, C++ evolves in three-year cycles (C++11, C++14, C++17,
+C++20, and C++23), but compiler vendors implement features
+incrementally. Before standardized feature test macros, developers had
+to rely on checking compiler-specific predefined macros such as
+<code>__GNUC__</code>, <code>_MSC_VER</code>, or
+<code>__clang_major__</code>.</p>
+<p>This approach was brittle and difficult to maintain because:</p>
+<ul>
+<li>Feature availability varies across minor compiler updates.</li>
+<li>Different compilers implement features at different rates.</li>
+<li>Checking vendor versions does not guarantee that a specific language
+feature is fully implemented or enabled (for instance, via a
+<code>-std=c++20</code> flag).</li>
+</ul>
+<h3 id="the-purpose-of-feature-test-macros">The Purpose of Feature Test
+Macros</h3>
+<p>Feature test macros eliminate compiler-specific checks by shifting
+the focus from <em>which compiler is running</em> to <em>which
+capability is available</em>. Each macro evaluates to an integer
+representing the year and month (in <code>YYYYMM</code> format) when a
+specific feature or revision was voted into the ISO C++ standard.</p>
+<p>If a macro is defined, the feature is supported. If a feature
+receives updates in later standards, the macro's integer value
+increases, allowing code to target specific revisions of that
+feature.</p>
+<h3 id="categories-of-feature-test-macros">Categories of Feature Test
+Macros</h3>
+<p>Feature test macros fall into two primary categories:</p>
+<h4 id="1-core-language-feature-test-macros">1. Core Language Feature
+Test Macros</h4>
+<p>Core language macros indicate support for syntactic and semantic
+language features, such as concepts, structured bindings, or constexpr
+extensions. These macros do not require including any header files; they
+are predefined by the preprocessor when the appropriate language mode is
+enabled.</p>
+<p>Examples include:</p>
+<ul>
+<li><code>__cpp_constexpr</code>: Tracks the evolution of
+<code>constexpr</code> capabilities.</li>
+<li><code>__cpp_concepts</code>: Indicates support for C++20
+concepts.</li>
+<li><code>__cpp_structured_bindings</code>: Indicates support for
+structured binding declarations.</li>
+</ul>
+<h4 id="2-library-feature-test-macros">2. Library Feature Test
+Macros</h4>
+<p>Library macros verify the availability of components within the C++
+Standard Library, such as <code>std::span</code>,
+<code>std::format</code>, or <code>std::expected</code>.</p>
+<p>To check for library capabilities without incurring heavy compilation
+overhead, C++20 introduced the <code>&lt;version&gt;</code> header.
+Including <code>&lt;version&gt;</code> defines all supported library
+feature macros without pulling in entire implementations like
+<code>&lt;vector&gt;</code> or <code>&lt;algorithm&gt;</code>.</p>
+<p>Examples include:</p>
+<ul>
+<li><code>__cpp_lib_format</code>: Indicates standard library support
+for <code>std::format</code>.</li>
+<li><code>__cpp_lib_span</code>: Checks for the availability of the
+<code>std::span</code> view.</li>
+<li><code>__cpp_lib_jthread</code>: Verifies support for cooperative
+cancellation threads.</li>
+</ul>
+<h3 id="conditional-compilation-and-fallbacks">Conditional Compilation
+and Fallbacks</h3>
+<p>The primary application of feature test macros is conditional
+compilation using <code>#if</code> or <code>#ifdef</code> directives.
+This allows codebases to adopt modern features while retaining backward
+compatibility with older toolchains or fallback implementations.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;version&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#if defined(__cpp_lib_format) &amp;&amp; __cpp_lib_format &gt;= 201907L</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#include </span><span class="im">&lt;format&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> log_message<span class="op">(</span><span class="bu">std::</span>string_view fmt<span class="op">,</span> Args<span class="op">&amp;&amp;...</span> args<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>print<span class="op">(</span><span class="st">&quot;</span><span class="sc">{}</span><span class="st">&quot;</span><span class="op">,</span> <span class="bu">std::</span>vformat<span class="op">(</span>fmt<span class="op">,</span> <span class="bu">std::</span>make_format_args<span class="op">(</span>args<span class="op">...)));</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="pp">#else</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> log_message<span class="op">(</span><span class="at">const</span> <span class="dt">char</span><span class="op">*</span> msg<span class="op">,</span> Args<span class="op">&amp;&amp;...)</span> <span class="op">{</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Fallback for compilers without std::format support</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> msg <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span></code></pre></div>
+<h3 id="companion-preprocessor-operators">Companion Preprocessor
+Operators</h3>
+<p>In addition to named macros, modern C++ provides preprocessor
+operators that complement feature testing:</p>
+<ul>
+<li><code>__has_include(&lt;header&gt;)</code>: Checks whether a header
+file exists before attempting to include it, preventing compilation
+errors on incomplete library implementations.</li>
+<li><code>__has_cpp_attribute(attribute)</code>: Tests whether the
+compiler supports a standard or vendor-specific attribute (such as
+<code>[[nodiscard]]</code> or <code>[[likely]]</code>).</li>
+</ul>
+<h3 id="conclusion">Conclusion</h3>
+<p>Feature test macros replace complex, error-prone compiler version
+checks with clear, standard-defined capability tests. By querying core
+language macros, using the lightweight <code>&lt;version&gt;</code>
+header, and employing companion operators like
+<code>__has_include</code>, C++ developers can build robust libraries
+and applications that seamlessly take advantage of new standards while
+maintaining broad portability.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/understanding-c-feature-test-macros';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

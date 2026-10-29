@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ std::relocate and Move Semantics Optimization - cpp</title>
+    <meta name="description" content="This article explores the motivation, mechanics, and advantages of relocation proposals—such as std::relocate—in modern C++. While C++11 move semantics revolutionized performance by avoiding expensive deep copies, it leaves moved-from objects alive to be">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-std-relocate-and-move-semantics-optimization">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ std::relocate and Move Semantics Optimization - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-std-relocate-and-move-semantics-optimization" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the motivation, mechanics, and advantages of relocation proposals—such as std::relocate—in modern C++. While C++11 move semantics revolutionized performance by avoiding expensive deep copies, it leaves moved-from objects alive to be" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-stdrelocate-and-move-semantics-optimization">C++ std::relocate
+and Move Semantics Optimization</h1>
+<p>This article explores the motivation, mechanics, and advantages of
+relocation proposals—such as <code>std::relocate</code>—in modern C++.
+While C++11 move semantics revolutionized performance by avoiding
+expensive deep copies, it leaves moved-from objects alive to be
+destroyed later. The ongoing <code>std::relocate</code> proposals
+address this design limitation by unifying construction and destruction
+into a single lifecycle operation, enabling destructive moves and
+unlocking significant performance optimizations through trivial
+byte-copying.</p>
+<h3 id="the-limitation-of-c11-move-semantics">The Limitation of C++11
+Move Semantics</h3>
+<p>C++11 introduced move semantics via rvalue references, allowing
+resources like heap allocations or file handles to be transferred rather
+than duplicated. However, C++ move semantics are non-destructive. When
+an object is moved from, its lifetime does not end. Instead, it is
+placed in a "valid but unspecified" state, and its destructor must still
+run when it leaves scope.</p>
+<p>This non-destructive model introduces unavoidable runtime costs:</p>
+<ul>
+<li><strong>State Reset Overhead:</strong> The source object must
+explicitly clear its internal state (such as setting an internal pointer
+to <code>nullptr</code>) to prevent double-free errors when its
+destructor executes.</li>
+<li><strong>Redundant Destructor Calls:</strong> The runtime must
+execute destructors for moved-from objects, even when those destructors
+do nothing more than check a <code>nullptr</code>.</li>
+<li><strong>Missed Memory Optimizations:</strong> Standard containers
+cannot freely use raw memory operations like <code>memcpy</code> or
+<code>memmove</code> during reallocations if the contained types require
+non-trivial move constructors and destructors.</li>
+</ul>
+<h3 id="what-is-relocation">What Is Relocation?</h3>
+<p>Relocation is the process of moving an object from one memory
+location to another while simultaneously terminating the lifetime of the
+source object. Unlike a move constructor, a relocation operation
+guarantees that the original object is destroyed, meaning its destructor
+will never be called.</p>
+<p>By combining the transfer of state and the end of lifetime into a
+single step, relocation eliminates the need to reset moved-from objects
+to a neutral state and eliminates redundant destructor executions.</p>
+<h3 id="trivial-relocatability">Trivial Relocatability</h3>
+<p>A central pillar of the relocation proposals (such as P1144 and
+P2786) is the concept of trivial relocatability. A type is considered
+trivially relocatable if moving it from one address to another and
+ending the lifetime of the source object can be replaced bit-for-bit by
+<code>memcpy</code> or <code>memmove</code>.</p>
+<p>A wide variety of complex C++ types are fundamentally trivially
+relocatable, including:</p>
+<ul>
+<li><code>std::unique_ptr</code></li>
+<li><code>std::shared_ptr</code></li>
+<li><code>std::vector</code></li>
+<li><code>std::string</code></li>
+</ul>
+<p>Even though these types manage dynamically allocated resources and
+have non-trivial destructors, moving their memory via a raw byte-copy
+simply shifts ownership of the underlying pointer to the new memory
+location. Because the old location is immediately considered dead, no
+double-free can occur.</p>
+<h3 id="performance-and-architectural-benefits">Performance and
+Architectural Benefits</h3>
+<p>Standardizing relocation operations via primitives like
+<code>std::relocate</code>, <code>std::relocate_at</code>, and the
+<code>std::is_trivially_relocatable</code> type trait provides several
+major advantages:</p>
+<ol type="1">
+<li><strong>Massive Container Reallocation Gains:</strong> When a
+<code>std::vector</code> runs out of capacity and reallocates memory, it
+currently moves elements one by one. With trivial relocation, the entire
+contiguous block of elements can be relocated using a single
+<code>memcpy</code> or <code>realloc</code> call, yielding dramatic
+performance increases.</li>
+<li><strong>Optimized Type-Erased Wrappers:</strong> Types like
+<code>std::any</code>, <code>std::function</code>, and variant types
+benefit when performing small-buffer optimization (SBO) transfers or
+reallocations without dynamic dispatch overhead.</li>
+<li><strong>Elimination of Moved-From States:</strong> Relocation
+reduces edge-case programming errors where code inadvertently accesses a
+moved-from object that remains within scope.</li>
+<li><strong>Binary Size Reduction:</strong> Compilers generate
+significantly less code by stripping away unnecessary state-resetting
+logic and cleanup code in destructors.</li>
+</ol>
+<h3 id="summary">Summary</h3>
+<p>The <code>std::relocate</code> proposals complete the evolution that
+began with move semantics in C++11. By formalizing destructive moves and
+recognizing trivial relocatability, C++ aims to eliminate the lingering
+runtime overhead of object lifetime management, allowing modern
+high-level abstractions to achieve the raw performance of low-level C
+memory operations.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-std-relocate-and-move-semantics-optimization';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::false_type Works in C++ Type Traits - cpp</title>
+    <meta name="description" content="In C++ template metaprogramming, std::falsetype serves as the standardized foundation for signaling negative responses during compile-time type classification. Defined in the &lt;typetraits&gt; header, it represents a boolean false constant wrapped within a typ">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-false-type-works-in-c-type-traits">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::false_type Works in C++ Type Traits - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-false-type-works-in-c-type-traits" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++ template metaprogramming, std::falsetype serves as the standardized foundation for signaling negative responses during compile-time type classification. Defined in the &lt;typetraits&gt; header, it represents a boolean false constant wrapped within a typ" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdfalse_type-works-in-c-type-traits">How std::false_type
+Works in C++ Type Traits</h1>
+<p>In C++ template metaprogramming, <code>std::false_type</code> serves
+as the standardized foundation for signaling negative responses during
+compile-time type classification. Defined in the
+<code>&lt;type_traits&gt;</code> header, it represents a boolean false
+constant wrapped within a type. Libraries rely on it to establish
+default states for trait templates, enable compile-time branching via
+tag dispatching, and integrate seamlessly with modern language features
+like SFINAE, <code>if constexpr</code>, and C++20 concepts.</p>
+<h3 id="definition-and-structure">Definition and Structure</h3>
+<p><code>std::false_type</code> is an explicit template specialization
+of <code>std::integral_constant</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> <span class="dt">false_type</span> <span class="op">=</span> <span class="bu">std::</span>integral_constant<span class="op">&lt;</span><span class="dt">bool</span><span class="op">,</span> <span class="kw">false</span><span class="op">&gt;;</span></span></code></pre></div>
+<p>Through this alias, <code>std::false_type</code> provides several
+core compile-time members:</p>
+<ul>
+<li><strong><code>value</code></strong>: A static
+<code>constexpr bool</code> equal to <code>false</code>.</li>
+<li><strong><code>value_type</code></strong>: A type alias for
+<code>bool</code>.</li>
+<li><strong><code>type</code></strong>: An alias returning the type
+itself (<code>std::integral_constant&lt;bool, false&gt;</code>).</li>
+<li><strong>Conversion operators</strong>: A
+<code>constexpr operator bool()</code> that returns <code>false</code>,
+and an <code>operator()()</code> (since C++14) that also returns
+<code>false</code>.</li>
+</ul>
+<h3 id="defaulting-the-negative-case">Defaulting the Negative Case</h3>
+<p>In type trait libraries, the idiomatic pattern for classifying types
+involves defining a primary template that inherits from
+<code>std::false_type</code>. By setting the unspecialized template to
+represent the negative outcome, any type that does not match an explicit
+specialization automatically evaluates to <code>false</code>.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;type_traits&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Primary template represents the negative case by default</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> is_custom_container <span class="op">:</span> <span class="bu">std::</span>false_type <span class="op">{};</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Specialization represents the positive case</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> is_custom_container<span class="op">&lt;</span><span class="bu">std::</span>vector<span class="op">&lt;</span>T<span class="op">&gt;&gt;</span> <span class="op">:</span> <span class="bu">std::</span>true_type <span class="op">{};</span></span></code></pre></div>
+<p>When evaluated, checking
+<code>is_custom_container&lt;int&gt;::value</code> resolves to
+<code>false</code> because <code>int</code> falls back to the primary
+template and inherits the <code>value</code> member directly from
+<code>std::false_type</code>.</p>
+<h3 id="facilitating-tag-dispatching">Facilitating Tag Dispatching</h3>
+<p>Beyond providing a static boolean constant,
+<code>std::false_type</code> acts as a concrete type that can be passed
+into function overloads to control execution paths at compile time. This
+mechanism, known as tag dispatching, avoids runtime branching
+entirely:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_impl<span class="op">(</span>T<span class="op">&amp;&amp;</span> val<span class="op">,</span> <span class="bu">std::</span>false_type<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Handling when T does not satisfy the trait</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_impl<span class="op">(</span>T<span class="op">&amp;&amp;</span> val<span class="op">,</span> <span class="bu">std::</span>true_type<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Handling when T satisfies the trait</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span>T<span class="op">&amp;&amp;</span> val<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    process_impl<span class="op">(</span><span class="bu">std::</span>forward<span class="op">&lt;</span>T<span class="op">&gt;(</span>val<span class="op">),</span> is_custom_container<span class="op">&lt;</span><span class="bu">std::</span>decay_t<span class="op">&lt;</span>T<span class="op">&gt;&gt;{});</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Passing an instance of <code>is_custom_container&lt;T&gt;</code>
+passes an object of type <code>std::false_type</code>, directing the
+compiler to resolve the negative-handling overload without any runtime
+overhead.</p>
+<h3 id="role-in-sfinae-and-modern-constraints">Role in SFINAE and Modern
+Constraints</h3>
+<p>In SFINAE-based metaprogramming with <code>std::enable_if</code>,
+condition evaluations directly read the inherited <code>::value</code>
+of <code>std::false_type</code>. When a trait evaluates to
+<code>std::false_type</code>,
+<code>std::enable_if_t&lt;Trait::value&gt;</code> results in a
+substitution failure, safely removing the candidate function from the
+overload set.</p>
+<p>In C++17 and C++20, <code>std::false_type</code> enables clean
+boolean conversion inside <code>if constexpr</code> statements and
+provides standard-conforming underlying logic for defining type-checking
+concepts with the <code>requires</code> keyword.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-std-false-type-works-in-c-type-traits';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

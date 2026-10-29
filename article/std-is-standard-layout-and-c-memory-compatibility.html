@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::is_standard_layout and C Memory Compatibility - cpp</title>
+    <meta name="description" content="In modern C++, intersystem communication and low-level interoperability often depend on whether an object can safely cross the language boundary into C. The compile-time trait std::isstandardlayout, defined in the &lt;typetraits&gt; header, provides a definitiv">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-is-standard-layout-and-c-memory-compatibility">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::is_standard_layout and C Memory Compatibility - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-is-standard-layout-and-c-memory-compatibility" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, intersystem communication and low-level interoperability often depend on whether an object can safely cross the language boundary into C. The compile-time trait std::isstandardlayout, defined in the &lt;typetraits&gt; header, provides a definitiv" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="stdis_standard_layout-and-c-memory-compatibility">std::is_standard_layout
+and C Memory Compatibility</h1>
+<p>In modern C++, intersystem communication and low-level
+interoperability often depend on whether an object can safely cross the
+language boundary into C. The compile-time trait
+<code>std::is_standard_layout</code>, defined in the
+<code>&lt;type_traits&gt;</code> header, provides a definitive check for
+this capability. This article explores how
+<code>std::is_standard_layout</code> evaluates class architecture, the
+specific layout constraints it enforces, and why meeting these rules
+guarantees memory-level compatibility with standard C code.</p>
+<h2 id="the-purpose-of-standard-layout-types">The Purpose of
+Standard-Layout Types</h2>
+<p>C++ expands upon C structures by introducing inheritance, access
+specifiers, and polymorphism. However, these features can cause
+compilers to alter the physical memory layout of an object—such as
+injecting hidden pointers or rearranging members in memory.</p>
+<p>A "standard-layout" type is a C++ type whose data arrangement is
+predictable, uniform across conforming compilers, and identical to how a
+conventional C compiler would lay out a <code>struct</code> or
+<code>union</code>. The compile-time boolean
+<code>std::is_standard_layout&lt;T&gt;::value</code> evaluates whether
+type <code>T</code> avoids C++-specific memory mechanisms, guaranteeing
+binary layout compatibility with C APIs.</p>
+<h2 id="rules-evaluated-by-stdis_standard_layout">Rules Evaluated by
+<code>std::is_standard_layout</code></h2>
+<p>To evaluate to <code>true</code>, a class, struct, or union must
+satisfy several strict structural requirements set by the C++
+standard:</p>
+<ol type="1">
+<li><p><strong>No Virtual Functions or Virtual Base
+Classes</strong><br />
+Virtual functions and virtual inheritance require runtime polymorphism,
+typically implemented via a virtual method table pointer
+(<code>vptr</code>). Compilers may place the <code>vptr</code> at the
+beginning or elsewhere within the object payload, breaking the flat,
+predictable memory alignment expected by C.</p></li>
+<li><p><strong>Uniform Access Control for Non-Static Data
+Members</strong><br />
+All non-static data members must share the same access control level
+(<code>public</code>, <code>protected</code>, or <code>private</code>).
+When access levels differ, the C++ specification permits the compiler to
+reorder members in memory (for instance, grouping all
+<code>public</code> members together followed by <code>private</code>
+members). Uniform access preserves lexical declaration order in
+memory.</p></li>
+<li><p><strong>Restricted Class Hierarchies</strong><br />
+Inheritance is permitted, but non-static data members may only appear in
+one class within the hierarchy. Either the derived class has non-static
+members and all base classes are empty, or the base class contains the
+members and the derived class introduces only member functions. This
+prevents compiler-specific padding and member-interleaving across class
+boundaries.</p></li>
+<li><p><strong>Empty Base Class Optimization Constraints</strong><br />
+The first non-static data member of a derived class cannot be of the
+same type as any of its base classes. This prevents address collisions
+that occur when applying the Empty Base Optimization (EBO), ensuring
+every distinct subobject has a distinct memory address.</p></li>
+<li><p><strong>Recursive Conformance of Members and Bases</strong><br />
+All non-static data members, arrays of members, and base classes must
+themselves be standard-layout types. Fundamental types (such as
+<code>int</code>, <code>double</code>, and raw pointers) are inherently
+standard-layout.</p></li>
+</ol>
+<h2 id="how-standard-layout-guarantees-c-compatibility">How
+Standard-Layout Guarantees C Compatibility</h2>
+<p>When <code>std::is_standard_layout&lt;T&gt;::value</code> yields
+<code>true</code>, it guarantees several critical low-level memory
+characteristics required by the C ABI:</p>
+<ul>
+<li><strong>Predictable Member Offsets:</strong> The compiler orders
+non-static data members in memory according to their declaration order,
+adhering to normal platform alignment rules just like a C
+<code>struct</code>. You can reliably query member offsets using the
+<code>offsetof</code> macro.</li>
+<li><strong>Pointer Interchangeability:</strong> A pointer to a
+standard-layout class object can be safely converted via
+<code>reinterpret_cast</code> to a pointer to its initial non-static
+data member (and vice versa). The address of the object is strictly
+identical to the address of its first member, matching C behavior.</li>
+<li><strong>Common Initial Sequence:</strong> Two standard-layout union
+members (or structs) that share an initial sequence of types can have
+that common sequence inspected portably, mirroring the union behavior
+defined in the C language standard.</li>
+<li><strong>Safe Byte Transfers:</strong> Standard-layout objects with
+trivial copy operations can be serialized, copied with
+<code>std::memcpy</code>, or passed across C interfaces without
+unintended structural side effects.</li>
+</ul>
+<p>By evaluating these invariants at compile time,
+<code>std::is_standard_layout</code> allows developers to write static
+assertions that prevent architectural changes from silently breaking
+low-level C ABI compatibility.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/std-is-standard-layout-and-c-memory-compatibility';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

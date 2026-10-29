@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::pmr::monotonic_buffer_resource in C++ Explained - cpp</title>
+    <meta name="description" content="This article explores std::pmr::monotonicbufferresource, a specialized memory allocator introduced in C++17&#39;s Polymorphic Memory Resources (&lt;memoryresource&gt;) library. You will learn how this allocator operates under the hood, how its &quot;bump-pointer&quot; mechan">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-pmr-monotonic-buffer-resource-in-c-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::pmr::monotonic_buffer_resource in C++ Explained - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-pmr-monotonic-buffer-resource-in-c-explained" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores std::pmr::monotonicbufferresource, a specialized memory allocator introduced in C++17&#39;s Polymorphic Memory Resources (&lt;memoryresource&gt;) library. You will learn how this allocator operates under the hood, how its &quot;bump-pointer&quot; mechan" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="stdpmrmonotonic_buffer_resource-in-c-explained">std::pmr::monotonic_buffer_resource
+in C++ Explained</h1>
+<p>This article explores
+<code>std::pmr::monotonic_buffer_resource</code>, a specialized memory
+allocator introduced in C++17's Polymorphic Memory Resources
+(<code>&lt;memory_resource&gt;</code>) library. You will learn how this
+allocator operates under the hood, how its "bump-pointer" mechanism
+eliminates typical allocation overhead, and the specific workload
+scenarios where it delivers optimal runtime performance and cache
+efficiency.</p>
+<h2 id="what-is-stdpmrmonotonic_buffer_resource">What Is
+std::pmr::monotonic_buffer_resource?</h2>
+<p><code>std::pmr::monotonic_buffer_resource</code> is a concrete
+implementation of <code>std::pmr::memory_resource</code>. It is an arena
+(or bump-pointer) allocator designed around a simple principle: memory
+grows monotonically.</p>
+<p>When you allocate memory through this resource, it provides a
+contiguous chunk by advancing an internal offset pointer. Crucially,
+calling <code>deallocate</code> on individual objects allocated by this
+resource is a non-operation. The allocated memory is not reclaimed or
+recycled piecewise; instead, the entire allocated block of memory is
+released all at once when the <code>monotonic_buffer_resource</code>
+instance itself is destroyed or explicitly reset via
+<code>.release()</code>.</p>
+<p>If an initial pre-allocated buffer is exhausted, the monotonic buffer
+requests increasingly larger memory chunks from an "upstream" memory
+resource (by default, the heap via
+<code>std::pmr::get_default_resource()</code>).</p>
+<h2 id="how-it-works">How It Works</h2>
+<ol type="1">
+<li><strong>Initial Buffer:</strong> You can supply an optional
+pre-allocated buffer (such as a stack-allocated <code>std::byte</code>
+array).</li>
+<li><strong>Fast Bump Allocation:</strong> Subsequent allocations
+advance a pointer through the buffer. This requires only a few assembly
+instructions: check bounds, align the pointer, increment, and
+return.</li>
+<li><strong>No Per-Object Deallocation:</strong> When containers destroy
+elements, the memory remains allocated within the buffer.</li>
+<li><strong>Upstream Growth:</strong> If the buffer runs out of space,
+the resource allocates an exponentially larger chunk from its upstream
+resource to minimize subsequent heap requests.</li>
+<li><strong>Bulk Release:</strong> Calling <code>.release()</code> or
+letting the resource leave scope deallocates all acquired upstream
+memory in one step.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;array&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;memory_resource&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_batch<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Provide an initial 4 KB stack buffer</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>array<span class="op">&lt;</span><span class="bu">std::</span>byte<span class="op">,</span> <span class="dv">4096</span><span class="op">&gt;</span> stack_pool<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Attach the monotonic resource to the stack buffer</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>pmr::monotonic_buffer_resource mem_pool<span class="op">(</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        stack_pool<span class="op">.</span>data<span class="op">(),</span> </span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        stack_pool<span class="op">.</span>size<span class="op">(),</span> </span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>pmr::get_default_resource<span class="op">()</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">);</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Use PMR-compatible containers</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>pmr::vector<span class="op">&lt;</span><span class="bu">std::</span>pmr::string<span class="op">&gt;</span> items<span class="op">(&amp;</span>mem_pool<span class="op">);</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> <span class="dv">100</span><span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        items<span class="op">.</span>emplace_back<span class="op">(</span><span class="st">&quot;High-frequency data payload&quot;</span><span class="op">);</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">// All memory is released automatically when mem_pool leaves scope</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="when-is-it-optimal-for-performance">When Is It Optimal for
+Performance?</h2>
+<p><code>std::pmr::monotonic_buffer_resource</code> provides substantial
+performance improvements in specific computational patterns:</p>
+<h3 id="1-phased-and-ephemeral-lifecycles">1. Phased and Ephemeral
+Lifecycles</h3>
+<p>This resource is ideal for short-lived, phase-based systems where
+data is accumulated, processed, and discarded together:</p>
+<ul>
+<li><strong>Per-Frame Game Loops:</strong> Constructing transient render
+queues, collision candidates, or intermediate scene graphs that are
+discarded at the end of a single frame.</li>
+<li><strong>Network Request Handlers:</strong> Allocating parsing trees,
+payload buffers, and session contexts during an HTTP or RPC request,
+then clearing the entire arena once the response is sent.</li>
+<li><strong>Compilers and Interpreters:</strong> Constructing Abstract
+Syntax Trees (ASTs) or symbol tables during a single translation unit
+pass.</li>
+</ul>
+<h3 id="2-eliminating-heap-lock-contention-and-latency">2. Eliminating
+Heap Lock Contention and Latency</h3>
+<p>The global operator <code>new</code> must manage global
+synchronization and complex internal fragmentation tables. Because
+<code>monotonic_buffer_resource</code> performs allocation via simple
+pointer arithmetic without per-allocation system locks, allocation
+latency drops to single-digit nanoseconds. When seeded with a stack
+array, small-to-medium tasks incur zero heap allocations.</p>
+<h3 id="3-maximum-cache-locality">3. Maximum Cache Locality</h3>
+<p>Because allocations are packed sequentially into contiguous chunks,
+cache lines are utilized effectively. Sequential memory traversals
+across vectors, nodes, or strings allocated within the same monotonic
+arena exhibit significantly fewer CPU cache misses compared to objects
+scattered across a fragmented heap.</p>
+<h3 id="4-avoiding-deallocation-overhead">4. Avoiding Deallocation
+Overhead</h3>
+<p>Destruction overhead is bypassed at the allocator level. Containers
+still invoke element destructors if required, but the underlying
+byte-level deallocation costs <span class="math inline">\(O(1)\)</span>
+overall rather than <span class="math inline">\(O(N)\)</span> for <span
+class="math inline">\(N\)</span> dynamic allocations.</p>
+<h2 id="when-to-avoid-it">When to Avoid It</h2>
+<ul>
+<li><strong>Long-Lived Objects with Variable Lifetimes:</strong> Because
+memory is never freed until the resource is destroyed, removing elements
+from long-running containers causes unbounded memory growth (a monotonic
+memory leak).</li>
+<li><strong>Massive Objects Re-Allocated in Loops:</strong> Iteratively
+overwriting a container attached to a monotonic resource without
+resetting or scoping the resource will repeatedly exhaust buffers.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/std-pmr-monotonic-buffer-resource-in-c-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

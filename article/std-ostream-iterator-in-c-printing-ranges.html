@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::ostream_iterator in C++: Printing Ranges - cpp</title>
+    <meta name="description" content="In C++, std::ostreamiterator serves as a bridge between the Standard Template Library (STL) algorithms and output streams such as std::cout. This article explores the mechanics of std::ostreamiterator, explaining how it functions as an output iterator ada">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-ostream-iterator-in-c-printing-ranges">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::ostream_iterator in C++: Printing Ranges - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-ostream-iterator-in-c-printing-ranges" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, std::ostreamiterator serves as a bridge between the Standard Template Library (STL) algorithms and output streams such as std::cout. This article explores the mechanics of std::ostreamiterator, explaining how it functions as an output iterator ada" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stdostream_iterator-in-c-printing-ranges">std::ostream_iterator
+in C++: Printing Ranges</h1>
+<p>In C++, <code>std::ostream_iterator</code> serves as a bridge between
+the Standard Template Library (STL) algorithms and output streams such
+as <code>std::cout</code>. This article explores the mechanics of
+<code>std::ostream_iterator</code>, explaining how it functions as an
+output iterator adapter, how it simplifies printing range elements
+without manual loops, its integration with both classic and modern C++
+ranges, and its practical trade-offs.</p>
+<h2 id="what-is-stdostream_iterator">What is std::ostream_iterator?</h2>
+<p>Defined in the <code>&lt;iterator&gt;</code> header,
+<code>std::ostream_iterator</code> is an output iterator adapter that
+writes successive elements to a designated
+<code>std::basic_ostream</code> object using
+<code>operator&lt;&lt;</code>. It abstracts the output stream into an
+iterator interface, allowing any range or sequence of elements to be
+treated as a source that flows directly into a stream destination.</p>
+<h2 id="core-mechanics">Core Mechanics</h2>
+<p>An <code>std::ostream_iterator</code> requires a value type and an
+optional delimiter string upon instantiation.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>ostream_iterator<span class="op">&lt;</span>T<span class="op">&gt;(</span>stream<span class="op">,</span> delimiter<span class="op">);</span></span></code></pre></div>
+<ul>
+<li><strong>Target Stream:</strong> The stream object to write to (e.g.,
+<code>std::cout</code> or a <code>std::ofstream</code>).</li>
+<li><strong>Optional Delimiter:</strong> A C-style string appended to
+the stream immediately after each element is written.</li>
+</ul>
+<p>Whenever an algorithm writes to an
+<code>std::ostream_iterator</code>, the following operations occur under
+the hood:</p>
+<ol type="1">
+<li><strong>Dereference and Assignment
+(<code>*it = value</code>):</strong> Writes the value to the underlying
+stream via <code>stream &lt;&lt; value</code>. If a delimiter was
+specified, it immediately follows with
+<code>stream &lt;&lt; delimiter</code>.</li>
+<li><strong>Increment (<code>++it</code> / <code>it++</code>):</strong>
+Performs no operation and simply returns a reference to the iterator
+itself, fulfilling the interface requirements of an output
+iterator.</li>
+</ol>
+<h2 id="using-stdostream_iterator-with-algorithms">Using
+std::ostream_iterator with Algorithms</h2>
+<p>The primary role of <code>std::ostream_iterator</code> is eliminating
+manual <code>for</code> loops when transferring elements from containers
+to an output destination.</p>
+<h3 id="classic-stl-with-stdcopy">Classic STL with
+<code>std::copy</code></h3>
+<p>Before C++20, the canonical approach to printing a container involved
+pairing <code>std::copy</code> with
+<code>std::ostream_iterator</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;algorithm&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iterator&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> numbers <span class="op">=</span> <span class="op">{</span><span class="dv">10</span><span class="op">,</span> <span class="dv">20</span><span class="op">,</span> <span class="dv">30</span><span class="op">,</span> <span class="dv">40</span><span class="op">,</span> <span class="dv">50</span><span class="op">};</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Print all elements separated by a space</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>copy<span class="op">(</span>numbers<span class="op">.</span>begin<span class="op">(),</span> numbers<span class="op">.</span>end<span class="op">(),</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>              <span class="bu">std::</span>ostream_iterator<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span><span class="bu">std::</span>cout<span class="op">,</span> <span class="st">&quot; &quot;</span><span class="op">));</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="modern-c-with-stdrangescopy">Modern C++ with
+<code>std::ranges::copy</code></h3>
+<p>In C++20 and later, <code>std::ostream_iterator</code> integrates
+seamlessly with constrained algorithms in the <code>std::ranges</code>
+namespace, allowing direct passing of containers or range views:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;ranges&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;algorithm&gt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iterator&gt;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> numbers <span class="op">=</span> <span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">4</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">6</span><span class="op">};</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Filter even numbers and stream them with a newline delimiter</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> evens <span class="op">=</span> numbers <span class="op">|</span> <span class="bu">std::</span>views::filter<span class="op">([](</span><span class="dt">int</span> n<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> n <span class="op">%</span> <span class="dv">2</span> <span class="op">==</span> <span class="dv">0</span><span class="op">;</span> <span class="op">});</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>ranges::copy<span class="op">(</span>evens<span class="op">,</span> <span class="bu">std::</span>ostream_iterator<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span><span class="bu">std::</span>cout<span class="op">,</span> <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">));</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="key-advantages">Key Advantages</h2>
+<ul>
+<li><strong>Algorithm Interoperability:</strong> It enables standard
+algorithms (<code>std::copy</code>, <code>std::transform</code>,
+<code>std::unique_copy</code>) to direct their output to streams without
+creating intermediate containers.</li>
+<li><strong>Separation of Concerns:</strong> The source container does
+not need internal print methods; formatting and output destinations are
+handled externally.</li>
+<li><strong>Declarative Code:</strong> Replacing explicit loops with
+standard algorithms and stream iterators clarifies the intent of
+streaming data directly to output sinks.</li>
+</ul>
+<h2 id="considerations-and-limitations">Considerations and
+Limitations</h2>
+<ul>
+<li><strong>Trailing Delimiters:</strong> Because
+<code>std::ostream_iterator</code> prints the delimiter after
+<em>every</em> element, the final element will also be followed by the
+delimiter. When formatting requirements demand strict separation without
+a trailing separator (such as standard comma-separated lists),
+alternatives like <code>std::views::join_with</code> (C++23) or custom
+formatting loops may be preferable.</li>
+<li><strong>Type Requirement:</strong> The element type must support
+stream insertion via <code>operator&lt;&lt;</code> for the target stream
+type.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/std-ostream-iterator-in-c-printing-ranges';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

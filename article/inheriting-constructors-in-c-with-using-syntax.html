@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inheriting Constructors in C++ with Using Syntax - cpp</title>
+    <meta name="description" content="In modern C++, inheriting constructors via the using declaration eliminates repetitive boilerplate code when establishing class hierarchies. Introduced in C++11, this feature allows a derived class to automatically inherit all constructors from a base cla">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/inheriting-constructors-in-c-with-using-syntax">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Inheriting Constructors in C++ with Using Syntax - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/inheriting-constructors-in-c-with-using-syntax" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, inheriting constructors via the using declaration eliminates repetitive boilerplate code when establishing class hierarchies. Introduced in C++11, this feature allows a derived class to automatically inherit all constructors from a base cla" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="inheriting-constructors-in-c-with-using-syntax">Inheriting
+Constructors in C++ with Using Syntax</h1>
+<p>In modern C++, inheriting constructors via the <code>using</code>
+declaration eliminates repetitive boilerplate code when establishing
+class hierarchies. Introduced in C++11, this feature allows a derived
+class to automatically inherit all constructors from a base class
+without explicitly defining forwarding constructors for each signature.
+This article explores how constructor inheritance works, why it
+simplifies derived class design, and the key rules developers should
+follow when implementing it.</p>
+<h3 id="the-problem-manual-constructor-forwarding">The Problem: Manual
+Constructor Forwarding</h3>
+<p>Prior to C++11, derived classes did not automatically inherit the
+constructors of their base classes. If a base class defined multiple
+constructors, a derived class that required the same initialization
+interfaces had to implement each constructor manually and forward the
+arguments to the base class.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Base <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    Base<span class="op">(</span><span class="dt">int</span> x<span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    Base<span class="op">(</span><span class="dt">double</span> y<span class="op">,</span> <span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> z<span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    Base<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">,</span> <span class="dt">int</span> c<span class="op">);</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Cumbersome forwarding constructors</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    Derived<span class="op">(</span><span class="dt">int</span> x<span class="op">)</span> <span class="op">:</span> Base<span class="op">(</span>x<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    Derived<span class="op">(</span><span class="dt">double</span> y<span class="op">,</span> <span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> z<span class="op">)</span> <span class="op">:</span> Base<span class="op">(</span>y<span class="op">,</span> z<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    Derived<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">,</span> <span class="dt">int</span> c<span class="op">)</span> <span class="op">:</span> Base<span class="op">(</span>a<span class="op">,</span> b<span class="op">,</span> c<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>This manual approach introduces several drawbacks:</p>
+<ul>
+<li><strong>Redundant Code:</strong> Writing forwarding constructors
+bloats class declarations.</li>
+<li><strong>Maintenance Overhead:</strong> Adding or modifying a
+constructor in the base class requires updating every derived class in
+the hierarchy.</li>
+<li><strong>Risk of Errors:</strong> Mismatched types, forgotten
+parameters, or incorrect argument forwarding can easily cause bugs or
+prevent move semantics from functioning properly.</li>
+</ul>
+<h3 id="the-solution-the-using-syntax">The Solution: The
+<code>using</code> Syntax</h3>
+<p>C++11 resolved this problem by extending the <code>using</code>
+declaration to constructors. By placing <code>using Base::Base;</code>
+inside the definition of a derived class, all accessible constructors of
+the base class are made available to the derived class.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> Base<span class="op">::</span>Base<span class="op">;</span> <span class="co">// Inherits all constructors from Base</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>With this single declaration, the compiler automatically generates
+the equivalent forwarding constructors, instantly matching the
+interfaces provided by <code>Base</code>.</p>
+<h3 id="how-constructor-inheritance-simplifies-derived-classes">How
+Constructor Inheritance Simplifies Derived Classes</h3>
+<ol type="1">
+<li><p><strong>Massive Boilerplate Reduction</strong><br />
+Derived classes that do not introduce new state members—such as
+specialized wrappers, policy classes, or types providing auxiliary
+member functions—can be written in just a few lines of code.</p></li>
+<li><p><strong>Automatic Synchronization</strong><br />
+If the base class is updated with a new constructor overload, derived
+classes automatically gain access to it without requiring modifications
+to their definitions.</p></li>
+<li><p><strong>Preservation of Access Modifiers</strong><br />
+Inherited constructors retain the access specifiers of the base class. A
+<code>protected</code> constructor in the base class remains
+<code>protected</code> in the derived class, preventing unintended
+public instantiation.</p></li>
+<li><p><strong>Correct Handling of Default Arguments</strong><br />
+When a base class constructor has default arguments, the compiler
+synthesizes a set of candidate constructors with progressively fewer
+parameters. The <code>using</code> syntax ensures this pattern is
+replicated seamlessly without manual overload management.</p></li>
+</ol>
+<h3 id="key-considerations-and-rules">Key Considerations and Rules</h3>
+<ul>
+<li><strong>Member Initialization:</strong> Inherited constructors only
+initialize the base class subobject. Any non-static data members
+declared in the derived class will remain uninitialized unless they have
+default in-class member initializers (e.g.,
+<code>int count = 0;</code>).</li>
+<li><strong>Explicit Overrides:</strong> If a derived class explicitly
+declares a constructor with the exact same parameter signature as a base
+class constructor, the derived class constructor takes precedence,
+hiding the base version.</li>
+<li><strong>Multiple Inheritance Conflicts:</strong> If a derived class
+inherits constructors from two base classes that share identical
+parameter signatures, an ambiguity error occurs. The derived class must
+explicitly define that constructor signature to resolve the
+conflict.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/inheriting-constructors-in-c-with-using-syntax';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

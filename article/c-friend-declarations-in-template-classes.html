@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Friend Declarations in Template Classes - cpp</title>
+    <meta name="description" content="In the C++ programming language, declaring a friend inside a class template alters how functions or classes are granted access to private and protected members across instantiations. Depending on whether the declared entity is a non-template, a specific t">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-friend-declarations-in-template-classes">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Friend Declarations in Template Classes - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-friend-declarations-in-template-classes" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C++ programming language, declaring a friend inside a class template alters how functions or classes are granted access to private and protected members across instantiations. Depending on whether the declared entity is a non-template, a specific t" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-friend-declarations-in-template-classes">C++ Friend
+Declarations in Template Classes</h1>
+<p>In the C++ programming language, declaring a <code>friend</code>
+inside a class template alters how functions or classes are granted
+access to private and protected members across instantiations. Depending
+on whether the declared entity is a non-template, a specific template
+specialization, or an entire template family, the scope and visibility
+of the friendship change significantly. This article examines the core
+behaviors of friend declarations within template classes, covering
+non-template friends, the hidden friend idiom, bound versus unbound
+template relationships, and common pitfalls like duplicate
+definitions.</p>
+<h3 id="non-template-friend-functions-and-hidden-friends">Non-Template
+Friend Functions and Hidden Friends</h3>
+<p>When a non-template function is declared as a <code>friend</code>
+inside a class template, each instantiation of that template produces a
+distinct non-template function.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Box <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    T value<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Declares a separate non-template function for each type T</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">friend</span> <span class="dt">void</span> printBox<span class="op">(</span><span class="at">const</span> Box<span class="op">&lt;</span>T<span class="op">&gt;&amp;</span> b<span class="op">);</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>If you define this function inside the class definition, it becomes a
+"hidden friend":</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Box <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    T value<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    Box<span class="op">(</span>T val<span class="op">)</span> <span class="op">:</span> value<span class="op">(</span>val<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Defined inline as a hidden friend</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">friend</span> <span class="dt">void</span> inspect<span class="op">(</span><span class="at">const</span> Box<span class="op">&lt;</span>T<span class="op">&gt;&amp;</span> b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> b<span class="op">.</span>value <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Hidden friends are not visible via normal unqualified or qualified
+name lookup; they can only be found via Argument-Dependent Lookup (ADL).
+This pattern is especially useful for operator overloads (such as
+<code>operator&lt;&lt;</code> or arithmetic operators), as it keeps the
+enclosing namespace clean and avoids unwanted implicit conversions.</p>
+<p><strong>Pitfall:</strong> If you define a non-template friend
+function inside a template class without referencing the template
+parameter <code>T</code> in its signature, instantiating the template
+more than once will generate multiple identical function definitions,
+resulting in a compilation error due to violating the One Definition
+Rule (ODR).</p>
+<h3 id="bound-friend-templates-one-to-one-friendship">Bound Friend
+Templates (One-to-One Friendship)</h3>
+<p>A bound friend establishes a one-to-one relationship between a
+specific instantiation of the class template and a matching
+instantiation of a friend function or class.</p>
+<p>To grant friendship to a specific template specialization, the friend
+template must be forward-declared before the class template:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Forward declarations</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span> <span class="kw">class</span> Container<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span> <span class="dt">void</span> process<span class="op">(</span><span class="at">const</span> Container<span class="op">&lt;</span>T<span class="op">&gt;&amp;);</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Container <span class="op">{</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    T data<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Grants friendship only to the matching specialization process&lt;T&gt;</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">friend</span> <span class="dt">void</span> process<span class="op">&lt;</span>T<span class="op">&gt;(</span><span class="at">const</span> Container<span class="op">&lt;</span>T<span class="op">&gt;&amp;);</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>In this setup, <code>process&lt;int&gt;</code> can access the private
+members of <code>Container&lt;int&gt;</code>, but
+<code>process&lt;double&gt;</code> cannot.</p>
+<h3 id="unbound-friend-templates-many-to-many-friendship">Unbound Friend
+Templates (Many-to-Many Friendship)</h3>
+<p>An unbound friend declaration grants friendship to all
+specializations of a template, not just the one that matches the class’s
+template arguments. This is achieved by including a new template
+parameter list directly inside the <code>friend</code> declaration.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Container <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    T data<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Any specialization of process() is a friend of Container&lt;T&gt;</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> U<span class="op">&gt;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">friend</span> <span class="dt">void</span> process<span class="op">(</span><span class="at">const</span> Container<span class="op">&lt;</span>U<span class="op">&gt;&amp;);</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Any specialization of Node is a friend of Container&lt;T&gt;</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> U<span class="op">&gt;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">friend</span> <span class="kw">class</span> Node<span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>This approach allows <code>Container&lt;int&gt;</code> to grant
+access to <code>Node&lt;double&gt;</code>,
+<code>Node&lt;std::string&gt;</code>, and any other specialization of
+<code>Node</code>. It is commonly used when one generic type needs to
+construct or copy another instance of the same template instantiated
+with a different type (such as implementing generalized copy
+constructors).</p>
+<h3 id="non-template-class-friends">Non-Template Class Friends</h3>
+<p>Declaring a non-template class as a friend inside a class template
+gives that non-template class access to the private members of
+<em>all</em> instantiations of the template:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Inspector<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> DataWrapper <span class="op">{</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    T item<span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">friend</span> <span class="kw">class</span> Inspector<span class="op">;</span> <span class="co">// Inspector can access DataWrapper&lt;int&gt;, DataWrapper&lt;std::string&gt;, etc.</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Every instantiated version of <code>DataWrapper</code> treats
+<code>Inspector</code> as a friend.</p>
+<h3 id="summary-of-rules">Summary of Rules</h3>
+<ul>
+<li><strong>Inline Non-Template Friend:</strong> Creates a distinct
+non-template function accessible via ADL for each instantiation.</li>
+<li><strong>Bound Friend
+(<code>friend void func&lt;T&gt;(...);</code>):</strong> Restricts
+access to a specific matching specialization; requires forward
+declarations.</li>
+<li><strong>Unbound Friend
+(<code>template &lt;typename U&gt; friend class ...;</code>):</strong>
+Grants access to all specializations of the friend template.</li>
+<li><strong>Non-Template Class Friend
+(<code>friend class Name;</code>):</strong> Grants access to that single
+class across every instantiation of the template.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-friend-declarations-in-template-classes';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

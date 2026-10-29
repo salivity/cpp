@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Covariant Return Types in C++ Virtual Functions - cpp</title>
+    <meta name="description" content="In C++, an overriding virtual member function is generally required to have the exact same return type as the base class function it overrides. The covariant return type rule provides a specific exception to this requirement, allowing an overriding functi">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/covariant-return-types-in-c-virtual-functions">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Covariant Return Types in C++ Virtual Functions - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/covariant-return-types-in-c-virtual-functions" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, an overriding virtual member function is generally required to have the exact same return type as the base class function it overrides. The covariant return type rule provides a specific exception to this requirement, allowing an overriding functi" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="covariant-return-types-in-c-virtual-functions">Covariant Return
+Types in C++ Virtual Functions</h1>
+<p>In C++, an overriding virtual member function is generally required
+to have the exact same return type as the base class function it
+overrides. The covariant return type rule provides a specific exception
+to this requirement, allowing an overriding function in a derived class
+to return a pointer or reference to a class derived from the return type
+declared in the base class. This feature enables cleaner object-oriented
+design, particularly in factory methods and polymorphic cloning
+patterns, by eliminating the need for explicit type casting by callers
+who already know the concrete type of the object.</p>
+<h2 id="the-standard-rule-vs-covariance">The Standard Rule vs.
+Covariance</h2>
+<p>Under the standard function overriding rules, the signature and
+return type of a virtual function in a derived class must precisely
+match the declaration in the base class:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Base <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> Base<span class="op">*</span> clone<span class="op">()</span> <span class="at">const</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Covariant return type: returns Derived* instead of Base*</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    Derived<span class="op">*</span> clone<span class="op">()</span> <span class="at">const</span> <span class="kw">override</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Without covariant return types, <code>Derived::clone()</code> would
+be forced to return <code>Base*</code>. Callers invoking
+<code>clone()</code> on a pointer or reference explicitly typed as
+<code>Derived</code> would then have to perform an explicit
+<code>static_cast</code> or <code>dynamic_cast</code> to access
+derived-specific members. With covariance, the compiler allows the
+narrower type while preserving dynamic dispatch.</p>
+<h2 id="requirements-for-covariant-return-types">Requirements for
+Covariant Return Types</h2>
+<p>For a return type to be validly covariant, several conditions must be
+met:</p>
+<ol type="1">
+<li><strong>Pointers or References Only:</strong> The return types must
+be pointers (<code>T*</code>) or references (<code>T&amp;</code>) to
+classes. Covariance does not apply to values (e.g., returning
+<code>Derived</code> by value when the base returns
+<code>Base</code>).</li>
+<li><strong>Accessible Inheritance:</strong> The class returned by the
+derived function must be an unambiguously derived class of the type
+returned by the base function. This typically requires
+<code>public</code> inheritance between the returned types.</li>
+<li><strong>Complete Types:</strong> The class being returned must be
+fully defined at the point of the overriding function's declaration so
+the compiler can verify the inheritance relationship.</li>
+<li><strong>Const and Volatile Qualifiers:</strong> The cv-qualifiers of
+the target type in the derived function cannot be less restrictive than
+those in the base function. For example, if the base returns
+<code>const Base*</code>, the derived function cannot return
+<code>Derived*</code> unless it is also marked <code>const</code>.</li>
+</ol>
+<h2 id="code-example">Code Example</h2>
+<p>The most common implementation is the polymorphic <code>clone</code>
+idiom:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Animal <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="op">~</span>Animal<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> Animal<span class="op">*</span> clone<span class="op">()</span> <span class="at">const</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Dog <span class="op">:</span> <span class="kw">public</span> Animal <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Overrides Animal::clone() with a covariant return type</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    Dog<span class="op">*</span> clone<span class="op">()</span> <span class="at">const</span> <span class="kw">override</span> <span class="op">{</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="kw">new</span> Dog<span class="op">(*</span><span class="kw">this</span><span class="op">);</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> example<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    Dog originalDog<span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Direct call uses the covariant return type directly:</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    Dog<span class="op">*</span> dogCopy <span class="op">=</span> originalDog<span class="op">.</span>clone<span class="op">();</span> <span class="co">// No cast needed</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Polymorphic call still works as expected:</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    Animal<span class="op">*</span> animalPtr <span class="op">=</span> <span class="op">&amp;</span>originalDog<span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    Animal<span class="op">*</span> animalCopy <span class="op">=</span> animalPtr<span class="op">-&gt;</span>clone<span class="op">();</span> <span class="co">// Dynamic dispatch returns Dog*, bound to Animal*</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="kw">delete</span> dogCopy<span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="kw">delete</span> animalCopy<span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="smart-pointer-limitation">Smart Pointer Limitation</h2>
+<p>The covariant return type rule is built into the core language
+specifically for native raw pointers and references. It does not
+natively apply to smart pointer class templates such as
+<code>std::unique_ptr&lt;Base&gt;</code> and
+<code>std::unique_ptr&lt;Derived&gt;</code>. Because
+<code>std::unique_ptr&lt;Base&gt;</code> and
+<code>std::unique_ptr&lt;Derived&gt;</code> are distinct template
+instantiations rather than pointers with an inheritance relationship,
+the compiler considers them incompatible return types for virtual
+overrides.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/covariant-return-types-in-c-virtual-functions';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

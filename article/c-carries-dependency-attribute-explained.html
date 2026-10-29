@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ carries_dependency Attribute Explained - cpp</title>
+    <meta name="description" content="The [[carriesdependency]] attribute in C++ optimizes memory ordering across function boundaries by preserving dependency chains initiated by std::memoryorderconsume. When values are loaded using consume operations, weakly ordered architectures can avoid e">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-carries-dependency-attribute-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ carries_dependency Attribute Explained - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-carries-dependency-attribute-explained" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The [[carriesdependency]] attribute in C++ optimizes memory ordering across function boundaries by preserving dependency chains initiated by std::memoryorderconsume. When values are loaded using consume operations, weakly ordered architectures can avoid e" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-carries_dependency-attribute-explained">C++ carries_dependency
+Attribute Explained</h1>
+<p>The <code>[[carries_dependency]]</code> attribute in C++ optimizes
+memory ordering across function boundaries by preserving dependency
+chains initiated by <code>std::memory_order_consume</code>. When values
+are loaded using consume operations, weakly ordered architectures can
+avoid emitting expensive memory fence instructions by relying on
+hardware-level data dependencies. The
+<code>[[carries_dependency]]</code> attribute explicitly informs the
+compiler that these dependency chains enter or exit a function,
+preventing the compiler from pessimistically generating unnecessary
+memory barriers at call sites.</p>
+<h3
+id="the-problem-with-function-boundaries-and-memory_order_consume">The
+Problem with Function Boundaries and
+<code>memory_order_consume</code></h3>
+<p>The C++ memory model includes <code>std::memory_order_consume</code>
+to establish a dependency-ordered-before relationship. Under consume
+semantics, subsequent operations that depend directly on the loaded
+value (such as dereferencing a pointer) are guaranteed to see memory
+writes committed before that value was stored by another thread.</p>
+<p>On weakly ordered processors (such as ARM or PowerPC), hardware
+automatically enforces ordering for dependent data without issuing full
+memory fences. However, compilers frequently lose track of dependency
+chains across function boundaries, especially when functions are
+compiled in separate translation units or cannot be inlined.</p>
+<p>Because the compiler cannot guarantee that the callee maintains the
+dependency chain, it typically takes a conservative approach: it
+upgrades the <code>memory_order_consume</code> to a stronger
+<code>std::memory_order_acquire</code> or inserts an explicit hardware
+fence prior to passing the value. This default behavior eliminates the
+performance benefit of using consume operations over acquire
+operations.</p>
+<h3 id="how-carries_dependency-operates">How
+<code>[[carries_dependency]]</code> Operates</h3>
+<p>The <code>[[carries_dependency]]</code> attribute resolves this issue
+by acting as a contract between the caller and the callee. It can be
+applied in two primary locations:</p>
+<ol type="1">
+<li><p><strong>On Function Parameters:</strong> Applying the attribute
+to a function parameter indicates that the caller passes a value that is
+part of an active dependency chain. The function body is expected to
+maintain that dependency.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_data<span class="op">(</span><span class="dt">int</span><span class="op">*</span> <span class="op">[[</span><span class="at">carries_dependency</span><span class="op">]]</span> ptr<span class="op">);</span></span></code></pre></div>
+<p>When the caller invokes <code>process_data</code>, the compiler knows
+that the dependency chain is safely carried into the function.
+Consequently, it avoids generating a memory fence or promoting the
+upstream <code>memory_order_consume</code> load to
+<code>memory_order_acquire</code> before the call.</p></li>
+<li><p><strong>On Function Return Types:</strong> Applying the attribute
+to a function declaration indicates that the returned value continues a
+dependency chain initiated within the function.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="op">[[</span><span class="at">carries_dependency</span><span class="op">]]</span> <span class="dt">int</span><span class="op">*</span> fetch_data<span class="op">();</span></span></code></pre></div>
+<p>Inside <code>fetch_data</code>, the implementation can load a pointer
+with <code>std::memory_order_consume</code> and return it directly. The
+compiler does not need to emit an acquire fence before returning. The
+caller, in turn, is notified that dereferencing the returned pointer
+remains protected by the hardware dependency mechanism.</p></li>
+</ol>
+<h3 id="impact-on-generated-machine-code">Impact on Generated Machine
+Code</h3>
+<p>The primary impact of <code>[[carries_dependency]]</code> is on
+instruction generation rather than execution correctness:</p>
+<ul>
+<li><strong>Elimination of Fences:</strong> On architectures that do not
+reorder data-dependent reads (e.g., ARM, AArch64), preserving the
+dependency chain allows the compiler to omit instructions like
+<code>dmb</code> (Data Memory Barrier).</li>
+<li><strong>Reduced Register Spilling:</strong> Without the need to emit
+barriers or reorganize register allocation to satisfy conservative
+barrier semantics, code density increases and execution pipeline stalls
+decrease.</li>
+<li><strong>Architecture-Neutral Guarantees:</strong> On strongly
+ordered architectures like x86, loads inherently possess acquire
+semantics, meaning <code>[[carries_dependency]]</code> typically
+produces no difference in assembly. On weakly ordered architectures,
+however, it serves as the mechanism that makes
+<code>memory_order_consume</code> usable in modular, non-inlined
+codebases.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-carries-dependency-attribute-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

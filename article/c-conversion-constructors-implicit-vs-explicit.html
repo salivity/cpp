@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Conversion Constructors: Implicit vs Explicit - cpp</title>
+    <meta name="description" content="In C++, a conversion constructor allows the compiler to transform a value of a source type into an object of a target class. By default, any constructor that can be called with a single argument acts as an implicit conversion constructor, allowing the com">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-conversion-constructors-implicit-vs-explicit">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Conversion Constructors: Implicit vs Explicit - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-conversion-constructors-implicit-vs-explicit" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, a conversion constructor allows the compiler to transform a value of a source type into an object of a target class. By default, any constructor that can be called with a single argument acts as an implicit conversion constructor, allowing the com" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-conversion-constructors-implicit-vs-explicit">C++ Conversion
+Constructors: Implicit vs Explicit</h1>
+<p>In C++, a conversion constructor allows the compiler to transform a
+value of a source type into an object of a target class. By default, any
+constructor that can be called with a single argument acts as an
+implicit conversion constructor, allowing the compiler to perform
+automatic type conversions behind the scenes. However, developers can
+prepend the <code>explicit</code> keyword to these constructors to
+disable automatic conversions, requiring callers to explicitly cast or
+construct the type. Understanding how implicit and explicit conversions
+operate is essential for writing safe, predictable, and maintainable C++
+code.</p>
+<h2 id="what-is-a-conversion-constructor">What Is a Conversion
+Constructor?</h2>
+<p>A conversion constructor is any constructor that can be invoked with
+a single argument. It defines a conversion path from the parameter's
+type (the source type) to the class type being defined (the target
+type). This includes:</p>
+<ul>
+<li>Constructors with a single parameter.</li>
+<li>Constructors with multiple parameters where every parameter after
+the first has a default argument.</li>
+</ul>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Distance <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Conversion constructor from meters (double) to Distance</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    Distance<span class="op">(</span><span class="dt">double</span> meters<span class="op">)</span> <span class="op">:</span> <span class="va">meters_</span><span class="op">(</span>meters<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> <span class="va">meters_</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h2 id="implicit-conversions">Implicit Conversions</h2>
+<p>Unless declared with the <code>explicit</code> specifier,
+single-argument constructors participate in implicit conversions. When
+the compiler encounters an expression expecting a class type, but
+receives a value of the source type, it automatically constructs a
+temporary object using the conversion constructor.</p>
+<p>Implicit conversion can occur in several contexts:</p>
+<ol type="1">
+<li><strong>Copy Initialization:</strong> Assigning a source type
+directly to a class instance.</li>
+<li><strong>Function Arguments:</strong> Passing a source type to a
+function expecting the class type.</li>
+<li><strong>Return Values:</strong> Returning a source type from a
+function declared to return the class type.</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> PrintDistance<span class="op">(</span>Distance d<span class="op">);</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Copy initialization</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    Distance d1 <span class="op">=</span> <span class="fl">5.0</span><span class="op">;</span> </span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Passing to a function expecting Distance</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    PrintDistance<span class="op">(</span><span class="fl">10.5</span><span class="op">);</span> </span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="risks-of-implicit-conversions">Risks of Implicit
+Conversions</h3>
+<p>While implicit conversions can make code concise, they frequently
+introduce subtle bugs. The compiler will silently invoke constructors
+where conversions make little conceptual sense. For example, if a custom
+<code>Vector</code> class accepts an integer representing its capacity,
+passing <code>4</code> where a vector is expected will silently create
+an empty four-element vector rather than causing a compile-time type
+mismatch error.</p>
+<h2 id="explicit-conversions">Explicit Conversions</h2>
+<p>To prevent unintended conversions, C++ provides the
+<code>explicit</code> keyword. Adding <code>explicit</code> before a
+constructor tells the compiler that the constructor cannot be used for
+implicit conversions or copy-initialization.</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Distance <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">explicit</span> Distance<span class="op">(</span><span class="dt">double</span> meters<span class="op">)</span> <span class="op">:</span> <span class="va">meters_</span><span class="op">(</span>meters<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> <span class="va">meters_</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Once a constructor is marked <code>explicit</code>, attempting an
+implicit conversion results in a compile-time error:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> PrintDistance<span class="op">(</span>Distance d<span class="op">);</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Compile error: conversion from &#39;double&#39; to non-scalar type &#39;Distance&#39; requested</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    Distance d1 <span class="op">=</span> <span class="fl">5.0</span><span class="op">;</span> </span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Compile error: cannot convert &#39;double&#39; to &#39;Distance&#39;</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    PrintDistance<span class="op">(</span><span class="fl">10.5</span><span class="op">);</span> </span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Valid: Direct initialization</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    Distance d2<span class="op">(</span><span class="fl">5.0</span><span class="op">);</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    Distance d3<span class="op">{</span><span class="fl">5.0</span><span class="op">};</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Valid: Explicit casting</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    PrintDistance<span class="op">(</span>Distance<span class="op">(</span><span class="fl">10.5</span><span class="op">));</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    PrintDistance<span class="op">(</span><span class="kw">static_cast</span><span class="op">&lt;</span>Distance<span class="op">&gt;(</span><span class="fl">10.5</span><span class="op">));</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>With <code>explicit</code>, conversions require intentional syntax.
+The caller must explicitly instantiate the object using direct
+initialization (<code>()</code>, <code>{}</code>) or a cast
+(<code>static_cast</code>).</p>
+<h2 id="best-practices">Best Practices</h2>
+<ul>
+<li><strong>Default to <code>explicit</code>:</strong> Modern C++ best
+practices dictate that single-argument constructors should be marked
+<code>explicit</code> by default.</li>
+<li><strong>Allow implicit conversions sparingly:</strong> Reserve
+implicit conversion constructors only for types where the source and
+target represent the exact same conceptual entity with identical
+semantics, such as wrapping numeric primitives in wrapper classes or
+converting from <code>const char*</code> to a custom string type.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-conversion-constructors-implicit-vs-explicit';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

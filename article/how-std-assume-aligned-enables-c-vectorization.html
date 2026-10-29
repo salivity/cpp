@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::assume_aligned Enables C++ Vectorization - cpp</title>
+    <meta name="description" content="Introduced in C++20, std::assumealigned is a compiler optimization tool defined in the &lt;memory&gt; header that explicitly informs the compiler that a given pointer references memory aligned to a specific byte boundary. In performance-critical software, moder">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-assume-aligned-enables-c-vectorization">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::assume_aligned Enables C++ Vectorization - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-assume-aligned-enables-c-vectorization" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++20, std::assumealigned is a compiler optimization tool defined in the &lt;memory&gt; header that explicitly informs the compiler that a given pointer references memory aligned to a specific byte boundary. In performance-critical software, moder" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdassume_aligned-enables-c-vectorization">How
+std::assume_aligned Enables C++ Vectorization</h1>
+<p>Introduced in C++20, <code>std::assume_aligned</code> is a compiler
+optimization tool defined in the <code>&lt;memory&gt;</code> header that
+explicitly informs the compiler that a given pointer references memory
+aligned to a specific byte boundary. In performance-critical software,
+modern compilers rely on Single Instruction, Multiple Data (SIMD) vector
+units to execute parallel operations across contiguous data. By using
+<code>std::assume_aligned</code> on arbitrary or raw pointers,
+developers eliminate the ambiguity of runtime memory alignment, allowing
+compilers to bypass conservative runtime checks, omit alignment
+"peeling" loops, and emit optimal aligned load and store vector
+instructions.</p>
+<h2 id="the-memory-alignment-dilemma-in-vectorization">The Memory
+Alignment Dilemma in Vectorization</h2>
+<p>Modern CPU architectures (such as x86-64 with AVX-512 or ARM with
+NEON) achieve maximum throughput when memory operations target addresses
+aligned to powers of two matching the vector register widths (e.g., 16,
+32, or 64 bytes).</p>
+<p>When a compiler attempts to auto-vectorize a loop operating over raw
+pointers—such as <code>float*</code> or <code>double*</code>—it
+encounters a lack of compile-time information:</p>
+<ol type="1">
+<li><strong>Unknown Base Alignment:</strong> An arbitrary pointer may
+point to an arbitrary byte address that is not aligned to the vector
+register boundary.</li>
+<li><strong>Unaligned Penalty or Instruction Overhead:</strong> Although
+modern processors handle unaligned loads and stores reasonably well,
+unaligned operations risk crossing cache lines or page boundaries,
+incurring performance penalties.</li>
+<li><strong>Loop Peeling Bloat:</strong> To safely use aligned vector
+instructions, the compiler often emits a "peeling loop"—a scalar
+prologue that processes elements individually until the memory pointer
+reaches the required alignment boundary, followed by the main vectorized
+loop, and ending with a scalar epilogue. This significantly expands
+binary size and introduces branch overhead.</li>
+</ol>
+<h2 id="how-stdassume_aligned-intervenes">How
+<code>std::assume_aligned</code> Intervenes</h2>
+<p>The template signature is defined as follows:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="bu">std::</span>size_t N<span class="op">,</span> <span class="kw">class</span> T<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">[[</span><span class="at">nodiscard</span><span class="op">]]</span> <span class="kw">constexpr</span> T<span class="op">*</span> assume_aligned<span class="op">(</span>T<span class="op">*</span> ptr<span class="op">)</span> <span class="kw">noexcept</span><span class="op">;</span></span></code></pre></div>
+<p><code>std::assume_aligned</code> informs the compiler's optimizer
+that <code>reinterpret_cast&lt;uintptr_t&gt;(ptr) % N == 0</code> is
+guaranteed to be true. It returns the exact same address passed to it,
+but decorated with internal compiler attributes (equivalent to intrinsic
+hints like Clang's <code>__builtin_assume_aligned</code>).</p>
+<p>If the alignment promise is met, the optimizer applies several
+aggressive code generation strategies:</p>
+<h3 id="1-eliminating-runtime-alignment-checks-and-peeling-loops">1.
+Eliminating Runtime Alignment Checks and Peeling Loops</h3>
+<p>Because the compiler knows the base address is already aligned to an
+<code>N</code>-byte boundary (such as 32 or 64 bytes), it can omit the
+scalar peeling loop entirely. The loop can immediately enter its main
+vector loop on iteration zero, reducing instruction cache footprint and
+eliminating branch misprediction points.</p>
+<h3 id="2-direct-generation-of-aligned-simd-instructions">2. Direct
+Generation of Aligned SIMD Instructions</h3>
+<p>Architectures often provide specialized instructions for aligned
+vector operations. On x86, for instance, vector loads and stores can be
+generated as aligned operations
+(<code>vmovaps</code>/<code>vmovapd</code>) rather than unaligned
+operations (<code>vmovups</code>/<code>vmovupd</code>). While modern
+CPUs execute unaligned instructions nearly as fast as aligned ones when
+data does not cross a cache line, explicitly guaranteed alignment
+ensures zero possibility of cache-line split penalties on the initial
+load.</p>
+<h3 id="3-predictable-offsets-for-loop-unrolling">3. Predictable Offsets
+for Loop Unrolling</h3>
+<p>When vector loops are unrolled by factors of 2, 4, or 8, the compiler
+calculates the offset of each sub-operation relative to the base
+pointer. If the base pointer is known to be aligned to a 64-byte
+boundary, the compiler knows precisely which subsequent vector chunks
+align with CPU cache lines, improving scheduling and register
+allocation.</p>
+<h2 id="example-transforming-an-array-operation">Example: Transforming
+an Array Operation</h2>
+<p>Consider a transformation function running across an arbitrary
+array:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;memory&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstddef&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_data<span class="op">(</span><span class="dt">float</span><span class="op">*</span> <span class="ex">__restrict</span> dest<span class="op">,</span> <span class="at">const</span> <span class="dt">float</span><span class="op">*</span> <span class="ex">__restrict</span> src<span class="op">,</span> <span class="bu">std::</span>size_t count<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Inform the compiler that both pointers are aligned to 64 bytes (AVX-512 boundary)</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span><span class="op">*</span> aligned_dest <span class="op">=</span> <span class="bu">std::</span>assume_aligned<span class="op">&lt;</span><span class="dv">64</span><span class="op">&gt;(</span>dest<span class="op">);</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="dt">float</span><span class="op">*</span> aligned_src <span class="op">=</span> <span class="bu">std::</span>assume_aligned<span class="op">&lt;</span><span class="dv">64</span><span class="op">&gt;(</span>src<span class="op">);</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="bu">std::</span>size_t i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> count<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        aligned_dest<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> aligned_src<span class="op">[</span>i<span class="op">]</span> <span class="op">*</span> <span class="fl">2.0</span><span class="bu">f</span><span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this implementation, the compiler does not emit runtime checks to
+determine whether <code>dest</code> and <code>src</code> are safe for
+512-bit vector registers. The generated assembly jumps directly into
+fully vectorized iterations using native 64-byte registers (such as
+<code>zmm</code> registers on AVX-512) and executes without scalar
+prologues.</p>
+<h2 id="critical-considerations">Critical Considerations</h2>
+<p><code>std::assume_aligned</code> is an optimization hint, not a
+dynamic fix or runtime converter.</p>
+<ul>
+<li><strong>Undefined Behavior:</strong> If a pointer provided to
+<code>std::assume_aligned&lt;N&gt;(ptr)</code> is not actually aligned
+to <code>N</code> bytes at runtime, the program invokes Undefined
+Behavior (UB). On targets requiring strict hardware alignment, this can
+cause hardware faults (such as a General Protection Fault on x86 for
+misaligned <code>movaps</code>).</li>
+<li><strong>Source of Alignment:</strong> To safely use this template,
+the backing allocation must be explicitly aligned using mechanisms such
+as <code>alignas</code>, <code>std::aligned_alloc</code>, OS-specific
+allocation APIs (<code>posix_memalign</code>,
+<code>_aligned_malloc</code>), or custom memory arenas.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-std-assume-aligned-enables-c-vectorization';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

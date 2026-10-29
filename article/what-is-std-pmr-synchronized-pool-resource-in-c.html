@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is std::pmr::synchronized_pool_resource in C++? - cpp</title>
+    <meta name="description" content="This article provides an overview of std::pmr::synchronizedpoolresource, a memory resource introduced in C++17 under the Polymorphic Memory Resources (PMR) library. It explains the core concepts behind pooled memory allocation, details the internal mechan">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/what-is-std-pmr-synchronized-pool-resource-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is std::pmr::synchronized_pool_resource in C++? - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/what-is-std-pmr-synchronized-pool-resource-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of std::pmr::synchronizedpoolresource, a memory resource introduced in C++17 under the Polymorphic Memory Resources (PMR) library. It explains the core concepts behind pooled memory allocation, details the internal mechan" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-stdpmrsynchronized_pool_resource-in-c">What Is
+std::pmr::synchronized_pool_resource in C++?</h1>
+<p>This article provides an overview of
+<code>std::pmr::synchronized_pool_resource</code>, a memory resource
+introduced in C++17 under the Polymorphic Memory Resources (PMR)
+library. It explains the core concepts behind pooled memory allocation,
+details the internal mechanisms this class uses to guarantee thread
+safety during concurrent allocation and deallocation requests, and
+examines when and how developers should use it in multi-threaded C++
+applications.</p>
+<h2 id="understanding-stdpmrsynchronized_pool_resource">Understanding
+std::pmr::synchronized_pool_resource</h2>
+<p>In modern C++, standard allocators often suffer from performance
+bottlenecks and memory fragmentation when frequently allocating and
+deallocating objects of varying sizes. C++17 addressed this by
+introducing polymorphic memory resources (<code>std::pmr</code>), which
+decouple memory allocation strategies from container types through
+run-time polymorphism.</p>
+<p><code>std::pmr::synchronized_pool_resource</code> is a specialized
+implementation derived from <code>std::pmr::memory_resource</code>. It
+manages a collection of memory pools, where each pool contains chunks of
+a specific, uniform size. When an allocation request is made:</p>
+<ol type="1">
+<li><strong>Pool Allocation:</strong> If the requested size matches or
+fits within one of the pool's configured geometric size classes, the
+resource dispenses a pre-allocated chunk from that pool.</li>
+<li><strong>Upstream Fallback:</strong> If the requested size exceeds
+the maximum pool size, or if pool capacities are exhausted and cannot
+expand, the resource delegates the allocation directly to an "upstream"
+memory resource (such as
+<code>std::pmr::new_delete_resource()</code>).</li>
+</ol>
+<p>Deallocated memory returns to its respective pool for future reuse
+rather than immediately returning to the operating system, significantly
+reducing system-call overhead.</p>
+<h2 id="how-it-protects-thread-safety">How It Protects Thread
+Safety</h2>
+<p>Unlike <code>std::pmr::unsynchronized_pool_resource</code>, which is
+intended for single-threaded contexts or usage restricted by external
+locking, <code>std::pmr::synchronized_pool_resource</code> provides
+built-in thread safety.</p>
+<h3 id="1-concurrent-allocate-and-deallocate-operations">1. Concurrent
+<code>allocate</code> and <code>deallocate</code> Operations</h3>
+<p>The C++ standard mandates that calling <code>allocate()</code> and
+<code>deallocate()</code> on the same instance of
+<code>std::pmr::synchronized_pool_resource</code> concurrently from
+multiple threads does not introduce data races. This thread-safety
+guarantee is managed completely inside the resource implementation:</p>
+<ul>
+<li><strong>Internal Mutexes and Locking:</strong> Standard library
+implementations typically employ internal mutexes or spinlocks to guard
+access to the individual pool freelists. When a thread requests or
+returns a block, access to that specific pool is serialized.</li>
+<li><strong>Fine-Grained Locking:</strong> Instead of using a single
+global lock over the entire resource, implementations frequently utilize
+per-pool locks or bucket-level locks. This ensures that threads
+requesting memory of different sizes (such as 32 bytes versus 256 bytes)
+can allocate concurrently without blocking one another.</li>
+<li><strong>Upstream Synchronization:</strong> When a sub-pool needs to
+replenish its memory or when an oversized allocation bypasses the pools
+entirely, the request goes to the upstream memory resource.
+<code>std::pmr::synchronized_pool_resource</code> ensures that calls to
+the upstream allocator are also thread-safe, even if the upstream
+resource itself is not natively thread-safe.</li>
+</ul>
+<h3 id="2-thread-local-caching-optimization">2. Thread-Local Caching
+Optimization</h3>
+<p>High lock contention can severely degrade multi-threaded performance.
+To mitigate this, many implementations of
+<code>std::pmr::synchronized_pool_resource</code> incorporate small
+thread-specific caches or thread-local storage (TLS) buffers:</p>
+<ul>
+<li>Each thread first attempts to fulfill an allocation or deallocation
+using its local cache without acquiring a lock.</li>
+<li>Only when a thread-local cache is empty (during allocation) or full
+(during deallocation) does the thread acquire an internal lock to
+transfer a batch of blocks between its local cache and the central
+shared pool.</li>
+<li>This batching strategy minimizes lock acquisition frequency and
+maximizes throughput across heavily concurrent workloads.</li>
+</ul>
+<h2 id="scope-of-thread-safety-guarantees">Scope of Thread Safety
+Guarantees</h2>
+<p>While member functions like <code>allocate()</code> and
+<code>deallocate()</code> are safe for concurrent invocation, other
+operations are not:</p>
+<ul>
+<li><strong>Destruction:</strong> Destroying the
+<code>std::pmr::synchronized_pool_resource</code> object while other
+threads are allocating, deallocating, or accessing it causes undefined
+behavior. All dependent threads must finish using the resource before it
+is destroyed.</li>
+<li><strong>The <code>release()</code> Method:</strong> The
+<code>release()</code> member function, which deallocates all memory
+back to the upstream resource, is not thread-safe relative to ongoing
+allocations or deallocations and requires external synchronization.</li>
+</ul>
+<h2 id="when-to-use-it">When to Use It</h2>
+<p><code>std::pmr::synchronized_pool_resource</code> is ideal for
+multi-threaded applications where worker threads frequently create and
+destroy short-lived nodes or objects of recurring sizes—such as in
+<code>std::pmr::map</code>, <code>std::pmr::list</code>, or
+<code>std::pmr::vector</code>. By centralizing allocations into
+categorized pools and handling mutual exclusion internally, it combines
+high allocation performance with clean, race-free concurrency.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/what-is-std-pmr-synchronized-pool-resource-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

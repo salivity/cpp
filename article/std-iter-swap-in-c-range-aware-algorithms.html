@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::iter_swap in C++ Range-Aware Algorithms - cpp</title>
+    <meta name="description" content="In modern C++, range-aware algorithms require a reliable way to exchange elements referenced by iterators without assuming those iterators behave like standard raw pointers. The utility std::iterswap—and specifically its modern range-adapted counterpart s">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-iter-swap-in-c-range-aware-algorithms">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::iter_swap in C++ Range-Aware Algorithms - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-iter-swap-in-c-range-aware-algorithms" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, range-aware algorithms require a reliable way to exchange elements referenced by iterators without assuming those iterators behave like standard raw pointers. The utility std::iterswap—and specifically its modern range-adapted counterpart s" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stditer_swap-in-c-range-aware-algorithms">std::iter_swap in C++
+Range-Aware Algorithms</h1>
+<p>In modern C++, range-aware algorithms require a reliable way to
+exchange elements referenced by iterators without assuming those
+iterators behave like standard raw pointers. The utility
+<code>std::iter_swap</code>—and specifically its modern range-adapted
+counterpart <code>std::ranges::iter_swap</code>—acts as a crucial
+customization point for swapping the values pointed to by two iterators.
+It ensures that range algorithms execute correctly, safely, and
+efficiently, especially when dealing with non-standard reference types,
+proxy iterators, and custom user-defined data structures.</p>
+<h3 id="the-limitation-of-direct-dereference-swapping">The Limitation of
+Direct Dereference Swapping</h3>
+<p>A naive implementation of swapping two iterator elements relies on
+dereferencing: <code>std::swap(*a, *b)</code>. While this works for
+standard contiguous or node-based iterators returning true lvalue
+references (<code>T&amp;</code>), it fails in more complex generic
+programming scenarios:</p>
+<ol type="1">
+<li><strong>Proxy Iterators:</strong> Types like
+<code>std::vector&lt;bool&gt;::iterator</code> or modern range view
+iterators (such as those produced by <code>std::views::zip</code>)
+return proxy objects by value rather than genuine lvalue references.
+Direct swapping of these temporary proxies often does not alter the
+underlying container's state.</li>
+<li><strong>Move-Only and Custom Types:</strong> Some data structures
+provide specialized, highly optimized logic for exchanging elements
+without invoking expensive copy or move operations on the contained
+objects.</li>
+</ol>
+<h3 id="the-mechanism-of-stdrangesiter_swap">The Mechanism of
+<code>std::ranges::iter_swap</code></h3>
+<p>In C++20, the Ranges library formalized iterator swapping by
+introducing <code>std::ranges::iter_swap</code> as a Customization Point
+Object (CPO). When a range-aware algorithm needs to swap elements, it
+invokes this CPO, which evaluates candidates in a strict priority
+order:</p>
+<ol type="1">
+<li><p><strong>ADL-found <code>iter_swap</code>:</strong> The CPO first
+looks for an unqualified call to <code>iter_swap(a, b)</code> using
+Argument-Dependent Lookup (ADL). This allows authors of custom iterator
+types to define specialized swapping logic.</p></li>
+<li><p><strong><code>iter_move</code> via Dereference:</strong> If no
+custom <code>iter_swap</code> exists, it attempts to use
+<code>std::ranges::iter_move</code> to extract the values:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> temp <span class="op">=</span> ranges<span class="op">::</span>iter_move<span class="op">(</span>a<span class="op">);</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">*</span>a <span class="op">=</span> ranges<span class="op">::</span>iter_move<span class="op">(</span>b<span class="op">);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="op">*</span>b <span class="op">=</span> <span class="bu">std::</span>move<span class="op">(</span>temp<span class="op">);</span></span></code></pre></div>
+<p>This ensures that proxy references capable of reading and writing via
+<code>iter_move</code> are correctly swapped.</p></li>
+<li><p><strong>Fallback to <code>std::swap</code>:</strong> If neither
+customization applies, it falls back to exchanging the dereferenced
+values via <code>std::ranges::swap(*a, *b)</code>.</p></li>
+</ol>
+<p>If none of these expressions are valid, the call is rejected at
+compile time, preventing undefined behavior.</p>
+<h3 id="role-in-standard-range-algorithms">Role in Standard Range
+Algorithms</h3>
+<p>Range-aware algorithms—such as <code>std::ranges::sort</code>,
+<code>std::ranges::reverse</code>, <code>std::ranges::partition</code>,
+and <code>std::ranges::rotate</code>—depend internally on
+<code>std::ranges::iter_swap</code>.</p>
+<p>By decoupling element swapping from raw dereferencing, the Ranges
+library guarantees that:</p>
+<ul>
+<li><strong>Views Remain Composable:</strong> View pipelines that
+dynamically generate elements or combine multiple sequences can be
+partitioned or sorted in-place if their underlying iterators model
+<code>std::indirectly_swappable</code>.</li>
+<li><strong>Concept Enforcement:</strong> The compiler verifies
+algorithm prerequisites at compile time using the
+<code>std::indirectly_swappable&lt;I1, I2&gt;</code> concept, which
+requires that <code>ranges::iter_swap(i1, i2)</code> is valid and
+semantic invariants are maintained.</li>
+<li><strong>Performance Optimization:</strong> Algorithms automatically
+invoke specialized internal memory transfers when provided by custom
+iterators, bypassing default construction and assignment overheads.</li>
+</ul>
+<p>Ultimately, <code>std::iter_swap</code> and
+<code>std::ranges::iter_swap</code> bridge the gap between abstract
+iterator traversals and concrete data manipulation, enabling range-aware
+algorithms to operate predictably across both standard containers and
+sophisticated user-defined ranges.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/std-iter-swap-in-c-range-aware-algorithms';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

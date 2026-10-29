@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Type Aliases and Alias Templates in C++ - cpp</title>
+    <meta name="description" content="This article provides a practical overview of type aliases and alias templates introduced in C++11 using the using syntax. You will learn the fundamental syntax of modern type aliases, how they compare to traditional typedef declarations, and how alias te">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/type-aliases-and-alias-templates-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Type Aliases and Alias Templates in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/type-aliases-and-alias-templates-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides a practical overview of type aliases and alias templates introduced in C++11 using the using syntax. You will learn the fundamental syntax of modern type aliases, how they compare to traditional typedef declarations, and how alias te" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="type-aliases-and-alias-templates-in-c">Type Aliases and Alias
+Templates in C++</h1>
+<p>This article provides a practical overview of type aliases and alias
+templates introduced in C++11 using the <code>using</code> syntax. You
+will learn the fundamental syntax of modern type aliases, how they
+compare to traditional <code>typedef</code> declarations, and how alias
+templates solve long-standing metaprogramming limitations by allowing
+parameterized type synonyms.</p>
+<h2 id="what-is-a-type-alias">What is a Type Alias?</h2>
+<p>A type alias is an alternative name for an existing data type. In
+modern C++, type aliases are declared using the <code>using</code>
+keyword followed by the identifier name and the target type.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> Integer <span class="op">=</span> <span class="dt">int</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> StringList <span class="op">=</span> <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">&gt;;</span></span></code></pre></div>
+<p>Once defined, <code>Integer</code> and <code>StringList</code> can be
+used interchangeably with their underlying types. They do not introduce
+new distinct types; they are purely synonyms evaluated at compile
+time.</p>
+<h3 id="advantages-over-typedef">Advantages Over
+<code>typedef</code></h3>
+<p>Prior to C++11, creating type synonyms required the
+<code>typedef</code> keyword:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="dt">int</span> Integer<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">typedef</span> <span class="dt">void</span> <span class="op">(*</span>FunctionPointer<span class="op">)(</span><span class="dt">int</span><span class="op">,</span> <span class="dt">double</span><span class="op">);</span></span></code></pre></div>
+<p>While functional, <code>typedef</code> syntax becomes difficult to
+read when dealing with complex types, such as function pointers or
+arrays. The <code>using</code> syntax aligns with standard variable
+assignment syntax (<code>name = value</code>):</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> FunctionPointer <span class="op">=</span> <span class="dt">void</span> <span class="op">(*)(</span><span class="dt">int</span><span class="op">,</span> <span class="dt">double</span><span class="op">);</span></span></code></pre></div>
+<p>The identifier always appears on the left side of the assignment
+operator, making definitions significantly easier to parse visually.</p>
+<h2 id="what-are-alias-templates">What are Alias Templates?</h2>
+<p>The most critical advantage of the <code>using</code> syntax is its
+native support for templates. An alias template allows you to define a
+family of type aliases parameterized by one or more template
+arguments.</p>
+<p>Prior to C++11, creating a templated alias using <code>typedef</code>
+required wrapping it in a templated <code>struct</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// C++98 workaround</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> StringMap <span class="op">{</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">typedef</span> <span class="bu">std::</span>map<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">,</span> T<span class="op">&gt;</span> type<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Usage</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>StringMap<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;::</span>type myMap<span class="op">;</span></span></code></pre></div>
+<p>With modern C++, alias templates achieve this directly and
+cleanly:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Modern C++</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> StringMap <span class="op">=</span> <span class="bu">std::</span>map<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">,</span> T<span class="op">&gt;;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Usage</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>StringMap<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> myMap<span class="op">;</span></span></code></pre></div>
+<h3 id="advanced-template-specialization">Advanced Template
+Specialization</h3>
+<p>Alias templates can also bind specific arguments while leaving others
+generic. For example, fixing an allocator or a key type for standard
+library containers:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Value<span class="op">&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> IntKeyMap <span class="op">=</span> <span class="bu">std::</span>map<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> Value<span class="op">,</span> <span class="bu">std::</span>greater<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&gt;;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>IntKeyMap<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">&gt;</span> scores<span class="op">;</span> <span class="co">// std::map&lt;int, std::string, std::greater&lt;int&gt;&gt;</span></span></code></pre></div>
+<h2 id="standard-library-adoption">Standard Library Adoption</h2>
+<p>The C++ standard library heavily utilizes alias templates. Starting
+in C++14, standard type traits provide alias templates ending in
+<code>_t</code> to replace the verbose
+<code>typename std::trait&lt;T&gt;::type</code> idiom:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">// C++11 style</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="kw">typename</span> <span class="bu">std::</span>decay<span class="op">&lt;</span>T<span class="op">&gt;::</span>type value1<span class="op">;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Modern style using standard alias template</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>decay_t<span class="op">&lt;</span>T<span class="op">&gt;</span> value2<span class="op">;</span></span></code></pre></div>
+<p>Under the hood, the standard library implements these using the exact
+same mechanism:</p>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> std <span class="op">{</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> <span class="dt">decay_t</span> <span class="op">=</span> <span class="kw">typename</span> decay<span class="op">&lt;</span>T<span class="op">&gt;::</span>type<span class="op">;</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="summary">Summary</h2>
+<ul>
+<li><strong>Type Aliases (<code>using NewName = Type;</code>)</strong>:
+Provide clean, readable synonyms for existing types, directly replacing
+<code>typedef</code>.</li>
+<li><strong>Alias Templates
+(<code>template &lt;...&gt; using NewName = Type&lt;...&gt;;</code>)</strong>:
+Allow type synonyms to accept template parameters, eliminating the need
+for nested <code>struct</code> workarounds.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/type-aliases-and-alias-templates-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

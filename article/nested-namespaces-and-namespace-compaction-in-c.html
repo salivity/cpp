@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nested Namespaces and Namespace Compaction in C++ - cpp</title>
+    <meta name="description" content="In C++, organizing large codebases often requires hierarchical structuring of identifiers to avoid naming collisions across different modules and libraries. This article explores the concept of nested namespaces in C++, examines the traditional boilerplat">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/nested-namespaces-and-namespace-compaction-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Nested Namespaces and Namespace Compaction in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/nested-namespaces-and-namespace-compaction-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, organizing large codebases often requires hierarchical structuring of identifiers to avoid naming collisions across different modules and libraries. This article explores the concept of nested namespaces in C++, examines the traditional boilerplat" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="nested-namespaces-and-namespace-compaction-in-c">Nested
+Namespaces and Namespace Compaction in C++</h1>
+<p>In C++, organizing large codebases often requires hierarchical
+structuring of identifiers to avoid naming collisions across different
+modules and libraries. This article explores the concept of nested
+namespaces in C++, examines the traditional boilerplate required to
+define them, and demonstrates how the namespace compaction feature
+introduced in C++17 streamlines syntax, enhances code readability, and
+eliminates unnecessary indentation.</p>
+<h3 id="understanding-nested-namespaces">Understanding Nested
+Namespaces</h3>
+<p>A namespace in C++ provides a scope for identifiers, ensuring that
+functions, classes, and variables with identical names can coexist
+without conflict. As projects scale, a single top-level namespace is
+rarely sufficient. Developers frequently nest namespaces to mirror
+architectural layers, directory structures, or subsystem boundaries (for
+example, separating network drivers from user-interface utilities).</p>
+<p>Prior to C++17, defining nested namespaces required declaring each
+level individually with enclosing braces:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> Company <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">namespace</span> Engine <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">namespace</span> Audio <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>            <span class="kw">class</span> SoundPlayer <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>            <span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>                <span class="dt">void</span> Play<span class="op">();</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>            <span class="op">};</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span> <span class="co">// namespace Audio</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="co">// namespace Engine</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="co">// namespace Company</span></span></code></pre></div>
+<p>While effective at creating logical divisions, this approach
+introduced significant syntactic overhead.</p>
+<h3 id="the-problem-with-traditional-syntax">The Problem with
+Traditional Syntax</h3>
+<p>The legacy nested namespace syntax suffered from several practical
+drawbacks:</p>
+<ol type="1">
+<li><strong>Rightward Drift</strong>: Each nested namespace layer
+introduced an extra level of indentation, pushing actual implementation
+code further to the right.</li>
+<li><strong>Boilerplate Noise</strong>: Developers had to close each
+namespace with separate braces, often needing trailing comments (such as
+<code>// namespace Engine</code>) to track which brace closed which
+scope.</li>
+<li><strong>Refactoring Friction</strong>: Renaming, adding, or removing
+a namespace tier required modifying multiple opening and closing blocks
+throughout header and source files.</li>
+</ol>
+<h3 id="namespace-compaction-in-c17">Namespace Compaction in C++17</h3>
+<p>To resolve these issues, C++17 introduced compacted nested namespace
+definitions. This feature allows developers to declare deeply nested
+namespaces in a single line using the scope resolution operator
+(<code>::</code>).</p>
+<p>Using compacted syntax, the previous example can be written as:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> Company<span class="op">::</span>Engine<span class="op">::</span>Audio <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">class</span> SoundPlayer <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> Play<span class="op">();</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The compiler automatically generates the intermediate namespace
+definitions (<code>Company</code> and <code>Engine</code>) if they do
+not already exist, placing <code>SoundPlayer</code> within the fully
+qualified <code>Company::Engine::Audio</code> scope.</p>
+<h3 id="how-namespace-compaction-simplifies-code">How Namespace
+Compaction Simplifies Code</h3>
+<p>Namespace compaction delivers three primary improvements:</p>
+<ul>
+<li><strong>Elimination of Indentation Overhead</strong>: Because the
+hierarchy is collapsed into a single declaration, the code inside the
+namespace requires only a single level of indentation—or none at all,
+depending on coding style guidelines.</li>
+<li><strong>Cleaner Header Files</strong>: File layouts become much more
+concise, reducing visual noise and making interface declarations easier
+to scan.</li>
+<li><strong>Simplified Scope Management</strong>: Developers manage a
+single opening brace and a single closing brace per file or logical
+block, preventing common mismatched-brace errors during large-scale
+refactoring.</li>
+</ul>
+<h3 id="extending-compaction-with-c20-inline-namespaces">Extending
+Compaction with C++20 Inline Namespaces</h3>
+<p>C++20 expanded on nested namespace compaction by allowing the
+<code>inline</code> keyword on inner namespace segments. This allows
+library authors to version their APIs without reverting to multiple
+nested blocks:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> Company<span class="op">::</span>Engine<span class="op">::</span><span class="kw">inline</span> v2 <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">class</span> SoundPlayer <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> Play<span class="op">();</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this case, members of <code>v2</code> are automatically available
+in <code>Company::Engine</code>, providing backwards compatibility while
+keeping the syntax concise. Through these modern additions, C++ provides
+a cleaner, more maintainable way to structure large-scale software
+architectures.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/nested-namespaces-and-namespace-compaction-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>
