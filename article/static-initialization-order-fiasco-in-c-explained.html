@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Static Initialization Order Fiasco in C++ Explained - cpp</title>
+    <meta name="description" content="The static initialization order fiasco is a subtle and dangerous bug in C++ that occurs when the initialization of a static or global object in one translation unit depends on another static object in a different translation unit before it has been initia">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/static-initialization-order-fiasco-in-c-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Static Initialization Order Fiasco in C++ Explained - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/static-initialization-order-fiasco-in-c-explained" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The static initialization order fiasco is a subtle and dangerous bug in C++ that occurs when the initialization of a static or global object in one translation unit depends on another static object in a different translation unit before it has been initia" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="static-initialization-order-fiasco-in-c-explained">Static
+Initialization Order Fiasco in C++ Explained</h1>
+<p>The static initialization order fiasco is a subtle and dangerous bug
+in C++ that occurs when the initialization of a static or global object
+in one translation unit depends on another static object in a different
+translation unit before it has been initialized. Because the C++
+standard does not define the initialization order across separate source
+files, this dependency leads to undefined behavior, frequently
+manifesting as crashes or corrupted data at program startup. This
+article explains the underlying mechanics of this problem and presents
+the standard design patterns and language features used to prevent
+it.</p>
+<h2 id="the-cause-of-the-fiasco">The Cause of the Fiasco</h2>
+<p>In C++, objects with static storage duration include global
+variables, namespace-scope variables, and variables declared
+<code>static</code> within classes or functions.</p>
+<p>Within a single translation unit (typically a single
+<code>.cpp</code> file after preprocessing), objects are dynamically
+initialized in the exact order they are defined. However, across
+different translation units, the relative order of dynamic
+initialization is unspecified. If object <code>A</code> in
+<code>fileA.cpp</code> accesses object <code>B</code> in
+<code>fileB.cpp</code> during its construction, and the compiler runtime
+happens to initialize <code>fileA.cpp</code> before
+<code>fileB.cpp</code>, object <code>A</code> attempts to read an
+unconstructed object.</p>
+<p>Consider this minimal reproduction:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Logger.hpp</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Logger <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    Logger<span class="op">()</span> <span class="op">{</span> <span class="co">/* Initialize logging resources */</span> <span class="op">}</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> log<span class="op">(</span><span class="at">const</span> <span class="dt">char</span><span class="op">*</span> msg<span class="op">);</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="at">extern</span> Logger <span class="va">g_logger</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Logger.cpp</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;Logger.hpp&quot;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>Logger <span class="va">g_logger</span><span class="op">;</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="co">// Client.cpp</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;Logger.hpp&quot;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> NetworkManager <span class="op">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    NetworkManager<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="va">g_logger</span><span class="op">.</span>log<span class="op">(</span><span class="st">&quot;NetworkManager initialized&quot;</span><span class="op">);</span> <span class="co">// Undefined behavior if g_logger is not yet constructed</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>NetworkManager <span class="va">g_networkManager</span><span class="op">;</span></span></code></pre></div>
+<p>If the linker or runtime schedules <code>g_networkManager</code> to
+initialize before <code>g_logger</code>, <code>g_logger.log()</code>
+executes on raw, uninitialized memory.</p>
+<h2 id="how-to-mitigate-the-fiasco">How to Mitigate the Fiasco</h2>
+<h3 id="1-construct-on-first-use-idiom">1. Construct on First Use
+Idiom</h3>
+<p>The most common and effective solution is the "construct on first
+use" idiom, popularized by Scott Meyers. Instead of exposing a global
+object directly, you wrap it in a function that returns a reference to a
+function-local <code>static</code> variable.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Logger.hpp</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>Logger<span class="op">&amp;</span> getLogger<span class="op">();</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Logger.cpp</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;Logger.hpp&quot;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>Logger<span class="op">&amp;</span> getLogger<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> Logger instance<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> instance<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">// Client.cpp</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;Logger.hpp&quot;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> NetworkManager <span class="op">{</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    NetworkManager<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        getLogger<span class="op">().</span>log<span class="op">(</span><span class="st">&quot;NetworkManager initialized&quot;</span><span class="op">);</span> <span class="co">// Safe</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>NetworkManager <span class="va">g_networkManager</span><span class="op">;</span></span></code></pre></div>
+<p>Function-local static objects are not initialized at startup;
+instead, they are initialized the very first time control passes through
+their declaration. Since C++11, the initialization of block-scope static
+variables is also guaranteed to be thread-safe.</p>
+<h3 id="2-compile-time-initialization-constexpr-and-constinit">2.
+Compile-Time Initialization (<code>constexpr</code> and
+<code>constinit</code>)</h3>
+<p>Dynamic initialization causes the fiasco. Static initialization
+(zero-initialization and constant initialization) occurs earlier during
+program startup, completely avoiding the issue.</p>
+<p>Starting in C++20, the <code>constinit</code> keyword can be used to
+assert that a variable with static storage duration is initialized at
+compile time:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Config <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> timeout<span class="op">;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Guaranteed to be initialized at compile time; no order issues</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">constinit</span> Config <span class="va">g_config</span><span class="op">{</span><span class="dv">5000</span><span class="op">};</span> </span></code></pre></div>
+<p>If the expression cannot be evaluated at compile time, the compiler
+issues an error, preventing runtime ordering hazards from slipping into
+production.</p>
+<h3 id="3-explicit-initialization-flow">3. Explicit Initialization
+Flow</h3>
+<p>For complex systems with tightly coupled subsystems, relying on
+global constructors is often an architectural anti-pattern. A robust
+mitigation is to eliminate non-trivial global constructors entirely.</p>
+<p>Instead, declare uninitialized pointers or empty handles globally,
+and provide an explicit orchestration function in
+<code>main()</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Explicit, deterministic startup order</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    Logger<span class="op">::</span>init<span class="op">();</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    NetworkManager<span class="op">::</span>init<span class="op">();</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    runApplication<span class="op">();</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Deterministic shutdown in reverse order</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    NetworkManager<span class="op">::</span>shutdown<span class="op">();</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    Logger<span class="op">::</span>shutdown<span class="op">();</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This approach eliminates reliance on compiler-generated startup
+routines and ensures that construction and destruction happen in a
+predictable, reproducible sequence.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/static-initialization-order-fiasco-in-c-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

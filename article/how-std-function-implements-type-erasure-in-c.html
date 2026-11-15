@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::function Implements Type Erasure in C++ - cpp</title>
+    <meta name="description" content="std::function is a general-purpose polymorphic function wrapper in C++ that can store, copy, and invoke any callable target—such as lambdas, free functions, member function pointers, and functors—matching a specified signature. It accomplishes this unifor">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-function-implements-type-erasure-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::function Implements Type Erasure in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-function-implements-type-erasure-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="std::function is a general-purpose polymorphic function wrapper in C++ that can store, copy, and invoke any callable target—such as lambdas, free functions, member function pointers, and functors—matching a specified signature. It accomplishes this unifor" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdfunction-implements-type-erasure-in-c">How std::function
+Implements Type Erasure in C++</h1>
+<p><code>std::function</code> is a general-purpose polymorphic function
+wrapper in C++ that can store, copy, and invoke any callable target—such
+as lambdas, free functions, member function pointers, and
+functors—matching a specified signature. It accomplishes this uniform
+interface without templating the enclosing class on the callable's
+concrete type through a technique known as type erasure. This article
+breaks down how <code>std::function</code> manages type erasure under
+the hood, how it uses Small Buffer Optimization (SBO) to balance
+performance and flexibility, and how it safely dispatches invocations to
+the underlying callable.</p>
+<h3 id="the-challenge-of-callable-abstraction">The Challenge of Callable
+Abstraction</h3>
+<p>In C++, two callables with the exact same signature (e.g.,
+<code>int(int)</code>) can have entirely different underlying types and
+memory layouts:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> lambda <span class="op">=</span> <span class="op">[</span>x <span class="op">=</span> <span class="dv">10</span><span class="op">](</span><span class="dt">int</span> a<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> a <span class="op">+</span> x<span class="op">;</span> <span class="op">};</span> <span class="co">// Size depends on captured variables</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> free_function<span class="op">(</span><span class="dt">int</span> a<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> a <span class="op">*</span> <span class="dv">2</span><span class="op">;</span> <span class="op">};</span>       <span class="co">// Size of a function pointer</span></span></code></pre></div>
+<p>Because their sizes and calling mechanisms differ, a container cannot
+store them interchangeably without an abstraction layer. Regular
+templates resolve this at compile time, but
+<code>std::function&lt;int(int)&gt;</code> must resolve this at runtime,
+allowing reassignment between completely different callable types.</p>
+<h3 id="the-anatomy-of-type-erasure">The Anatomy of Type Erasure</h3>
+<p>Standard library implementations (such as <code>libc++</code> and
+<code>libstdc++</code>) typically implement type erasure in
+<code>std::function</code> using one of two patterns: <strong>classic
+object-oriented polymorphism</strong> or <strong>function-pointer
+dispatch (manual vtables)</strong>. Most modern implementations favor
+manual function pointers to optimize memory layout and avoid the
+overhead of full C++ runtime type information (RTTI) and
+compiler-generated vtables.</p>
+<p>Regardless of the specific technique, type erasure relies on
+separating the callable into:</p>
+<ol type="1">
+<li><strong>Erased Storage</strong>: A generic memory region (either
+inline storage or a heap pointer) that holds the actual state of the
+callable.</li>
+<li><strong>An Invoker Stub</strong>: A templated function generated at
+compile time that casts the erased storage back to the concrete type and
+invokes it.</li>
+<li><strong>A Manager Stub</strong>: A templated function responsible
+for lifecycle operations: copying, moving, destroying, and querying RTTI
+for the erased callable.</li>
+</ol>
+<h3 id="conceptual-implementation-function-pointer-dispatch">Conceptual
+Implementation: Function Pointer Dispatch</h3>
+<p>To illustrate how <code>std::function</code> achieves this without
+virtual inheritance overhead, consider this simplified model:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Signature<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> simple_function<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> ReturnType<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> simple_function<span class="op">&lt;</span>ReturnType<span class="op">(</span>Args<span class="op">...)&gt;</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Untyped storage for the callable</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">union</span> Storage <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span><span class="op">*</span> heap_ptr<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">alignas</span><span class="op">(</span><span class="dt">max_align_t</span><span class="op">)</span> <span class="dt">char</span> local_buffer<span class="op">[</span><span class="dv">32</span><span class="op">];</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> storage<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Function pointer signatures for invoker and manager</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> InvokerFn <span class="op">=</span> ReturnType<span class="op">(*)(</span>Storage<span class="op">&amp;,</span> Args<span class="op">&amp;&amp;...);</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> ManagerFn <span class="op">=</span> <span class="dt">void</span><span class="op">(*)(</span>Storage<span class="op">&amp;</span> destination<span class="op">,</span> Storage<span class="op">&amp;</span> source<span class="op">,</span> Operation op<span class="op">);</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    InvokerFn invoker <span class="op">=</span> <span class="kw">nullptr</span><span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    ManagerFn manager <span class="op">=</span> <span class="kw">nullptr</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Callable<span class="op">&gt;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    simple_function<span class="op">(</span>Callable c<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        <span class="kw">using</span> DecayedCallable <span class="op">=</span> <span class="bu">std::</span>decay_t<span class="op">&lt;</span>Callable<span class="op">&gt;;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        <span class="co">// 1. Store the callable (using SBO or heap allocation)</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">constexpr</span> <span class="op">(</span><span class="kw">sizeof</span><span class="op">(</span>DecayedCallable<span class="op">)</span> <span class="op">&lt;=</span> <span class="kw">sizeof</span><span class="op">(</span>storage<span class="op">.</span>local_buffer<span class="op">)</span> <span class="op">&amp;&amp;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>                      <span class="bu">std::</span>is_nothrow_move_constructible_v<span class="op">&lt;</span>DecayedCallable<span class="op">&gt;)</span> <span class="op">{</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>            <span class="kw">new</span> <span class="op">(</span>storage<span class="op">.</span>local_buffer<span class="op">)</span> DecayedCallable<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>c<span class="op">));</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>            storage<span class="op">.</span>heap_ptr <span class="op">=</span> <span class="kw">new</span> DecayedCallable<span class="op">(</span><span class="bu">std::</span>move<span class="op">(</span>c<span class="op">));</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="co">// 2. Instantiate and assign the invoker stub</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        invoker <span class="op">=</span> <span class="op">[](</span>Storage<span class="op">&amp;</span> s<span class="op">,</span> Args<span class="op">&amp;&amp;...</span> args<span class="op">)</span> <span class="op">-&gt;</span> ReturnType <span class="op">{</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>            DecayedCallable<span class="op">*</span> target <span class="op">=</span> <span class="co">/* resolve address from local_buffer or heap_ptr */</span><span class="op">;</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="op">(*</span>target<span class="op">)(</span><span class="bu">std::</span>forward<span class="op">&lt;</span>Args<span class="op">&gt;(</span>args<span class="op">)...);</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>        <span class="op">};</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>        <span class="co">// 3. Instantiate and assign the manager stub (handles copy, destroy, etc.)</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>        manager <span class="op">=</span> <span class="op">[](</span>Storage<span class="op">&amp;</span> dest<span class="op">,</span> Storage<span class="op">&amp;</span> src<span class="op">,</span> Operation op<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>            <span class="co">// Reinterprets storage back to DecayedCallable* to destroy or clone</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>        <span class="op">};</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>    ReturnType <span class="kw">operator</span><span class="op">()(</span>Args<span class="op">...</span> args<span class="op">)</span> <span class="at">const</span> <span class="op">{</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="op">(!</span>invoker<span class="op">)</span> <span class="cf">throw</span> <span class="bu">std::</span>bad_function_call<span class="op">();</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> invoker<span class="op">(</span><span class="kw">const_cast</span><span class="op">&lt;</span>Storage<span class="op">&amp;&gt;(</span>storage<span class="op">),</span> <span class="bu">std::</span>forward<span class="op">&lt;</span>Args<span class="op">&gt;(</span>args<span class="op">)...);</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="small-buffer-optimization-sbo">Small Buffer Optimization
+(SBO)</h3>
+<p>Heap allocations introduce latency and cache misses. To mitigate
+this, <code>std::function</code> includes a small internal byte
+array—typically between 16 and 32 bytes (often equivalent to 3 to 4
+pointers).</p>
+<ul>
+<li><strong>Small Objects</strong>: If the callable (such as a function
+pointer, a reference wrapper, or a small lambda) is smaller than the
+internal buffer and satisfies nothrow-movability requirements, it is
+constructed directly within <code>std::function</code>'s local storage
+via placement <code>new</code>.</li>
+<li><strong>Large Objects</strong>: If a lambda captures large arrays or
+objects exceeding the inline capacity, <code>std::function</code>
+allocates memory on the heap and stores the pointer within the local
+buffer.</li>
+</ul>
+<p>The manager function tracks whether the callable is stored locally or
+on the heap, ensuring that <code>delete</code> is only called when heap
+memory was used.</p>
+<h3 id="invocation-mechanics">Invocation Mechanics</h3>
+<p>When invoking <code>operator()</code>:</p>
+<ol type="1">
+<li><code>std::function</code> checks whether an invoker function
+pointer is bound. If it is <code>nullptr</code>, it throws
+<code>std::bad_function_call</code>.</li>
+<li>It forwards its arguments
+(<code>std::forward&lt;Args&gt;(args)...</code>) directly to the stored
+<code>invoker</code> stub pointer.</li>
+<li>The <code>invoker</code> stub reinterprets the untyped byte buffer
+(or dereferences the heap pointer) back into a concrete pointer of the
+original callable type (<code>Callable*</code>).</li>
+<li>The <code>invoker</code> invokes the object using standard call
+syntax <code>(*target)(...)</code> (or <code>std::invoke</code> to
+handle member functions) and returns the result, casting it to
+<code>ReturnType</code>.</li>
+</ol>
+<p>Because the concrete type is retained inside the static scope of the
+generated stub, the outer wrapper never needs to know the type it holds,
+completing the type-erasure lifecycle.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-std-function-implements-type-erasure-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

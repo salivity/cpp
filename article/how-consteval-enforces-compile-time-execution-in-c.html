@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How consteval Enforces Compile-Time Execution in C++ - cpp</title>
+    <meta name="description" content="Introduced in C++20, the consteval specifier declares immediate functions that guarantee execution exclusively during translation phases rather than at runtime. Unlike constexpr, which allows a function to run either during translation or at runtime depen">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-consteval-enforces-compile-time-execution-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How consteval Enforces Compile-Time Execution in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-consteval-enforces-compile-time-execution-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++20, the consteval specifier declares immediate functions that guarantee execution exclusively during translation phases rather than at runtime. Unlike constexpr, which allows a function to run either during translation or at runtime depen" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-consteval-enforces-compile-time-execution-in-c">How
+consteval Enforces Compile-Time Execution in C++</h1>
+<p>Introduced in C++20, the <code>consteval</code> specifier declares
+immediate functions that guarantee execution exclusively during
+translation phases rather than at runtime. Unlike
+<code>constexpr</code>, which allows a function to run either during
+translation or at runtime depending on its arguments and context,
+<code>consteval</code> strictly mandates that every evaluation must
+yield a core constant expression. This article examines the mechanisms
+the C++ compiler uses to enforce this rule, the restrictions placed on
+immediate functions, and how compilation fails if an operation cannot be
+resolved before code generation.</p>
+<h3 id="the-immediate-function-model">The Immediate Function Model</h3>
+<p>Declaring a function with <code>consteval</code> designates it as an
+<em>immediate function</em>. Every call to an immediate function must
+result in a compile-time constant expression. During the compilation
+process (specifically Translation Phase 7, where syntactic and semantic
+analysis take place along with template instantiation), the compiler's
+constant evaluator intercepts invocations of these functions.</p>
+<p>If the compiler cannot evaluate the call within its constant
+evaluation engine, translation halts immediately with a compiler
+diagnostic error. This creates a hard boundary: code containing a
+<code>consteval</code> call cannot produce machine instructions that
+defer the computation to the runtime executable.</p>
+<h3 id="enforcing-constant-arguments">Enforcing Constant Arguments</h3>
+<p>For an operation to evaluate during translation phases, its inputs
+must be known to the compiler. When a program invokes a
+<code>consteval</code> function, the compiler verifies that all
+arguments are usable within a constant expression.</p>
+<p>If a caller attempts to pass a variable determined at runtime—such as
+user input, non-constexpr local variables, or data loaded
+dynamically—the compiler detects that the expression is not a constant
+expression. Because the function is marked <code>consteval</code>, the
+compiler does not fall back to emitting instructions for runtime
+execution; instead, it raises a fatal compilation error indicating that
+the invocation does not evaluate to a compile-time constant.</p>
+<h3 id="restrictions-on-function-pointers-and-addresses">Restrictions on
+Function Pointers and Addresses</h3>
+<p>The C++ standard places strict rules on the address of an immediate
+function to prevent deferred execution. A program cannot take the
+address of a <code>consteval</code> function to store it in a standard
+runtime function pointer.</p>
+<p>Pointers to immediate functions can only exist within an immediate
+context, such as inside another <code>consteval</code> function or as a
+non-type template parameter evaluated at compile time. By forbidding the
+leakage of <code>consteval</code> addresses into runtime function
+pointers, the language eliminates any pathway for indirect calls during
+program execution.</p>
+<h3 id="diagnostics-via-constant-expression-limits">Diagnostics via
+Constant Expression Limits</h3>
+<p>The translation-phase enforcement relies on the standard rules
+defining core constant expressions. During the evaluation of a
+<code>consteval</code> function, the compiler actively tracks disallowed
+operations, including:</p>
+<ul>
+<li>Reading undefined values or uninitialized memory.</li>
+<li>Accessing system calls or standard I/O streams.</li>
+<li>Performing undefined behavior (such as signed integer overflow or
+division by zero).</li>
+<li>Allocating dynamic memory (via <code>std::allocator</code> or
+<code>new</code>) that is not deallocated before constant evaluation
+finishes.</li>
+</ul>
+<p>If any of these operations occur, the constant evaluation engine
+flags an invalid operation. In a standard runtime function or an
+ambiguous <code>constexpr</code> context, these might only cause issues
+at runtime; in a <code>consteval</code> context, they violate the
+requirement for a constant expression and directly terminate
+translation.</p>
+<h3 id="immediate-invocations-in-unevaluated-contexts">Immediate
+Invocations in Unevaluated Contexts</h3>
+<p>An exception to immediate execution occurs in unevaluated operands,
+such as within <code>sizeof</code>, <code>decltype</code>, or
+<code>noexcept</code> operators. In these contexts, expressions are
+analyzed purely for their type or semantic properties without producing
+values. The compiler inspects the signature of the
+<code>consteval</code> function to deduce the required information
+without triggering the execution engine, ensuring that no runtime
+overhead or improper evaluation phases occur.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-consteval-enforces-compile-time-execution-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

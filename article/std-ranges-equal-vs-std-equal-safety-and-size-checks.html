@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::ranges::equal vs std::equal Safety and Size Checks - cpp</title>
+    <meta name="description" content="The introduction of the Ranges library in C++20 modernizes standard algorithms to eliminate common memory safety pitfalls and streamline code. This article examines the differences between legacy std::equal and std::ranges::equal, specifically focusing on">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-ranges-equal-vs-std-equal-safety-and-size-checks">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::ranges::equal vs std::equal Safety and Size Checks - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-ranges-equal-vs-std-equal-safety-and-size-checks" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The introduction of the Ranges library in C++20 modernizes standard algorithms to eliminate common memory safety pitfalls and streamline code. This article examines the differences between legacy std::equal and std::ranges::equal, specifically focusing on" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="stdrangesequal-vs-stdequal-safety-and-size-checks">std::ranges::equal
+vs std::equal Safety and Size Checks</h1>
+<p>The introduction of the Ranges library in C++20 modernizes standard
+algorithms to eliminate common memory safety pitfalls and streamline
+code. This article examines the differences between legacy
+<code>std::equal</code> and <code>std::ranges::equal</code>,
+specifically focusing on how the modern ranges implementation guarantees
+range-bound safety, enforces proper size validation, and optimizes
+comparisons using C++ concepts.</p>
+<h3 id="the-vulnerability-of-legacy-stdequal">The Vulnerability of
+Legacy <code>std::equal</code></h3>
+<p>Prior to C++14, the standard <code>std::equal</code> algorithm
+required three iterators: two defining the range of the first sequence
+(<code>first1</code>, <code>last1</code>) and only one denoting the
+beginning of the second sequence (<code>first2</code>):</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>equal<span class="op">(</span>first1<span class="op">,</span> last1<span class="op">,</span> first2<span class="op">);</span></span></code></pre></div>
+<p>This three-iterator signature relies on a critical precondition: the
+sequence starting at <code>first2</code> must contain at least as many
+elements as the range <code>[first1, last1)</code>. If the second range
+is shorter, the algorithm continues incrementing <code>first2</code>
+past its valid boundary, causing an out-of-bounds read and resulting in
+undefined behavior.</p>
+<p>Although C++14 introduced a four-iterator overload
+(<code>first1, last1, first2, last2</code>), the legacy three-iterator
+signature remains in <code>&lt;algorithm&gt;</code> for backward
+compatibility. Because it remains available, developers can still
+introduce silent buffer overreads through simple omissions.</p>
+<h3 id="how-stdrangesequal-enforces-safety">How
+<code>std::ranges::equal</code> Enforces Safety</h3>
+<p>Defined in the <code>&lt;algorithm&gt;</code> header under the
+<code>std::ranges</code> namespace, <code>std::ranges::equal</code>
+completely drops the dangerous single-iterator destination pattern. It
+requires explicit boundaries for both inputs, either by passing ranges
+directly or by providing an iterator-sentinel pair for each
+sequence:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Range-based syntax</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>ranges::equal<span class="op">(</span>range1<span class="op">,</span> range2<span class="op">);</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Iterator-sentinel syntax</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>ranges::equal<span class="op">(</span>first1<span class="op">,</span> last1<span class="op">,</span> first2<span class="op">,</span> last2<span class="op">);</span></span></code></pre></div>
+<p>By requiring the boundaries of both sequences at compile time,
+<code>std::ranges::equal</code> prevents the second range from being
+traversed beyond its end. If <code>range2</code> is shorter than
+<code>range1</code>, the algorithm safely stops and returns
+<code>false</code> instead of reading past the end of the container.</p>
+<h3 id="automatic-and-optimized-size-checking">Automatic and Optimized
+Size Checking</h3>
+<p>Beyond eliminating out-of-bounds reads,
+<code>std::ranges::equal</code> implements structural size checks using
+modern C++ concepts:</p>
+<ol type="1">
+<li><strong>Short-Circuit via
+<code>std::ranges::sized_range</code></strong>: If both inputs satisfy
+the <code>std::ranges::sized_range</code> concept (such as
+<code>std::vector</code>, <code>std::array</code>, or
+<code>std::span</code>), their sizes can be determined in <span
+class="math inline">\(O(1)\)</span> constant time.
+<code>std::ranges::equal</code> checks if
+<code>std::ranges::distance(range1) == std::ranges::distance(range2)</code>
+before inspecting any elements. If the sizes do not match, the algorithm
+immediately returns <code>false</code> without traversing the
+contents.</li>
+<li><strong>Support for Non-Sized Ranges and Sentinels</strong>: For
+ranges where size is not known in advance (such as a stream or a
+null-terminated string represented via a custom sentinel), the algorithm
+steps through both ranges simultaneously. If either iterator reaches its
+respective sentinel before the other, the comparison terminates safely
+and yields <code>false</code>.</li>
+</ol>
+<h3 id="key-differences-summary">Key Differences Summary</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;">Legacy <code>std::equal</code></th>
+<th style="text-align: left;"><code>std::ranges::equal</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Unbounded Overload</strong></td>
+<td style="text-align: left;">Supported (3-iterator version, prone to
+undefined behavior)</td>
+<td style="text-align: left;">Prohibited (requires full bounds for both
+ranges)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Direct Container
+Support</strong></td>
+<td style="text-align: left;">Requires <code>.begin()</code> and
+<code>.end()</code> calls</td>
+<td style="text-align: left;">Directly accepts range objects</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Sentinels</strong></td>
+<td style="text-align: left;">Requires both ends to share the same
+iterator type</td>
+<td style="text-align: left;">Works with distinct sentinel types</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Size-Check
+Short-Circuit</strong></td>
+<td style="text-align: left;">Ad-hoc optimization based on iterator
+categories</td>
+<td style="text-align: left;">Concept-driven via
+<code>std::ranges::sized_range</code></td>
+</tr>
+</tbody>
+</table></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/std-ranges-equal-vs-std-equal-safety-and-size-checks';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Check C++ Standard Version Using __cplusplus - cpp</title>
+    <meta name="description" content="The cplusplus macro is a predefined preprocessor identifier that expands to an integer literal indicating the specific version of the C++ standard supported by the active compiler. By comparing this macro&#39;s value against standardized date codes, developer">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/check-c-standard-version-using-cplusplus">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Check C++ Standard Version Using __cplusplus - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/check-c-standard-version-using-cplusplus" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The cplusplus macro is a predefined preprocessor identifier that expands to an integer literal indicating the specific version of the C++ standard supported by the active compiler. By comparing this macro&#39;s value against standardized date codes, developer" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="check-c-standard-version-using-__cplusplus">Check C++ Standard
+Version Using __cplusplus</h1>
+<p>The <code>__cplusplus</code> macro is a predefined preprocessor
+identifier that expands to an integer literal indicating the specific
+version of the C++ standard supported by the active compiler. By
+comparing this macro's value against standardized date codes, developers
+can determine the exact language specification in use and apply
+conditional compilation. This mechanism ensures backward compatibility,
+enables modern feature sets safely, and allows codebases to adapt
+seamlessly across diverse toolchains and environments.</p>
+<h2 id="how-the-value-is-formatted">How the Value is Formatted</h2>
+<p>The C++ standard defines the value of <code>__cplusplus</code> using
+the format <code>yyyymmL</code>, which denotes the year and month the
+standard specification was formally finalized. Because these values are
+strictly increasing integers, developers can use standard relational
+operators (<code>&gt;=</code>, <code>&lt;</code>, etc.) within
+<code>#if</code> directives.</p>
+<p>The standard values correspond to the following C++ releases:</p>
+<ul>
+<li><strong>C++98 / C++03:</strong> <code>199711L</code></li>
+<li><strong>C++11:</strong> <code>201103L</code></li>
+<li><strong>C++14:</strong> <code>201402L</code></li>
+<li><strong>C++17:</strong> <code>201703L</code></li>
+<li><strong>C++20:</strong> <code>202002L</code></li>
+<li><strong>C++23:</strong> <code>202302L</code></li>
+</ul>
+<h2 id="implementing-conditional-compilation">Implementing Conditional
+Compilation</h2>
+<p>Developers use <code>#if</code> preprocessor checks to guard code
+that relies on language features introduced in specific standards.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#if </span><span class="ot">__cplusplus</span><span class="pp"> &gt;= 202002L</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Compiled with C++20 or later.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="pp">#elif </span><span class="ot">__cplusplus</span><span class="pp"> &gt;= 201703L</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Compiled with C++17.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="pp">#elif </span><span class="ot">__cplusplus</span><span class="pp"> &gt;= 201402L</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Compiled with C++14.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="pp">#elif </span><span class="ot">__cplusplus</span><span class="pp"> &gt;= 201103L</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Compiled with C++11.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="pp">#else</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Compiled with C++98 or C++03.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>This approach allows a single source file to maintain alternative
+implementations—for example, employing <code>std::string_view</code>
+when compiling under C++17 or newer, while falling back to
+<code>const std::string&amp;</code> for older standards.</p>
+<h2 id="distinguishing-c-from-c">Distinguishing C from C++</h2>
+<p>Because <code>__cplusplus</code> is only defined in C++ translation
+units, it is commonly used to write header files compatible with both C
+and C++. Checking whether the macro is defined allows headers to wrap
+C++ function declarations in <code>extern "C"</code> blocks, preventing
+name mangling when linked with C code:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode c"><code class="sourceCode c"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifdef __cplusplus</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">extern</span> <span class="st">&quot;C&quot;</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> shared_library_function<span class="op">(</span><span class="dt">void</span><span class="op">);</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="pp">#ifdef __cplusplus</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="pp">#endif</span></span></code></pre></div>
+<h2 id="important-compiler-considerations-msvc">Important Compiler
+Considerations: MSVC</h2>
+<p>While compilers like GCC and Clang automatically update
+<code>__cplusplus</code> based on flags such as <code>-std=c++17</code>
+or <code>-std=c++20</code>, Microsoft Visual C++ (MSVC) historically
+defaults to reporting <code>199711L</code> to preserve backward
+compatibility with legacy code.</p>
+<p>To ensure MSVC correctly reflects the targeted standard via
+<code>__cplusplus</code>, developers must explicitly pass the
+<code>/Zc:__cplusplus</code> compiler flag in addition to the standard
+version flag (such as <code>/std:c++17</code> or
+<code>/std:c++20</code>). Without this switch, standard-version checks
+relying on <code>__cplusplus</code> in MSVC environments may fail or
+yield misleading results.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/check-c-standard-version-using-cplusplus';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

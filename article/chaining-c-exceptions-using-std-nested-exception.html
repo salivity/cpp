@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chaining C++ Exceptions Using std::nested_exception - cpp</title>
+    <meta name="description" content="In modern C++, handling errors across layered architectures often requires preserving the original cause of a failure while adding higher-level contextual information. The std::nestedexception class, introduced in C++11, enables developers to capture an a">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/chaining-c-exceptions-using-std-nested-exception">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Chaining C++ Exceptions Using std::nested_exception - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/chaining-c-exceptions-using-std-nested-exception" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, handling errors across layered architectures often requires preserving the original cause of a failure while adding higher-level contextual information. The std::nestedexception class, introduced in C++11, enables developers to capture an a" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="chaining-c-exceptions-using-stdnested_exception">Chaining C++
+Exceptions Using std::nested_exception</h1>
+<p>In modern C++, handling errors across layered architectures often
+requires preserving the original cause of a failure while adding
+higher-level contextual information. The
+<code>std::nested_exception</code> class, introduced in C++11, enables
+developers to capture an active exception, wrap it inside a new
+exception type, and recursively inspect the resulting chain of failures.
+This article explains the mechanics of
+<code>std::nested_exception</code>, demonstrating how to throw nested
+exceptions using <code>std::throw_with_nested</code> and how to unpack
+them with <code>std::rethrow_if_nested</code>.</p>
+<h3 id="the-problem-of-context-in-exception-handling">The Problem of
+Context in Exception Handling</h3>
+<p>When an error occurs deep within a call stack—such as a failed file
+read or a dropped socket connection—catching and replacing it with a
+higher-level business logic exception often erases the original
+low-level diagnostic information. Conversely, letting the low-level
+exception propagate unchanged leaks implementation details to high-level
+callers.</p>
+<p><code>std::nested_exception</code> resolves this by acting as a
+mixin-style wrapper that stores a <code>std::exception_ptr</code> to the
+currently active exception, forming a linked list of exception
+objects.</p>
+<h3 id="creating-a-nested-exception-chain">Creating a Nested Exception
+Chain</h3>
+<p>The standard library provides the helper function template
+<code>std::throw_with_nested</code> to create nested exceptions without
+manually subclassing <code>std::nested_exception</code>.</p>
+<p>When called inside a <code>catch</code> block,
+<code>std::throw_with_nested(T&amp;&amp; t)</code> checks if
+<code>T</code> is a polymorphic class type not already derived from
+<code>std::nested_exception</code>. If so, the compiler synthesizes a
+type derived from both <code>T</code> and
+<code>std::nested_exception</code>, captures the currently handled
+exception via <code>std::current_exception()</code>, and throws the new
+composite object.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;fstream&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;stdexcept&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;exception&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> readConfigFile<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> path<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>ifstream file<span class="op">(</span>path<span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(!</span>file<span class="op">.</span>is_open<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">throw</span> <span class="bu">std::</span>runtime_error<span class="op">(</span><span class="st">&quot;File not found: &quot;</span> <span class="op">+</span> path<span class="op">);</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> initializeSystem<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        readConfigFile<span class="op">(</span><span class="st">&quot;config.json&quot;</span><span class="op">);</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(...)</span> <span class="op">{</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Wraps the active exception inside a higher-level exception</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>throw_with_nested<span class="op">(</span><span class="bu">std::</span>runtime_error<span class="op">(</span><span class="st">&quot;System initialization failed&quot;</span><span class="op">));</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="unpacking-and-rethrowing-nested-exceptions">Unpacking and
+Rethrowing Nested Exceptions</h3>
+<p>To access the earlier exceptions stored inside an exception chain,
+C++ provides <code>std::rethrow_if_nested</code>. This function checks
+whether the passed exception object derives from
+<code>std::nested_exception</code>. If it does, the stored inner
+exception is rethrown; if it does not, the function returns without
+action.</p>
+<p>By combining <code>std::rethrow_if_nested</code> with recursive
+exception handlers, you can traverse the chain from the outermost
+exception down to the root cause:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> printExceptionChain<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>exception<span class="op">&amp;</span> e<span class="op">,</span> <span class="dt">int</span> level <span class="op">=</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="bu">std::</span>string<span class="op">(</span>level <span class="op">*</span> <span class="dv">2</span><span class="op">,</span> <span class="ch">&#39; &#39;</span><span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="st">&quot;Error: &quot;</span> <span class="op">&lt;&lt;</span> e<span class="op">.</span>what<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>rethrow_if_nested<span class="op">(</span>e<span class="op">);</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>exception<span class="op">&amp;</span> nested<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        printExceptionChain<span class="op">(</span>nested<span class="op">,</span> level <span class="op">+</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(...)</span> <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cerr <span class="op">&lt;&lt;</span> <span class="bu">std::</span>string<span class="op">((</span>level <span class="op">+</span> <span class="dv">1</span><span class="op">)</span> <span class="op">*</span> <span class="dv">2</span><span class="op">,</span> <span class="ch">&#39; &#39;</span><span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="st">&quot;Unknown nested error.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        initializeSystem<span class="op">();</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>exception<span class="op">&amp;</span> e<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        printExceptionChain<span class="op">(</span>e<span class="op">);</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When this program runs, the output clearly separates the layers:</p>
+<pre class="text"><code>Error: System initialization failed
+  Error: File not found: config.json</code></pre>
+<h3 id="key-technical-details">Key Technical Details</h3>
+<ol type="1">
+<li><strong>Slicing Safety:</strong> <code>std::throw_with_nested</code>
+creates a dynamic type combining the thrown type and
+<code>std::nested_exception</code>. Because catching by reference
+(<code>const std::exception&amp;</code>) preserves object identity,
+dynamic dispatch and dynamic casting inside
+<code>std::rethrow_if_nested</code> succeed safely.</li>
+<li><strong>Value Types vs. Class Types:</strong> If the argument to
+<code>std::throw_with_nested</code> is a final class or not a non-union
+class type, <code>std::throw_with_nested</code> simply throws the
+argument directly without nesting.</li>
+<li><strong>No Active Exception:</strong> If
+<code>std::throw_with_nested</code> is invoked outside a catch block
+when no exception is active, it behaves identically to a normal
+<code>throw</code>, with no nested context attached.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/chaining-c-exceptions-using-std-nested-exception';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Type Punning: Why memcpy Is Valid and Unions Cause UB - cpp</title>
+    <meta name="description" content="In C++, developers frequently need to reinterpret the bitwise representation of one data type as another, a practice known as type punning. While developers often reach for C-style unions to accomplish this, doing so in C++ violates object lifetime and st">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-type-punning-why-memcpy-is-valid-and-unions-cause-ub">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Type Punning: Why memcpy Is Valid and Unions Cause UB - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-type-punning-why-memcpy-is-valid-and-unions-cause-ub" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, developers frequently need to reinterpret the bitwise representation of one data type as another, a practice known as type punning. While developers often reach for C-style unions to accomplish this, doing so in C++ violates object lifetime and st" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-type-punning-why-memcpy-is-valid-and-unions-cause-ub">C++ Type
+Punning: Why memcpy Is Valid and Unions Cause UB</h1>
+<p>In C++, developers frequently need to reinterpret the bitwise
+representation of one data type as another, a practice known as type
+punning. While developers often reach for C-style unions to accomplish
+this, doing so in C++ violates object lifetime and strict aliasing
+rules, resulting in undefined behavior. Conversely, using
+<code>std::memcpy</code> operates entirely within the boundaries of the
+C++ standard by manipulating the underlying byte representation of
+trivially copyable types, allowing modern compilers to optimize the
+operation down to zero-overhead register moves.</p>
+<h3 id="the-c-vs-c-union-divergence">The C vs. C++ Union Divergence</h3>
+<p>In standard C (specifically since C99 TC2), using a union for type
+punning—writing to member <code>a</code> and subsequently reading from
+member <code>b</code>—is explicitly permitted. However, C++ has a
+fundamentally different model for object orientation and object
+lifetimes.</p>
+<p>In C++, a union can have only one "active" member at any given time.
+Under the C++ standard ([class.union]), modifying one union member ends
+the lifetime of the previously active member and begins the lifetime of
+the new member. Reading from an inactive union member accesses an object
+whose lifetime has not begun, which leads to undefined behavior. While
+many C++ compilers (like GCC and Clang) provide compiler-specific
+extensions to support union-based type punning, the practice is
+fundamentally non-portable and rejected by standard-conforming analysis
+tools.</p>
+<h3 id="the-strict-aliasing-rule-and-object-lifetimes">The Strict
+Aliasing Rule and Object Lifetimes</h3>
+<p>The core issue that invalidates union punning in C++ stems from two
+intertwined language rules:</p>
+<ol type="1">
+<li><strong>Object Lifetimes (<code>[basic.life]</code>):</strong> An
+object's properties only exist while its lifetime is active. Accessing
+storage outside of an active object's lifetime through an expression
+that does not correspond to that object yields undefined behavior.</li>
+<li><strong>Strict Aliasing (<code>[basic.lval]</code>):</strong> The
+compiler assumes that pointers or references of different, unrelated
+types cannot point to the exact same memory location. This assumption
+enables significant instruction reordering and register caching
+optimizations. Breaking this assumption confuses the compiler's
+optimizer and generates subtle bugs.</li>
+</ol>
+<p>When reading from an inactive union member, you are aliasing distinct
+types without creating an object of the target type, breaching both
+rules.</p>
+<h3 id="why-stdmemcpy-is-standard-compliant">Why
+<code>std::memcpy</code> is Standard-Compliant</h3>
+<p>Copying memory using <code>std::memcpy</code> is standard-compliant
+because of how the C++ standard treats trivially copyable types and
+character pointers.</p>
+<p>According to the C++ standard ([basic.types.general]), any object of
+a trivially copyable type can have its underlying byte representation
+copied into an array of <code>char</code>, <code>unsigned char</code>,
+or <code>std::byte</code>, and vice versa. When you call
+<code>std::memcpy</code>:</p>
+<ul>
+<li><strong>Character Type Aliasing:</strong> The function reads and
+writes memory through <code>void*</code>, effectively operating at the
+byte level (<code>unsigned char*</code>), which is an explicitly
+permitted exception to the strict aliasing rule.</li>
+<li><strong>Value Representation Transfer:</strong> Copying raw bytes
+into an already existing, valid object of a trivially copyable type
+simply overwrites its value representation without illegally bypassing
+constructor logic or lifetime rules.</li>
+</ul>
+<p>Because the destination object is already alive and trivially
+copyable, loading the copied bytes constitutes a valid read of an
+initialized object.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstring&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstdint&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> bit_pun<span class="op">(</span><span class="dt">uint32_t</span> input<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> result<span class="op">;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Standard-compliant: operates on raw bytes of trivially copyable types</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>memcpy<span class="op">(&amp;</span>result<span class="op">,</span> <span class="op">&amp;</span>input<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span><span class="dt">float</span><span class="op">));</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> result<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="compiler-optimization-and-performance">Compiler Optimization and
+Performance</h3>
+<p>A common misconception is that <code>std::memcpy</code> is
+inefficient because it implies a function call and a byte-by-byte memory
+loop. Modern optimizing compilers recognize <code>std::memcpy</code> as
+an intrinsic. When called on small, fixed-size types like floating-point
+and integer primitives, the compiler completely eliminates the function
+call and generates identical machine instructions to a direct register
+move (such as <code>movd</code> or <code>movq</code> on x86
+architectures).</p>
+<h3 id="modern-alternative-stdbit_cast">Modern Alternative:
+<code>std::bit_cast</code></h3>
+<p>Starting in C++20, the language standardizes this behavior through
+<code>std::bit_cast</code> (defined in <code>&lt;bit&gt;</code>).
+Internally, <code>std::bit_cast</code> operates with the same semantics
+as <code>std::memcpy</code>, but it adds compile-time verification that
+both source and destination types are of the same size and are trivially
+copyable, while also allowing the operation to be evaluated in
+<code>constexpr</code> contexts.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-type-punning-why-memcpy-is-valid-and-unions-cause-ub';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capturing this Pointer by Value vs Reference in C++ - cpp</title>
+    <meta name="description" content="In C++, lambda expressions frequently interact with member variables of an enclosing class, requiring the capture of the calling instance. While you cannot capture the this pointer itself by reference due to language rules, you can capture the instance by">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/capturing-this-pointer-by-value-vs-reference-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Capturing this Pointer by Value vs Reference in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/capturing-this-pointer-by-value-vs-reference-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, lambda expressions frequently interact with member variables of an enclosing class, requiring the capture of the calling instance. While you cannot capture the this pointer itself by reference due to language rules, you can capture the instance by" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="capturing-this-pointer-by-value-vs-reference-in-c">Capturing
+this Pointer by Value vs Reference in C++</h1>
+<p>In C++, lambda expressions frequently interact with member variables
+of an enclosing class, requiring the capture of the calling instance.
+While you cannot capture the <code>this</code> pointer itself by
+reference due to language rules, you can capture the instance by
+reference semantics via the pointer (<code>[this]</code>) or by value
+using copy semantics (<code>[*this]</code>). Choosing between these two
+mechanisms fundamentally impacts memory safety, object lifetime, and
+whether operations affect the original object or an isolated copy.</p>
+<h3 id="understanding-the-syntax-this-vs-this">Understanding the Syntax:
+<code>[this]</code> vs <code>[*this]</code></h3>
+<p>In C++, <code>this</code> is an rvalue expression representing a
+pointer to the current instance; therefore, the syntax
+<code>[&amp;this]</code> is ill-formed and will not compile. Instead,
+the distinction between "reference" and "value" semantics is expressed
+as follows:</p>
+<ul>
+<li><strong>Reference semantics (<code>[this]</code> or
+<code>[&amp;]</code>):</strong> Captures the <code>this</code> pointer
+by value, which provides reference access to the underlying object.</li>
+<li><strong>Value semantics (<code>[*this]</code>):</strong> Introduced
+in C++17, this captures a copy of the entire dereferenced object into
+the lambda closure.</li>
+</ul>
+<h3
+id="consequences-of-capturing-via-this-pointer--reference-semantics">Consequences
+of Capturing via <code>[this]</code> (Pointer / Reference
+Semantics)</h3>
+<p>When you capture <code>[this]</code>, the lambda stores a copy of the
+pointer pointing to the existing instance.</p>
+<ul>
+<li><strong>Direct Mutation:</strong> Any member variable modified
+inside the lambda directly mutates the original object's state.</li>
+<li><strong>Zero Copy Overhead:</strong> Only the size of a pointer
+(typically 8 bytes on a 64-bit architecture) is stored in the closure
+object.</li>
+<li><strong>Dangling Pointer Risks:</strong> If the lambda outlives the
+enclosing object—such as when passed to an asynchronous thread, an event
+queue, or a detached task—invoking the lambda results in undefined
+behavior because the pointer will point to deallocated memory.</li>
+</ul>
+<h3
+id="consequences-of-capturing-via-this-object-value-semantics">Consequences
+of Capturing via <code>[*this]</code> (Object Value Semantics)</h3>
+<p>When using <code>[*this]</code>, the closure creates an independent
+copy (or move) of the enclosing class instance at the moment the lambda
+is constructed.</p>
+<ul>
+<li><strong>Thread and Lifetime Safety:</strong> The lambda carries its
+own copy of the object state. It remains entirely valid even if the
+original object that created it is destroyed. This makes it ideal for
+concurrent programming and asynchronous callbacks.</li>
+<li><strong>Isolation of State:</strong> Modifications made inside the
+lambda only affect the copy, leaving the original object unchanged. Note
+that the lambda must be marked <code>mutable</code> to modify non-static
+member variables of the copied instance.</li>
+<li><strong>Performance Overhead:</strong> The class must be copyable or
+movable. If the class manages substantial resources or holds large data
+buffers, copying can incur significant performance costs.</li>
+</ul>
+<h3 id="implicit-captures--vs-">Implicit Captures: <code>[=]</code> vs
+<code>[&amp;]</code></h3>
+<p>The behavior of default capture modes has evolved to prevent common
+memory bugs:</p>
+<ul>
+<li><strong>Default by Reference (<code>[&amp;]</code>):</strong>
+Implicitly captures <code>this</code> as a pointer. It carries the same
+lifetime risks as explicit <code>[this]</code>.</li>
+<li><strong>Default by Value (<code>[=]</code>):</strong> In C++11 and
+C++14, writing <code>[=]</code> implicitly captured the
+<code>this</code> pointer—not the object itself. Because this often led
+developers to mistakenly believe the object was safely copied for
+asynchronous tasks, implicit capture of <code>this</code> via
+<code>[=]</code> was deprecated in C++20. Modern code should explicitly
+specify either <code>[=, this]</code> or <code>[=, *this]</code>.</li>
+</ul>
+<h3 id="summary-guidelines">Summary Guidelines</h3>
+<ul>
+<li>Use <code>[this]</code> when the lambda's execution is guaranteed to
+be synchronous and within the scope of the enclosing object's
+lifetime.</li>
+<li>Use <code>[*this]</code> when the lambda is executed asynchronously,
+dispatched to another thread, or retained beyond the scope of the
+calling class instance.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/capturing-this-pointer-by-value-vs-reference-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

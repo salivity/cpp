@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Member Variable Initialization Order - cpp</title>
+    <meta name="description" content="In C++, understanding the order in which class member variables are initialized is critical for preventing undefined behavior and difficult-to-track bugs. This article covers the fundamental rules governing non-static member variable initialization during">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-member-variable-initialization-order">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Member Variable Initialization Order - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-member-variable-initialization-order" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, understanding the order in which class member variables are initialized is critical for preventing undefined behavior and difficult-to-track bugs. This article covers the fundamental rules governing non-static member variable initialization during" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-member-variable-initialization-order">C++ Member Variable
+Initialization Order</h1>
+<p>In C++, understanding the order in which class member variables are
+initialized is critical for preventing undefined behavior and
+difficult-to-track bugs. This article covers the fundamental rules
+governing non-static member variable initialization during object
+construction, clarifies the role of constructor initializer lists, and
+outlines the complete sequence of events from base class construction to
+the execution of the constructor body.</p>
+<h3 id="the-core-rule-declaration-order">The Core Rule: Declaration
+Order</h3>
+<p>In C++, non-static member variables are always initialized in the
+exact order they are declared in the class definition.</p>
+<p>The order in which members appear in a constructor's member
+initializer list has no effect whatsoever on the initialization
+sequence. Even if a constructor lists member variables in a different
+order, the compiler initializes them strictly according to their order
+of declaration within the class body.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Example <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> a<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> b<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// &#39;a&#39; is initialized first, then &#39;b&#39;, despite the order in the list</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    Example<span class="op">(</span><span class="dt">int</span> val<span class="op">)</span> <span class="op">:</span> b<span class="op">(</span>val<span class="op">),</span> a<span class="op">(</span>b <span class="op">+</span> <span class="dv">1</span><span class="op">)</span> <span class="op">{}</span> </span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>In the example above, <code>a</code> will be initialized before
+<code>b</code>. Because <code>a</code> attempts to use <code>b</code>
+before <code>b</code> has been initialized, <code>a</code> will be
+assigned an indeterminate value, leading to undefined behavior. Modern
+compilers typically emit warnings (such as <code>-Wreorder</code> in GCC
+and Clang) when the order in the initializer list does not match the
+declaration order.</p>
+<h3 id="the-complete-construction-hierarchy">The Complete Construction
+Hierarchy</h3>
+<p>Member variable initialization is part of a broader, well-defined
+sequence that occurs whenever a C++ object is constructed:</p>
+<ol type="1">
+<li><strong>Virtual Base Classes:</strong> Virtual base class subobjects
+are initialized first, in depth-first, left-to-right order as they
+appear in the inheritance hierarchy.</li>
+<li><strong>Direct Non-Virtual Base Classes:</strong> Direct base
+classes are initialized next, in the order they appear in the
+base-specifier list of the derived class declaration.</li>
+<li><strong>Non-Static Data Members:</strong> Member variables are
+initialized in the order of their declaration within the class
+definition.</li>
+<li><strong>Constructor Body:</strong> Once all base classes and member
+variables are fully initialized, the code inside the constructor's body
+executes.</li>
+</ol>
+<h3
+id="in-class-member-initializers-default-member-initializers">In-Class
+Member Initializers (Default Member Initializers)</h3>
+<p>Introduced in C++11, in-class member initializers allow default
+values to be assigned directly at declaration:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Config <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> timeout <span class="op">=</span> <span class="dv">30</span><span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> retries <span class="op">=</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>These initializers do not alter the initialization order. Members are
+still initialized top-to-bottom as declared. If a constructor explicitly
+initializes a member in its initializer list, that explicit
+initialization overrides the in-class default.</p>
+<h3 id="destruction-order">Destruction Order</h3>
+<p>When an object's lifetime ends, destruction occurs in the exact
+reverse order of construction. Non-static member variables are destroyed
+first in the reverse order of their declaration, followed by the base
+classes in reverse order of their inheritance specification.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-member-variable-initialization-order';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

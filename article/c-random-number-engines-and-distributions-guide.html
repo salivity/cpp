@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Random Number Engines and Distributions Guide - cpp</title>
+    <meta name="description" content="Modern C++ provides a robust, mathematically sound framework for generating random values through the &lt;random&gt; library, introduced in C++11. This article explains the two-part architecture of standard random number generation in C++: pseudo-random number">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-random-number-engines-and-distributions-guide">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Random Number Engines and Distributions Guide - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-random-number-engines-and-distributions-guide" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern C++ provides a robust, mathematically sound framework for generating random values through the &lt;random&gt; library, introduced in C++11. This article explains the two-part architecture of standard random number generation in C++: pseudo-random number" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-random-number-engines-and-distributions-guide">C++ Random
+Number Engines and Distributions Guide</h1>
+<p>Modern C++ provides a robust, mathematically sound framework for
+generating random values through the <code>&lt;random&gt;</code>
+library, introduced in C++11. This article explains the two-part
+architecture of standard random number generation in C++: pseudo-random
+number engines like <code>std::mt19937</code> that produce sequences of
+raw bits, and probability distributions that transform those bits into
+meaningful ranges and patterns. You will learn how engines work, how
+distributions shape data, and how to combine them correctly in
+production code.</p>
+<h3 id="the-two-part-architecture-of-random">The Two-Part Architecture
+of <code>&lt;random&gt;</code></h3>
+<p>In legacy C and older C++, random numbers were generated using
+<code>rand()</code>, which combined generation and range scaling into an
+inflexible, low-entropy mechanism with noticeable statistical bias.
+Modern C++ decouples this task into two distinct components:</p>
+<ol type="1">
+<li><strong>Engines:</strong> State-driven state machines that generate
+a sequence of uniformly distributed, pseudo-random unsigned
+integers.</li>
+<li><strong>Distributions:</strong> Post-processors that accept raw
+integers from an engine and map them into specific ranges, types
+(integers or floating-point values), and statistical profiles (uniform,
+normal, Poisson, etc.).</li>
+</ol>
+<p>This separation ensures statistical fairness, portability across
+platforms, and flexibility across diverse simulation and gaming
+domains.</p>
+<h3 id="standard-random-number-engines">Standard Random Number
+Engines</h3>
+<p>A random number engine maintains an internal state and advances it
+each time an output is requested. C++ provides several predefined engine
+types:</p>
+<ul>
+<li><strong>Mersenne Twister (<code>std::mt19937</code> and
+<code>std::mt19937_64</code>):</strong> The most widely used standard
+engine. <code>std::mt19937</code> produces 32-bit integers, while
+<code>std::mt19937_64</code> produces 64-bit integers. It is based on
+the Mersenne Twister algorithm developed by Makoto Matsumoto and Takuji
+Nishimura. It features an exceptionally long period of <span
+class="math inline">\(2^{19937}-1\)</span> and passes most rigorous
+statistical randomness tests. It is fast and suitable for Monte Carlo
+simulations, games, and procedural generation, though it is not
+cryptographically secure.</li>
+<li><strong>Linear Congruential (<code>std::minstd_rand</code>,
+<code>std::minstd_rand0</code>):</strong> Extremely lightweight engines
+with small memory footprints. They use simple linear recurrence
+relationships. While fast, they have shorter periods and exhibit
+dimensional artifacts, making them unsuitable for precision
+simulations.</li>
+<li><strong>Subtract-with-Carry (<code>std::ranlux24</code>,
+<code>std::ranlux48</code>):</strong> Slower engines designed to discard
+intermediate states to eliminate correlations, used primarily in
+high-precision scientific computing.</li>
+<li><strong><code>std::default_random_engine</code>:</strong> An
+implementation-defined alias chosen by the compiler vendor. Because its
+underlying algorithm changes across platforms and compiler versions,
+explicit engines like <code>std::mt19937</code> are preferred for
+reproducible behavior.</li>
+</ul>
+<h3 id="seeding-engines-with-stdrandom_device">Seeding Engines with
+<code>std::random_device</code></h3>
+<p>Engines are deterministic; using the same initial seed will always
+generate the exact same sequence of values. To produce different
+sequences on each program run, engines are typically seeded using
+<code>std::random_device</code>.</p>
+<p><code>std::random_device</code> attempts to source non-deterministic
+entropy from the operating system or hardware (such as CPU thermal
+noise). Because reading from hardware entropy can be relatively slow,
+<code>std::random_device</code> should only be used to seed an engine
+once, rather than generating values directly.</p>
+<h3 id="standard-distributions">Standard Distributions</h3>
+<p>Distributions take the uniform integer output of an engine and shape
+it mathematically to match a specified statistical model without
+introducing modulo bias.</p>
+<ul>
+<li><strong>Uniform Distributions:</strong>
+<ul>
+<li><code>std::uniform_int_distribution&lt;T&gt;</code>: Produces
+integers within a closed interval <code>[a, b]</code> where every
+integer has an equal probability of occurrence.</li>
+<li><code>std::uniform_real_distribution&lt;T&gt;</code>: Produces
+floating-point numbers within a half-open interval
+<code>[a, b)</code>.</li>
+</ul></li>
+<li><strong>Bernoulli and Sampling Distributions:</strong>
+<ul>
+<li><code>std::bernoulli_distribution</code>: Returns a boolean with a
+specified probability <code>p</code> of returning
+<code>true</code>.</li>
+<li><code>std::binomial_distribution</code>: Models the number of
+successes in a sequence of independent trials.</li>
+</ul></li>
+<li><strong>Normal and Poisson Distributions:</strong>
+<ul>
+<li><code>std::normal_distribution&lt;T&gt;</code>: Generates
+floating-point values clustered around a mean (<span
+class="math inline">\(\mu\)</span>) with a specific standard deviation
+(<span class="math inline">\(\sigma\)</span>), forming a Gaussian bell
+curve.</li>
+<li><code>std::poisson_distribution&lt;T&gt;</code>: Models the
+frequency of independent events occurring within a fixed interval.</li>
+</ul></li>
+</ul>
+<h3 id="practical-implementation">Practical Implementation</h3>
+<p>The following example demonstrates how to seed an engine, generate
+raw values, and transform them using uniform integer and normal
+distributions:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;random&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Obtain a hardware entropy source for seeding</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>random_device rd<span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Initialize the standard 64-bit Mersenne Twister engine</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>mt19937_64 engine<span class="op">(</span>rd<span class="op">());</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Define a uniform distribution between 1 and 6 (e.g., a die roll)</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>uniform_int_distribution<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> dice_dist<span class="op">(</span><span class="dv">1</span><span class="op">,</span> <span class="dv">6</span><span class="op">);</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Define a normal distribution with mean 170.0 and std deviation 10.0</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>normal_distribution<span class="op">&lt;</span><span class="dt">double</span><span class="op">&gt;</span> height_dist<span class="op">(</span><span class="fl">170.0</span><span class="op">,</span> <span class="fl">10.0</span><span class="op">);</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Generate samples by passing the engine to the distribution</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Uniform Die Roll: &quot;</span> <span class="op">&lt;&lt;</span> dice_dist<span class="op">(</span>engine<span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Sampled Height: &quot;</span> <span class="op">&lt;&lt;</span> height_dist<span class="op">(</span>engine<span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="best-practices">Best Practices</h3>
+<ul>
+<li><strong>Instantiate engines sparingly:</strong> Re-initializing an
+engine inside a loop or function can re-seed the generator or cause it
+to repeat sequences. Keep engines long-lived (e.g., as member variables,
+thread-local variables, or by passing them by reference).</li>
+<li><strong>Thread safety:</strong> Standard random engines are not
+thread-safe. Multiple threads accessing the same engine instance must
+synchronize access or, preferably, use their own
+<code>thread_local std::mt19937</code> instances.</li>
+<li><strong>Cryptography requirements:</strong> Neither
+<code>std::mt19937</code> nor any other standard C++ engine is
+cryptographically secure. Their internal states can be determined after
+observing a small number of consecutive outputs. For security-sensitive
+applications (such as password generation, session tokens, or key
+derivation), platform-specific cryptographic APIs (like OpenSSL, Windows
+CNG, or <code>getrandom</code>) must be used instead.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-random-number-engines-and-distributions-guide';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

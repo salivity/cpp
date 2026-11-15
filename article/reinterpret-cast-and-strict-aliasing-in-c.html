@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>reinterpret_cast and Strict Aliasing in C++ - cpp</title>
+    <meta name="description" content="In C++, developers frequently assume that reinterpretcast grants permission to read an object through an arbitrary pointer type, but doing so often produces undefined behavior under the language&#39;s strict aliasing rules. While reinterpretcast permits you t">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/reinterpret-cast-and-strict-aliasing-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="reinterpret_cast and Strict Aliasing in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/reinterpret-cast-and-strict-aliasing-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, developers frequently assume that reinterpretcast grants permission to read an object through an arbitrary pointer type, but doing so often produces undefined behavior under the language&#39;s strict aliasing rules. While reinterpretcast permits you t" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="reinterpret_cast-and-strict-aliasing-in-c">reinterpret_cast and
+Strict Aliasing in C++</h1>
+<p>In C++, developers frequently assume that
+<code>reinterpret_cast</code> grants permission to read an object
+through an arbitrary pointer type, but doing so often produces undefined
+behavior under the language's strict aliasing rules. While
+<code>reinterpret_cast</code> permits you to convert between unrelated
+pointer and reference types at compile time, it does not exempt the
+resulting access from aliasing constraints. This article explains how
+<code>reinterpret_cast</code> interacts with the strict aliasing rule,
+why dereferencing such casts can lead to compiler miscompilations, and
+how to safely inspect an object's raw binary representation using modern
+C++ idioms.</p>
+<h2 id="understanding-the-mechanics-of-reinterpret_cast">Understanding
+the Mechanics of reinterpret_cast</h2>
+<p>The <code>reinterpret_cast</code> operator is a purely compile-time
+directive. It instructs the compiler to treat the bit representation of
+a pointer or reference as if it were a pointer or reference to a
+different type.</p>
+<p>Crucially, performing a <code>reinterpret_cast</code> from
+<code>TypeA*</code> to <code>TypeB*</code> does not convert the
+underlying object, nor does it create a new object of
+<code>TypeB</code>. It merely produces a new pointer value pointing to
+the original memory location. The cast itself is valid syntax and
+well-defined behavior; the problem arises entirely when that resulting
+pointer is dereferenced.</p>
+<h2 id="what-is-the-strict-aliasing-rule">What Is the Strict Aliasing
+Rule?</h2>
+<p>The strict aliasing rule is a core C++ assumption that allows
+optimizing compilers to generate efficient machine code. Under this
+rule, a compiler assumes that pointers of different, unrelated types
+cannot point to the same memory location (they cannot "alias" each
+other).</p>
+<p>Because the compiler assumes distinct types occupy distinct locations
+in memory, it is free to cache values in CPU registers, reorder reads
+and writes, and eliminate seemingly redundant memory operations.</p>
+<p>The C++ standard defines a narrow set of conditions under which an
+object can be legally accessed through a glvalue of a different
+type:</p>
+<ul>
+<li>The dynamic type matches the accessing type (or is a signed/unsigned
+variant of it).</li>
+<li>The accessing type is a base class of the dynamic type.</li>
+<li>The accessing type is a character type: <code>char</code>,
+<code>unsigned char</code>, or <code>std::byte</code>.</li>
+</ul>
+<h2 id="the-interaction-the-aliasing-violation">The Interaction: The
+Aliasing Violation</h2>
+<p>A common antipattern involves casting a pointer to re-read the
+underlying bytes as a different scalar type:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> f <span class="op">=</span> <span class="fl">5.0</span><span class="bu">f</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span><span class="op">*</span> i <span class="op">=</span> <span class="kw">reinterpret_cast</span><span class="op">&lt;</span><span class="dt">int</span><span class="op">*&gt;(&amp;</span>f<span class="op">);</span> <span class="co">// Well-formed: pointer conversion is allowed</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> value <span class="op">=</span> <span class="op">*</span>i<span class="op">;</span>                      <span class="co">// Undefined Behavior: strict aliasing violation</span></span></code></pre></div>
+<p>In this example, the assignment to <code>i</code> succeeds without
+error. However, dereferencing <code>*i</code> violates strict aliasing
+because <code>int</code> and <code>float</code> are completely unrelated
+types.</p>
+<p>Because the compiler relies on strict aliasing for optimization, it
+assumes that writes to <code>f</code> cannot affect reads from
+<code>i</code>. In optimized builds (<code>-O2</code> or
+<code>-O3</code> in GCC and Clang), the compiler may reorder
+instructions, read uninitialized memory, or eliminate code paths
+entirely, leading to subtle and unpredictable runtime bugs.</p>
+<h2 id="permissible-uses-of-reinterpret_cast">Permissible Uses of
+reinterpret_cast</h2>
+<p>Dereferencing a <code>reinterpret_cast</code> pointer is not always
+undefined behavior. It is valid under specific, standard-mandated
+scenarios:</p>
+<ol type="1">
+<li><strong>Round-Trip Conversions:</strong> You may cast a pointer of
+type <code>A*</code> to <code>B*</code> and then back to
+<code>A*</code>. Provided <code>B</code> has alignment requirements that
+are not stricter than <code>A</code>, the original pointer value is
+preserved, and dereferencing the restored <code>A*</code> pointer is
+completely safe.</li>
+<li><strong>Byte-Level Inspection:</strong> The standard explicitly
+permits aliasing through <code>char*</code>,
+<code>unsigned char*</code>, and <code>std::byte*</code>. Casting any
+object pointer to these types allows you to read its raw byte
+representation:</li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> f <span class="op">=</span> <span class="fl">5.0</span><span class="bu">f</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> byte_ptr <span class="op">=</span> <span class="kw">reinterpret_cast</span><span class="op">&lt;</span><span class="at">const</span> <span class="bu">std::</span>byte<span class="op">*&gt;(&amp;</span>f<span class="op">);</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>byte first_byte <span class="op">=</span> <span class="op">*</span>byte_ptr<span class="op">;</span> <span class="co">// Well-defined: byte-type aliasing is permitted</span></span></code></pre></div>
+<h2 id="safe-alternatives-for-type-punning">Safe Alternatives for Type
+Punning</h2>
+<p>If you need to interpret the bit pattern of one type as another (type
+punning), you must avoid dereferencing <code>reinterpret_cast</code>
+pointers. Modern C++ provides safe, defined mechanisms for this
+purpose.</p>
+<h3 id="stdbit_cast-c20">std::bit_cast (C++20)</h3>
+<p>In C++20 and later, <code>std::bit_cast</code> (found in the
+<code>&lt;bit&gt;</code> header) is the preferred method for bit
+reinterpretation. It operates at compile time when possible and avoids
+aliasing violations altogether:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;bit&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> f <span class="op">=</span> <span class="fl">5.0</span><span class="bu">f</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> i <span class="op">=</span> <span class="bu">std::</span>bit_cast<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span>f<span class="op">);</span> <span class="co">// Safe, standard-compliant, and can be constexpr</span></span></code></pre></div>
+<p><code>std::bit_cast</code> requires that both types have the exact
+same size and are trivially copyable.</p>
+<h3 id="stdmemcpy">std::memcpy</h3>
+<p>For codebases using C++17 or earlier, copying the bytes via
+<code>std::memcpy</code> is the standard-compliant technique:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstring&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="dt">float</span> f <span class="op">=</span> <span class="fl">5.0</span><span class="bu">f</span><span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> i<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="kw">static_assert</span><span class="op">(</span><span class="kw">sizeof</span><span class="op">(</span>f<span class="op">)</span> <span class="op">==</span> <span class="kw">sizeof</span><span class="op">(</span>i<span class="op">));</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>memcpy<span class="op">(&amp;</span>i<span class="op">,</span> <span class="op">&amp;</span>f<span class="op">,</span> <span class="kw">sizeof</span><span class="op">(</span>f<span class="op">));</span> <span class="co">// Well-defined</span></span></code></pre></div>
+<p>Modern optimizing compilers recognize <code>std::memcpy</code>
+patterns involving small, trivially copyable types and replace the
+library call with a direct register transfer, generating assembly that
+is identical to an unchecked cast without triggering undefined
+behavior.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/reinterpret-cast-and-strict-aliasing-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

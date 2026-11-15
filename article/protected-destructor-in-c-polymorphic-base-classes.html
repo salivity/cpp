@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protected Destructor in C++ Polymorphic Base Classes - cpp</title>
+    <meta name="description" content="In C++, base classes designed for polymorphic use require careful lifecycle management to prevent memory leaks and undefined behavior. While the conventional approach is to declare a public virtual destructor, an alternative design pattern uses a protecte">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/protected-destructor-in-c-polymorphic-base-classes">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Protected Destructor in C++ Polymorphic Base Classes - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/protected-destructor-in-c-polymorphic-base-classes" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, base classes designed for polymorphic use require careful lifecycle management to prevent memory leaks and undefined behavior. While the conventional approach is to declare a public virtual destructor, an alternative design pattern uses a protecte" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="protected-destructor-in-c-polymorphic-base-classes">Protected
+Destructor in C++ Polymorphic Base Classes</h1>
+<p>In C++, base classes designed for polymorphic use require careful
+lifecycle management to prevent memory leaks and undefined behavior.
+While the conventional approach is to declare a public virtual
+destructor, an alternative design pattern uses a protected, non-virtual
+destructor. This article examines the purpose of declaring a protected
+destructor on polymorphic base classes, how it enforces safe memory
+management at compile time, and why it is chosen over a public virtual
+destructor in specific performance-critical architectures.</p>
+<h3 id="the-problem-of-polymorphic-deletion">The Problem of Polymorphic
+Deletion</h3>
+<p>When a class is used polymorphically, code typically interacts with
+derived class instances through base class pointers or references. If a
+client attempts to delete an object through a pointer to a base class
+that has a public, non-virtual destructor:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>Base<span class="op">*</span> obj <span class="op">=</span> <span class="kw">new</span> Derived<span class="op">();</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">delete</span> obj<span class="op">;</span> <span class="co">// Undefined behavior if Base::~Base() is public and non-virtual</span></span></code></pre></div>
+<p>Under the C++ standard, deleting a derived object through a pointer
+to a base class without a virtual destructor results in undefined
+behavior. The derived class's destructor is never invoked, leading to
+resource leaks and incomplete cleanup.</p>
+<h3 id="how-a-protected-destructor-solves-the-problem">How a Protected
+Destructor Solves the Problem</h3>
+<p>Declaring a base class destructor as <code>protected</code> prevents
+unauthorized deletion through a base class pointer:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Base <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">protected</span><span class="op">:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">~</span>Base<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">~</span>Derived<span class="op">()</span> <span class="op">=</span> <span class="cf">default</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Because the destructor is <code>protected</code>, external code
+cannot invoke it directly:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Base<span class="op">*</span> ptr <span class="op">=</span> <span class="kw">new</span> Derived<span class="op">();</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">delete</span> ptr<span class="op">;</span> <span class="co">// Compile-time error: &#39;Base::~Base()&#39; is protected</span></span></code></pre></div>
+<p>The compiler rejects the <code>delete ptr;</code> statement at
+compile time, eliminating the possibility of accidentally triggering
+undefined behavior.</p>
+<p>At the same time, derived classes maintain full access to the base
+destructor. When a <code>Derived</code> instance is destroyed
+directly—either on the stack or via <code>delete derivedPtr;</code>—the
+derived destructor executes and automatically invokes the protected
+<code>Base::~Base()</code> as part of normal teardown.</p>
+<h3
+id="why-use-a-protected-destructor-instead-of-a-virtual-destructor">Why
+Use a Protected Destructor Instead of a Virtual Destructor</h3>
+<p>A public virtual destructor also prevents undefined behavior during
+polymorphic deletion, but it introduces trade-offs:</p>
+<ol type="1">
+<li><strong>Elimination of vtable Overhead:</strong> A virtual
+destructor requires the class to maintain a virtual method table pointer
+(<code>vptr</code>), which adds a memory overhead (typically 8 bytes on
+a 64-bit system) per object. If a class contains no other virtual
+functions, adding a virtual destructor forces the compiler to introduce
+dynamic dispatch mechanics.</li>
+<li><strong>Intentional Ownership Semantics:</strong> A protected
+destructor explicitly documents that the base class does not own the
+object lifecycle. It signals to users of the class that dynamic
+ownership should not be managed polymorphically through base
+pointers.</li>
+<li><strong>Optimized for Mixins and CRTP:</strong> In static
+polymorphism, template mixins, and the Curiously Recurring Template
+Pattern (CRTP), objects are manipulated through base interfaces without
+dynamic dispatch. A protected destructor guarantees that these mixins
+remain lightweight and cannot be mistakenly deleted as independent
+entities.</li>
+</ol>
+<h3 id="sutters-rule-for-c-destructors">Sutter’s Rule for C++
+Destructors</h3>
+<p>This technique aligns with Herb Sutter's classic C++ design
+guideline: <strong>"Base class destructors should be either public and
+virtual, or protected and non-virtual."</strong></p>
+<ul>
+<li>Use a <strong>public virtual destructor</strong> when base class
+pointers are intended to manage ownership and deletion polymorphically
+(e.g., <code>std::unique_ptr&lt;Base&gt;</code>).</li>
+<li>Use a <strong>protected non-virtual destructor</strong> when the
+base class defines an interface or shared behavior, but ownership and
+destruction are strictly the responsibility of the derived class.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/protected-destructor-in-c-polymorphic-base-classes';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

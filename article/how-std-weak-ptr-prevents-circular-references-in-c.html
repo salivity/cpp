@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::weak_ptr Prevents Circular References in C++ - cpp</title>
+    <meta name="description" content="In modern C++, circular references occur when two or more std::sharedptr instances hold ownership of each other, creating a cycle that prevents reference counts from ever reaching zero and causing severe memory leaks. This article explains how std::weakpt">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-weak-ptr-prevents-circular-references-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::weak_ptr Prevents Circular References in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-weak-ptr-prevents-circular-references-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, circular references occur when two or more std::sharedptr instances hold ownership of each other, creating a cycle that prevents reference counts from ever reaching zero and causing severe memory leaks. This article explains how std::weakpt" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdweak_ptr-prevents-circular-references-in-c">How
+std::weak_ptr Prevents Circular References in C++</h1>
+<p>In modern C++, circular references occur when two or more
+<code>std::shared_ptr</code> instances hold ownership of each other,
+creating a cycle that prevents reference counts from ever reaching zero
+and causing severe memory leaks. This article explains how
+<code>std::weak_ptr</code> resolves this issue by acting as a non-owning
+observer. By referencing a resource without increasing its strong
+reference count, <code>std::weak_ptr</code> breaks cyclic dependencies,
+ensuring that objects are automatically and properly destructed when
+they go out of scope.</p>
+<h3 id="the-circular-reference-problem">The Circular Reference
+Problem</h3>
+<p>A <code>std::shared_ptr</code> manages the lifetime of a dynamically
+allocated object through reference counting. Every time a new
+<code>std::shared_ptr</code> copies an existing one, the internal strong
+reference count increments by one. When a <code>std::shared_ptr</code>
+goes out of scope or is reset, the count decrements. The managed object
+is destroyed only when the strong count drops to zero.</p>
+<p>A circular reference arises when two objects hold
+<code>std::shared_ptr</code> references to one another:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> NodeB<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> NodeA <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>shared_ptr<span class="op">&lt;</span>NodeB<span class="op">&gt;</span> b_ptr<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">~</span>NodeA<span class="op">()</span> <span class="op">{</span> <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;NodeA destroyed</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> NodeB <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>shared_ptr<span class="op">&lt;</span>NodeA<span class="op">&gt;</span> a_ptr<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">~</span>NodeB<span class="op">()</span> <span class="op">{</span> <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;NodeB destroyed</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>If <code>NodeA</code> points to <code>NodeB</code> and
+<code>NodeB</code> points to <code>NodeA</code>, both nodes maintain a
+reference count of at least one, even after all external pointers
+pointing to them go out of scope. Because neither count can ever reach
+zero, neither destructor is invoked, resulting in a memory leak.</p>
+<h3 id="how-stdweak_ptr-breaks-the-cycle">How std::weak_ptr Breaks the
+Cycle</h3>
+<p>A <code>std::weak_ptr</code> solves this dilemma by providing access
+to an object managed by a <code>std::shared_ptr</code> without
+participating in ownership.</p>
+<p>Key characteristics of <code>std::weak_ptr</code>:</p>
+<ul>
+<li><strong>No Strong Count Increment:</strong> Pointing to an object
+with a <code>std::weak_ptr</code> modifies only the internal weak
+reference count, leaving the strong reference count unchanged.</li>
+<li><strong>Non-Owning Reference:</strong> Because it does not own the
+resource, it does not prevent the object from being deleted when all
+<code>std::shared_ptr</code> instances are destroyed.</li>
+<li><strong>Dangling Pointer Safety:</strong> Unlike raw pointers, a
+<code>std::weak_ptr</code> tracks whether the pointed-to object is still
+alive, preventing undefined behavior from accessing deallocated
+memory.</li>
+</ul>
+<h3 id="resolving-the-cycle-in-practice">Resolving the Cycle in
+Practice</h3>
+<p>To break the dependency cycle, change one of the owning references to
+a <code>std::weak_ptr</code>. In hierarchical relationships, the
+standard design pattern is for parents to own their children via
+<code>std::shared_ptr</code>, while children reference their parents via
+<code>std::weak_ptr</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;memory&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> NodeB<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> NodeA <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>shared_ptr<span class="op">&lt;</span>NodeB<span class="op">&gt;</span> b_ptr<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">~</span>NodeA<span class="op">()</span> <span class="op">{</span> <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;NodeA destroyed</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> NodeB <span class="op">{</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>weak_ptr<span class="op">&lt;</span>NodeA<span class="op">&gt;</span> a_ptr<span class="op">;</span> <span class="co">// Breaks the cycle</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">~</span>NodeB<span class="op">()</span> <span class="op">{</span> <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;NodeB destroyed</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span> <span class="op">}</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> a <span class="op">=</span> <span class="bu">std::</span>make_shared<span class="op">&lt;</span>NodeA<span class="op">&gt;();</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> b <span class="op">=</span> <span class="bu">std::</span>make_shared<span class="op">&lt;</span>NodeB<span class="op">&gt;();</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    a<span class="op">-&gt;</span>b_ptr <span class="op">=</span> b<span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    b<span class="op">-&gt;</span>a_ptr <span class="op">=</span> a<span class="op">;</span> <span class="co">// Weak reference does not increase &#39;a&#39; reference count</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// Both NodeA and NodeB destructors execute properly</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>When <code>main()</code> exits, <code>a</code> goes out of scope.
+Because <code>b-&gt;a_ptr</code> is weak, <code>a</code>'s strong
+reference count drops to zero, and <code>NodeA</code> is destroyed. This
+in turn destroys <code>a-&gt;b_ptr</code>, reducing <code>b</code>'s
+strong count to zero and allowing <code>NodeB</code> to be cleanly
+deallocated.</p>
+<h3 id="safely-accessing-a-stdweak_ptr">Safely Accessing a
+std::weak_ptr</h3>
+<p>Because a <code>std::weak_ptr</code> does not guarantee the existence
+of the object, it cannot be dereferenced directly using <code>*</code>
+or <code>-&gt;</code>. Instead, it must be temporarily converted back
+into a <code>std::shared_ptr</code> using the <code>.lock()</code>
+method:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span><span class="kw">auto</span> sharedA <span class="op">=</span> b<span class="op">-&gt;</span>a_ptr<span class="op">.</span>lock<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">// The object is guaranteed to exist for the lifetime of sharedA</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;NodeA is alive and accessible.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// The object has already been destroyed</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;NodeA has expired.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The <code>.lock()</code> operation is thread-safe. If the object
+still exists, it returns an active <code>std::shared_ptr</code> that
+increments the strong count, preventing destruction while the operation
+takes place. If the object has been destroyed, it returns an empty
+<code>std::shared_ptr</code> equivalent to <code>nullptr</code>.
+Alternatively, the <code>.expired()</code> method can be used to perform
+a quick boolean check to verify whether the underlying object has been
+deallocated.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-std-weak-ptr-prevents-circular-references-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

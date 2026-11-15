@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raw String Literals for C++ Regular Expressions - cpp</title>
+    <meta name="description" content="Raw string literals in C++ simplify the construction and maintenance of regular expressions by bypassing standard escape sequence processing. Introduced in C++11, their primary function when paired with the std::regex library is to eliminate the need for">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/raw-string-literals-for-c-regular-expressions">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Raw String Literals for C++ Regular Expressions - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/raw-string-literals-for-c-regular-expressions" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Raw string literals in C++ simplify the construction and maintenance of regular expressions by bypassing standard escape sequence processing. Introduced in C++11, their primary function when paired with the std::regex library is to eliminate the need for" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="raw-string-literals-for-c-regular-expressions">Raw String
+Literals for C++ Regular Expressions</h1>
+<p>Raw string literals in C++ simplify the construction and maintenance
+of regular expressions by bypassing standard escape sequence processing.
+Introduced in C++11, their primary function when paired with the
+<code>std::regex</code> library is to eliminate the need for redundant
+backslashes—a problem commonly known as the "leaning toothpick
+syndrome"—thereby making complex patterns significantly easier to read,
+write, and debug.</p>
+<h3 id="the-problem-backslash-collision">The Problem: Backslash
+Collision</h3>
+<p>Both standard C++ string literals and regular expression engines use
+the backslash (<code>\</code>) as an escape character. In standard C++
+strings, an escape sequence like <code>\n</code> represents a newline,
+and a literal backslash must be written as <code>\\</code>.</p>
+<p>Simultaneously, regular expressions use backslashes to denote special
+token classes (such as <code>\d</code> for digits or <code>\s</code> for
+whitespace) or to escape regex metacharacters (such as <code>\.</code>
+to match a literal dot). When using standard string literals, every
+backslash intended for the regex engine must itself be escaped for the
+C++ compiler:</p>
+<ul>
+<li>To pass <code>\d</code> to the regex engine, you must write
+<code>"\\d"</code>.</li>
+<li>To match a single literal backslash in regex, the regex engine
+requires <code>\\</code>. To produce those two backslashes via standard
+string literals, you must write <code>"\\\\"</code>.</li>
+</ul>
+<p>This double-escaping obscures the intent of the pattern and
+dramatically increases the likelihood of syntax errors.</p>
+<h3 id="the-solution-raw-string-literals">The Solution: Raw String
+Literals</h3>
+<p>A raw string literal tells the C++ compiler to interpret characters
+exactly as they appear, ignoring standard escape sequences.</p>
+<p>The syntax begins with <code>R"(</code> and ends with
+<code>)"</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="st">R&quot;(</span><span class="vs">pattern</span><span class="st">)&quot;</span></span></code></pre></div>
+<p>Within these delimiters, backslashes lose their special meaning to
+the C++ compiler and are passed directly to the receiving component,
+such as <code>std::regex</code>.</p>
+<h3 id="direct-comparison">Direct Comparison</h3>
+<p>Consider matching a basic file path or a digit-word sequence:</p>
+<p><strong>Using Standard String Literals:</strong></p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;regex&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches: digits, whitespace, then a word</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>regex pattern<span class="op">(</span><span class="st">&quot;</span><span class="sc">\\</span><span class="st">d+</span><span class="sc">\\</span><span class="st">s+[a-zA-Z]+&quot;</span><span class="op">);</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches: literal Windows path separator &#39;C:\test&#39;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>regex path_pattern<span class="op">(</span><span class="st">&quot;C:</span><span class="sc">\\\\</span><span class="st">test&quot;</span><span class="op">);</span></span></code></pre></div>
+<p><strong>Using Raw String Literals:</strong></p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;regex&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches: digits, whitespace, then a word</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>regex pattern<span class="op">(</span><span class="st">R&quot;(</span><span class="vs">\d+\s+[a-zA-Z]+</span><span class="st">)&quot;</span><span class="op">);</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches: literal Windows path separator &#39;C:\test&#39;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>regex path_pattern<span class="op">(</span><span class="st">R&quot;(</span><span class="vs">C:\\test</span><span class="st">)&quot;</span><span class="op">);</span></span></code></pre></div>
+<p>In the raw string version, the regex pattern in the C++ source code
+matches the exact syntax expected by standard regex documentation and
+testing tools.</p>
+<h3 id="handling-delimiter-collisions">Handling Delimiter
+Collisions</h3>
+<p>If a regular expression contains the sequence <code>)"</code>, it
+prematurely terminates the standard raw string literal. C++ resolves
+this by allowing custom delimiters between the <code>R"</code> prefix
+and the opening parenthesis, provided the exact same delimiter appears
+between the closing parenthesis and the trailing quote:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Matches a closing parenthesis followed by quotes: )&quot;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>regex pattern<span class="op">(</span><span class="st">R&quot;custom_delim(</span><span class="vs">\)&quot;</span><span class="st">)custom_delim&quot;</span><span class="op">);</span></span></code></pre></div>
+<h3 id="summary-of-benefits">Summary of Benefits</h3>
+<ol type="1">
+<li><strong>Readability:</strong> Regular expressions written as raw
+string literals match the canonical syntax used across different
+programming languages and regex testing tools.</li>
+<li><strong>Error Reduction:</strong> Developers do not need to track
+two layers of escaping (compiler level vs. regex engine level).</li>
+<li><strong>Multi-line Support:</strong> Raw string literals naturally
+support line breaks, allowing large regular expressions to be formatted
+cleanly across multiple lines.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/raw-string-literals-for-c-regular-expressions';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

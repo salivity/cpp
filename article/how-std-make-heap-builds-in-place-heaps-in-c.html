@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::make_heap Builds In-Place Heaps in C++ - cpp</title>
+    <meta name="description" content="The std::makeheap algorithm in C++ converts a standard range into a binary max-heap directly within its existing memory buffer, achieving optimal $O(N)$ time complexity. This article examines the mechanics behind this in-place transformation, detailing ho">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-make-heap-builds-in-place-heaps-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::make_heap Builds In-Place Heaps in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-make-heap-builds-in-place-heaps-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The std::makeheap algorithm in C++ converts a standard range into a binary max-heap directly within its existing memory buffer, achieving optimal $O(N)$ time complexity. This article examines the mechanics behind this in-place transformation, detailing ho" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdmake_heap-builds-in-place-heaps-in-c">How std::make_heap
+Builds In-Place Heaps in C++</h1>
+<p>The <code>std::make_heap</code> algorithm in C++ converts a standard
+range into a binary max-heap directly within its existing memory buffer,
+achieving optimal <span class="math inline">\(O(N)\)</span> time
+complexity. This article examines the mechanics behind this in-place
+transformation, detailing how random-access ranges represent implicit
+binary trees, how Floyd's heap construction algorithm works via
+sift-down operations, and why this approach avoids heap allocations
+while maintaining strict performance guarantees.</p>
+<h3 id="implicit-binary-trees-in-flat-memory">Implicit Binary Trees in
+Flat Memory</h3>
+<p><code>std::make_heap</code> requires random-access iterators (such as
+those provided by <code>std::vector</code> or raw arrays). It treats the
+contiguous sequence as a complete binary tree without introducing any
+pointer-based tree nodes.</p>
+<p>For any element at zero-based index <code>i</code>:</p>
+<ul>
+<li>The left child is located at <code>2 * i + 1</code>.</li>
+<li>The right child is located at <code>2 * i + 2</code>.</li>
+<li>The parent is located at <code>(i - 1) / 2</code>.</li>
+</ul>
+<p>By relying on this mathematical indexing scheme,
+<code>std::make_heap</code> restructures the elements in-place by
+swapping values within the existing range, eliminating dynamic memory
+allocation overhead.</p>
+<h3 id="floyds-algorithm-and-the-sift-down-operation">Floyd’s Algorithm
+and the Sift-Down Operation</h3>
+<p>Rather than building the heap by inserting elements one-by-one—which
+would take <span class="math inline">\(O(N \log N)\)</span>
+time—<code>std::make_heap</code> employs Floyd's linear-time heap
+construction algorithm (often called bottom-up heapification).</p>
+<p>The algorithm begins at the last non-leaf node in the sequence and
+iterates backward to the root (index 0). For an array of size <span
+class="math inline">\(n\)</span>, all elements from index <span
+class="math inline">\(n / 2\)</span> to <span class="math inline">\(n -
+1\)</span> are leaves. Leaves are trivially valid heaps of size one, so
+the algorithm skips them and begins at index <span
+class="math inline">\((n / 2) - 1\)</span>.</p>
+<p>At each step, the algorithm performs a <strong>sift-down</strong> (or
+<code>heapify-down</code>) routine:</p>
+<ol type="1">
+<li>Compare the value of the current parent node with its left and right
+children.</li>
+<li>If the parent satisfies the heap property (greater than or equal to
+both children in a max-heap), the sift-down terminates for that
+node.</li>
+<li>If one or both children violate the heap property, the parent is
+swapped with the larger child.</li>
+<li>The process repeats recursively or iteratively down the tree along
+that branch until the element reaches a valid position or becomes a
+leaf.</li>
+</ol>
+<h3 id="mathematical-efficiency-why-the-process-is-on">Mathematical
+Efficiency: Why the Process Is <span
+class="math inline">\(O(N)\)</span></h3>
+<p>A naive analysis might suggest that calling sift-down on <span
+class="math inline">\(N/2\)</span> nodes yields <span
+class="math inline">\(O(N \log N)\)</span> operations because tree
+height is <span class="math inline">\(\log N\)</span>. However, the
+height of most subtrees during bottom-up construction is small:</p>
+<ul>
+<li>Approximately half of all nodes are leaves (height 0), requiring 0
+operations.</li>
+<li>One quarter of nodes are one level above the leaves (height 1),
+requiring at most 1 swap.</li>
+<li>One eighth of nodes are at height 2, requiring at most 2 swaps.</li>
+</ul>
+<p>The total number of swaps is bounded by the summation:</p>
+<p><span class="math display">\[\sum_{h=1}^{\log N} \frac{N}{2^{h+1}}
+\times h = O(N)\]</span></p>
+<p>This structural distribution ensures that <code>std::make_heap</code>
+performs at most <span class="math inline">\(3N\)</span> comparisons and
+far fewer moves, guaranteeing strictly linear <span
+class="math inline">\(O(N)\)</span> execution time.</p>
+<h3 id="custom-comparators-and-stability">Custom Comparators and
+Stability</h3>
+<p>By default, <code>std::make_heap</code> uses
+<code>operator&lt;</code> to build a max-heap, positioning the largest
+element at the root (index 0). An overloaded version accepts a custom
+binary predicate, allowing developers to create min-heaps by passing
+<code>std::greater&lt;T&gt;</code> or custom ordering rules.</p>
+<p>Like most in-place heap implementations, <code>std::make_heap</code>
+is not stable; relative orders of equivalent elements are not guaranteed
+to be preserved during sift-down swaps. Once completed, the range
+satisfies the binary heap invariant, enabling constant-time maximum
+access at the front and logarithmic updates via
+<code>std::push_heap</code> and <code>std::pop_heap</code>.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-std-make-heap-builds-in-place-heaps-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

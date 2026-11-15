@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::move_if_noexcept in C++ Container Reallocation - cpp</title>
+    <meta name="description" content="In C++, dynamic containers such as std::vector frequently need to resize and relocate their elements to new memory locations. This article explains the critical role of std::moveifnoexcept during dynamic container reallocation, focusing on how it balances">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-move-if-noexcept-in-c-container-reallocation">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::move_if_noexcept in C++ Container Reallocation - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-move-if-noexcept-in-c-container-reallocation" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, dynamic containers such as std::vector frequently need to resize and relocate their elements to new memory locations. This article explains the critical role of std::moveifnoexcept during dynamic container reallocation, focusing on how it balances" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="stdmove_if_noexcept-in-c-container-reallocation">std::move_if_noexcept
+in C++ Container Reallocation</h1>
+<p>In C++, dynamic containers such as <code>std::vector</code>
+frequently need to resize and relocate their elements to new memory
+locations. This article explains the critical role of
+<code>std::move_if_noexcept</code> during dynamic container
+reallocation, focusing on how it balances high-performance move
+semantics with the strong exception safety guarantee, and why properly
+marking move constructors as <code>noexcept</code> is vital for
+application performance.</p>
+<h3 id="the-challenge-of-container-growth-and-exception-safety">The
+Challenge of Container Growth and Exception Safety</h3>
+<p>When a <code>std::vector</code> reaches capacity, adding a new
+element requires reallocation. The container performs three steps:</p>
+<ol type="1">
+<li>Allocates a larger contiguous block of memory.</li>
+<li>Transfers existing elements from the old storage to the new
+storage.</li>
+<li>Destroys the old elements and deallocates the old memory block.</li>
+</ol>
+<p>To satisfy the <strong>strong exception safety guarantee</strong>,
+dynamic containers must ensure that if an operation fails due to an
+exception, the state of the program remains exactly as it was prior to
+the call.</p>
+<p>If elements are moved to the new buffer using unconditional
+<code>std::move</code>, a problem arises if an element's move
+constructor throws an exception halfway through the reallocation
+process. Because the source elements in the original buffer have already
+been modified (moved from), they cannot be reliably restored to their
+original state. The original buffer is corrupted, and the strong
+exception guarantee is broken.</p>
+<p>Conversely, if the elements are copied, any exception thrown during
+copying leaves the original elements intact. The container can simply
+discard the partially populated new buffer, leaving the original
+container completely unchanged. However, copying introduces significant
+performance overhead compared to moving.</p>
+<h3 id="the-role-of-stdmove_if_noexcept">The Role of
+<code>std::move_if_noexcept</code></h3>
+<p>Introduced in C++11, <code>std::move_if_noexcept</code> bridges the
+gap between performance and safety. It acts as a conditional cast:</p>
+<ul>
+<li><strong>Returns an rvalue reference
+(<code>T&amp;&amp;</code>):</strong> If the type's move constructor is
+declared <code>noexcept</code>, or if the type is move-only (not
+copy-constructible).</li>
+<li><strong>Returns a const lvalue reference
+(<code>const T&amp;</code>):</strong> If the type's move constructor
+might throw (<code>noexcept(false)</code>) and the type can be
+copied.</li>
+</ul>
+<p>During reallocation, containers invoke
+<code>std::move_if_noexcept</code> on each element being
+transferred:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Conceptual reallocation transfer loop inside std::vector</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">size_t</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> current_size<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    allocator_traits<span class="op">::</span>construct<span class="op">(</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        alloc<span class="op">,</span> </span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        new_storage <span class="op">+</span> i<span class="op">,</span> </span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>move_if_noexcept<span class="op">(</span>old_storage<span class="op">[</span>i<span class="op">])</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">);</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="decision-logic-breakdown">Decision Logic Breakdown</h3>
+<p>The helper evaluates the type using traits equivalent to:</p>
+<ol type="1">
+<li><strong><code>noexcept</code> Move Constructor Available:</strong>
+The type promises never to throw when moved. The container safely casts
+to an rvalue reference, triggering the fast move constructor.</li>
+<li><strong>Potentially Throwing Move Constructor + Copyable:</strong>
+The container falls back to copy construction. If an exception occurs,
+the original elements remain pristine, preserving the strong exception
+safety guarantee.</li>
+<li><strong>Move-Only Types (e.g.,
+<code>std::unique_ptr</code>):</strong> Even if the move constructor can
+throw, the container has no choice but to move because copying is
+deleted. In this scenario, the strong exception safety guarantee cannot
+be maintained if an exception is thrown.</li>
+</ol>
+<h3 id="implications-for-developers">Implications for Developers</h3>
+<p>Dynamic containers rely entirely on compile-time inspection of your
+types. If a user-defined class has a move constructor that does not
+throw, but omits the <code>noexcept</code> specifier, standard
+containers will treat it as potentially throwing. As a result,
+containers like <code>std::vector</code> will silently fall back to
+expensive deep copies during every reallocation.</p>
+<p>To ensure optimal reallocation performance in dynamic containers,
+always mark move constructors and move assignment operators as
+<code>noexcept</code> whenever they do not throw exceptions.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/std-move-if-noexcept-in-c-container-reallocation';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

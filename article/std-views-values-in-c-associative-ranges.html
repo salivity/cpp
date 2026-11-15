@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::views::values in C++ Associative Ranges - cpp</title>
+    <meta name="description" content="Introduced in C++20, std::views::values is a range adaptor that extracts the second element from pair-like or tuple-like elements across a range, making it particularly useful for associative containers like std::map and std::unorderedmap. This article co">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-views-values-in-c-associative-ranges">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::views::values in C++ Associative Ranges - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-views-values-in-c-associative-ranges" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++20, std::views::values is a range adaptor that extracts the second element from pair-like or tuple-like elements across a range, making it particularly useful for associative containers like std::map and std::unorderedmap. This article co" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stdviewsvalues-in-c-associative-ranges">std::views::values in
+C++ Associative Ranges</h1>
+<p>Introduced in C++20, <code>std::views::values</code> is a range
+adaptor that extracts the second element from pair-like or tuple-like
+elements across a range, making it particularly useful for associative
+containers like <code>std::map</code> and
+<code>std::unordered_map</code>. This article covers the primary role of
+<code>std::views::values</code>, how it eliminates boilerplate code, its
+lazy evaluation semantics, and how it enables clean range-based
+pipelines when working with key-value data.</p>
+<h3 id="the-core-role-of-stdviewsvalues">The Core Role of
+std::views::values</h3>
+<p>Associative containers store their elements as pairs—typically
+<code>std::pair&lt;const Key, Value&gt;</code>. Prior to modern range
+adaptors, iterating exclusively over the values stored in a map required
+explicitly unpacking the pair using structured bindings or accessing the
+<code>.second</code> member manually:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>map<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">,</span> <span class="dt">int</span><span class="op">&gt;</span> scores <span class="op">=</span> <span class="op">{{</span><span class="st">&quot;Alice&quot;</span><span class="op">,</span> <span class="dv">95</span><span class="op">},</span> <span class="op">{</span><span class="st">&quot;Bob&quot;</span><span class="op">,</span> <span class="dv">88</span><span class="op">},</span> <span class="op">{</span><span class="st">&quot;Charlie&quot;</span><span class="op">,</span> <span class="dv">92</span><span class="op">}};</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Traditional approach</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="at">const</span> <span class="kw">auto</span><span class="op">&amp;</span> <span class="op">[</span>name<span class="op">,</span> score<span class="op">]</span> <span class="op">:</span> scores<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// &#39;name&#39; is declared even if unused</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> score <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The role of <code>std::views::values</code> is to project a range of
+key-value pairs into a view containing only the values. It applies
+<code>std::get&lt;1&gt;</code> conceptually to each element in the input
+range, discarding the key from downstream operations.</p>
+<h3 id="clean-integration-with-range-pipelines">Clean Integration with
+Range Pipelines</h3>
+<p>Because <code>std::views::values</code> returns a range adaptor
+closure, it can be composed using the pipe (<code>|</code>) operator.
+This allows you to chain it with other adaptors, such as
+<code>std::views::filter</code> or <code>std::views::transform</code>,
+without needing to account for the key component in subsequent
+operations.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;map&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;ranges&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;numeric&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>map<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">,</span> <span class="dt">int</span><span class="op">&gt;</span> inventory <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span><span class="st">&quot;Apples&quot;</span><span class="op">,</span> <span class="dv">50</span><span class="op">},</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span><span class="st">&quot;Oranges&quot;</span><span class="op">,</span> <span class="dv">0</span><span class="op">},</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span><span class="st">&quot;Bananas&quot;</span><span class="op">,</span> <span class="dv">25</span><span class="op">},</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="op">{</span><span class="st">&quot;Grapes&quot;</span><span class="op">,</span> <span class="dv">0</span><span class="op">}</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Filter and process only the quantities (values)</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> in_stock <span class="op">=</span> inventory </span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>                  <span class="op">|</span> <span class="bu">std::</span>views::values </span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>                  <span class="op">|</span> <span class="bu">std::</span>views::filter<span class="op">([](</span><span class="dt">int</span> count<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> count <span class="op">&gt;</span> <span class="dv">0</span><span class="op">;</span> <span class="op">});</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> count <span class="op">:</span> in_stock<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> count <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span> <span class="co">// Outputs: 50, 25</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="reference-preservation-and-lazy-evaluation">Reference
+Preservation and Lazy Evaluation</h3>
+<p><code>std::views::values</code> operates lazily. It does not copy or
+allocate an intermediate container for the values. Instead, it generates
+values on demand as the range is traversed.</p>
+<p>Additionally, <code>std::views::values</code> preserves the reference
+qualifiers of the underlying values:</p>
+<ul>
+<li>When operating over a non-const map, the view yields non-const
+references (<code>Value&amp;</code>), allowing in-place modification of
+map values.</li>
+<li>When operating over a const map, it yields
+<code>const Value&amp;</code>.</li>
+</ul>
+<p>Unlike the keys in associative containers—which are marked
+<code>const</code> to protect container invariants—the mapped values are
+fully mutable through the view:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>map<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">,</span> <span class="dt">int</span><span class="op">&gt;</span> data <span class="op">=</span> <span class="op">{{</span><span class="st">&quot;A&quot;</span><span class="op">,</span> <span class="dv">1</span><span class="op">},</span> <span class="op">{</span><span class="st">&quot;B&quot;</span><span class="op">,</span> <span class="dv">2</span><span class="op">}};</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Mutating values directly through the view</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">int</span><span class="op">&amp;</span> val <span class="op">:</span> data <span class="op">|</span> <span class="bu">std::</span>views::values<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    val <span class="op">*=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co">// &#39;data&#39; now contains {&quot;A&quot;, 10} and {&quot;B&quot;, 20}</span></span></code></pre></div>
+<h3 id="summary-of-benefits">Summary of Benefits</h3>
+<ul>
+<li><strong>Intent Clarity:</strong> Signals immediately that the
+algorithm or loop operates solely on the payload data, ignoring
+keys.</li>
+<li><strong>Composability:</strong> Integrates directly with standard
+range pipelines and constrained algorithms like
+<code>std::ranges::copy</code> or
+<code>std::ranges::fold_left</code>.</li>
+<li><strong>Zero Overhead:</strong> Acts as a lightweight wrapper that
+iterates over the source container without allocations or unnecessary
+data copying.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/std-views-values-in-c-associative-ranges';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

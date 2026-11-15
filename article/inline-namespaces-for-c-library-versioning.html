@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inline Namespaces for C++ Library Versioning - cpp</title>
+    <meta name="description" content="Inline namespaces in C++ provide a powerful mechanism for library authors to manage Application Binary Interface (ABI) and Application Programming Interface (API) versioning seamlessly. Introduced in C++11, an inline namespace automatically exposes its me">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/inline-namespaces-for-c-library-versioning">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Inline Namespaces for C++ Library Versioning - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/inline-namespaces-for-c-library-versioning" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Inline namespaces in C++ provide a powerful mechanism for library authors to manage Application Binary Interface (ABI) and Application Programming Interface (API) versioning seamlessly. Introduced in C++11, an inline namespace automatically exposes its me" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="inline-namespaces-for-c-library-versioning">Inline Namespaces
+for C++ Library Versioning</h1>
+<p>Inline namespaces in C++ provide a powerful mechanism for library
+authors to manage Application Binary Interface (ABI) and Application
+Programming Interface (API) versioning seamlessly. Introduced in C++11,
+an inline namespace automatically exposes its members to the enclosing
+parent namespace, allowing clients to access the latest version of types
+and functions without explicit qualification. This article explains how
+inline namespaces solve the challenges of software evolution, ensure ABI
+safety, and allow smooth backward compatibility transitions.</p>
+<h3 id="the-problem-with-traditional-versioning">The Problem with
+Traditional Versioning</h3>
+<p>When updating a C++ library, modifying an existing class layout or
+function signature alters its ABI. If two different versions of a
+library define the same symbol—such as
+<code>MyLib::String</code>—linking them together or combining components
+compiled against different versions can cause severe undefined behavior
+due to One Definition Rule (ODR) violations.</p>
+<p>Before C++11, library developers attempted to solve this by grouping
+code under explicit version namespaces:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> MyLib <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">namespace</span> v1 <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">class</span> Widget <span class="op">{</span> <span class="co">/* ... */</span> <span class="op">};</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">namespace</span> v2 <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">class</span> Widget <span class="op">{</span> <span class="co">/* ... */</span> <span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>To make <code>v2</code> the default, authors often used namespace
+aliases or <code>using</code> declarations within the <code>MyLib</code>
+scope. However, this approach had significant limitations:</p>
+<ul>
+<li><strong>Symbol Mangling:</strong> Older compilers did not always
+distinguish mangled symbol names predictably across aliases.</li>
+<li><strong>Template Specialization:</strong> Users could not explicitly
+specialize templates declared inside an inner namespace from the outer
+namespace scope.</li>
+<li><strong>Argument-Dependent Lookup (ADL):</strong> ADL rules behaved
+inconsistently when functions were brought in via <code>using</code>
+directives.</li>
+</ul>
+<h3 id="how-inline-namespaces-solve-versioning">How Inline Namespaces
+Solve Versioning</h3>
+<p>The <code>inline</code> keyword applied to a namespace changes lookup
+rules while preserving distinct identity in the compiler's internal
+symbol table.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> MyLib <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">namespace</span> v1 <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">class</span> Widget <span class="op">{</span> <span class="co">/* old layout */</span> <span class="op">};</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">inline</span> <span class="kw">namespace</span> v2 <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">class</span> Widget <span class="op">{</span> <span class="co">/* new layout */</span> <span class="op">};</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h4 id="1-transparent-api-consumption">1. Transparent API
+Consumption</h4>
+<p>Any entity declared inside <code>inline namespace v2</code> is
+treated by the compiler as if it were a direct member of
+<code>MyLib</code> during unqualified and qualified name lookups. A
+client calling <code>MyLib::Widget</code> automatically receives
+<code>MyLib::v2::Widget</code>. The consumer does not need to update
+their source code with explicit version qualifiers when the library
+upgrades its default release.</p>
+<h4 id="2-abi-protection-via-name-mangling">2. ABI Protection via Name
+Mangling</h4>
+<p>Although <code>v2</code> behaves like <code>MyLib</code> at the
+source code level, the compiler includes the inline namespace name in
+the mangled symbol name generated in the binary (e.g.,
+<code>_ZN5MyLib2v26WidgetE</code>).</p>
+<p>If a program accidentally links code built against <code>v1</code>
+and <code>v2</code>, the linker treats <code>MyLib::v1::Widget</code>
+and <code>MyLib::v2::Widget</code> as completely different symbols. This
+prevents silent runtime corruption, turning what would have been an
+undetectable ODR violation into a compile-time or link-time error.</p>
+<h4 id="3-explicit-backward-compatibility">3. Explicit Backward
+Compatibility</h4>
+<p>Clients that require an older implementation can bypass the default
+by explicitly qualifying the symbol:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>MyLib<span class="op">::</span>Widget currentWidget<span class="op">;</span>       <span class="co">// Resolves to MyLib::v2::Widget</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>MyLib<span class="op">::</span>v1<span class="op">::</span>Widget legacyWidget<span class="op">;</span>    <span class="co">// Explicitly uses MyLib::v1::Widget</span></span></code></pre></div>
+<p>This setup enables a single header to contain multiple coexisting
+implementations, facilitating phased migrations across large
+codebases.</p>
+<h4 id="4-support-for-template-specialization-and-adl">4. Support for
+Template Specialization and ADL</h4>
+<p>Unlike using directives, C++ rules permit users to specialize a
+template declared inside an inline namespace directly from the parent
+namespace:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> MyLib <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">inline</span> <span class="kw">namespace</span> v2 <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">struct</span> Formatter<span class="op">;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Fully valid template specialization</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;&gt;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> Formatter<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> <span class="op">{</span> <span class="co">/* ... */</span> <span class="op">};</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Argument-Dependent Lookup also treats the inline namespace and its
+parent as an associated set, ensuring that operator overloads and helper
+functions are discovered intuitively without leaking internal
+implementation details.</p>
+<h3 id="real-world-adoption">Real-World Adoption</h3>
+<p>The C++ Standard Library relies heavily on inline namespaces for
+versioning. Implementations such as LLVM's <code>libc++</code> wrap
+standard library entities in versioned inline namespaces (e.g.,
+<code>std::__1::vector</code>), which allows ABI changes between library
+releases without causing silent binary incompatibilities for end
+users.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/inline-namespaces-for-c-library-versioning';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

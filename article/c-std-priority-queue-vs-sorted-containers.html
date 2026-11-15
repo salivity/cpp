@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ std::priority_queue vs Sorted Containers - cpp</title>
+    <meta name="description" content="In C++, choosing between std::priorityqueue and a fully sorted container like std::set or a sorted std::vector comes down to performance, memory overhead, and access requirements. While both approaches allow you to retrieve elements based on precedence, s">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-std-priority-queue-vs-sorted-containers">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ std::priority_queue vs Sorted Containers - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-std-priority-queue-vs-sorted-containers" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, choosing between std::priorityqueue and a fully sorted container like std::set or a sorted std::vector comes down to performance, memory overhead, and access requirements. While both approaches allow you to retrieve elements based on precedence, s" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-stdpriority_queue-vs-sorted-containers">C++
+std::priority_queue vs Sorted Containers</h1>
+<p>In C++, choosing between <code>std::priority_queue</code> and a fully
+sorted container like <code>std::set</code> or a sorted
+<code>std::vector</code> comes down to performance, memory overhead, and
+access requirements. While both approaches allow you to retrieve
+elements based on precedence, <code>std::priority_queue</code> maintains
+only a partial ordering optimized exclusively for fast retrieval of the
+highest-priority element. In contrast, sorted containers maintain a
+strict, comprehensive order across all stored elements, enabling
+bidirectional traversal, arbitrary lookups, and range queries.</p>
+<h2 id="underlying-data-structures">Underlying Data Structures</h2>
+<p>The primary difference lies in how elements are structured in
+memory:</p>
+<ul>
+<li><strong><code>std::priority_queue</code>:</strong> A container
+adapter typically built on top of <code>std::vector</code>. It organizes
+elements into a binary heap using algorithms like
+<code>std::push_heap</code> and <code>std::pop_heap</code>. Elements are
+stored contiguously in memory, but they do not reside in fully sorted
+order.</li>
+<li><strong><code>std::set</code> and
+<code>std::multiset</code>:</strong> Node-based associative containers
+typically implemented as self-balancing binary search trees (usually
+Red-Black trees). Each element is stored in a separate dynamically
+allocated node containing the value, color metadata, and pointers to
+parent and child nodes.</li>
+<li><strong>Sorted <code>std::vector</code>:</strong> A standard
+contiguous array that is kept sorted manually using functions like
+<code>std::sort</code> or inserted via
+<code>std::lower_bound</code>.</li>
+</ul>
+<h2 id="ordering-and-element-access">Ordering and Element Access</h2>
+<p><code>std::priority_queue</code> provides restricted access:</p>
+<ul>
+<li>You can only inspect the extreme element (maximum by default, or
+minimum if using <code>std::greater</code>) via
+<code>.top()</code>.</li>
+<li>It does not provide iterators. You cannot iterate over the elements
+in sorted order without popping them out one by one, which destroys the
+queue.</li>
+<li>It does not support searching for arbitrary elements or modifying
+keys in place.</li>
+</ul>
+<p>Sorted containers provide complete flexibility:</p>
+<ul>
+<li><strong><code>std::set</code> / <code>std::multiset</code>:</strong>
+Elements are fully sorted at all times. They provide bidirectional
+iterators to traverse elements from smallest to largest or vice versa.
+You can search for any element in logarithmic time using
+<code>.find()</code>, <code>.lower_bound()</code>, or
+<code>.upper_bound()</code>.</li>
+<li><strong>Sorted <code>std::vector</code>:</strong> Allows
+random-access iterators, arbitrary indexing via <code>operator[]</code>,
+and logarithmic search using <code>std::binary_search</code> or
+<code>std::equal_range</code>.</li>
+</ul>
+<h2 id="algorithmic-complexity">Algorithmic Complexity</h2>
+<table>
+<colgroup>
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+<col style="width: 25%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Operation</th>
+<th style="text-align: left;"><code>std::priority_queue</code></th>
+<th style="text-align: left;"><code>std::set</code> /
+<code>std::multiset</code></th>
+<th style="text-align: left;">Sorted <code>std::vector</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Find Min/Max</strong></td>
+<td style="text-align: left;"><span
+class="math inline">\(O(1)\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(O(1)\)</span>
+(via <code>begin()</code> / <code>rbegin()</code>)</td>
+<td style="text-align: left;"><span class="math inline">\(O(1)\)</span>
+(via <code>front()</code> / <code>back()</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Insert Element</strong></td>
+<td style="text-align: left;"><span class="math inline">\(O(\log
+N)\)</span> (amortized)</td>
+<td style="text-align: left;"><span class="math inline">\(O(\log
+N)\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(O(N)\)</span>
+(requires shifting elements)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Remove Min/Max</strong></td>
+<td style="text-align: left;"><span class="math inline">\(O(\log
+N)\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(O(1)\)</span>
+amortized / <span class="math inline">\(O(\log N)\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(O(1)\)</span>
+(from back) / <span class="math inline">\(O(N)\)</span> (from
+front)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Search Arbitrary</strong></td>
+<td style="text-align: left;">Not supported (<span
+class="math inline">\(O(N)\)</span> inspection)</td>
+<td style="text-align: left;"><span class="math inline">\(O(\log
+N)\)</span></td>
+<td style="text-align: left;"><span class="math inline">\(O(\log
+N)\)</span> (binary search)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Iterate All</strong></td>
+<td style="text-align: left;">Destructive: <span
+class="math inline">\(O(N \log N)\)</span></td>
+<td style="text-align: left;">Non-destructive: <span
+class="math inline">\(O(N)\)</span></td>
+<td style="text-align: left;">Non-destructive: <span
+class="math inline">\(O(N)\)</span></td>
+</tr>
+</tbody>
+</table>
+<h2 id="memory-footprint-and-cache-locality">Memory Footprint and Cache
+Locality</h2>
+<p>Because <code>std::priority_queue</code> wraps a contiguous
+<code>std::vector</code>, it has minimal memory overhead (just the
+capacity of the vector) and offers superior CPU cache locality.
+Operations on a binary heap traverse contiguous memory blocks, leading
+to fewer cache misses.</p>
+<p>In contrast, <code>std::set</code> incurs a significant memory
+penalty. Each node requires three internal pointers and tree balance
+metadata, which can easily triple or quadruple the memory footprint per
+element compared to primitive types. Moreover, node-based allocation
+scatters data across the heap, causing frequent CPU cache misses during
+lookups and traversals.</p>
+<h2 id="summary-of-use-cases">Summary of Use Cases</h2>
+<ul>
+<li><strong>Use <code>std::priority_queue</code></strong> when you only
+need to process items by priority, such as in Dijkstra’s algorithm,
+Huffman coding, A* search, or general event-driven scheduling. It is
+lighter, faster, and more cache-friendly.</li>
+<li><strong>Use <code>std::set</code> or a sorted
+<code>std::vector</code></strong> when you need to inspect elements
+without removing them, iterate through data in sequential order, check
+for the presence of arbitrary values, or perform range queries.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-std-priority-queue-vs-sorted-containers';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

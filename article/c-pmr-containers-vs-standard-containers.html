@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ PMR Containers vs Standard Containers - cpp</title>
+    <meta name="description" content="This article explores the technical differences between standard containers in the std namespace and their polymorphic counterparts in the std::pmr namespace introduced in C++17. It covers how memory allocation strategies differ between the two, the role">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-pmr-containers-vs-standard-containers">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ PMR Containers vs Standard Containers - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-pmr-containers-vs-standard-containers" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores the technical differences between standard containers in the std namespace and their polymorphic counterparts in the std::pmr namespace introduced in C++17. It covers how memory allocation strategies differ between the two, the role" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-pmr-containers-vs-standard-containers">C++ PMR Containers vs
+Standard Containers</h1>
+<p>This article explores the technical differences between standard
+containers in the <code>std</code> namespace and their polymorphic
+counterparts in the <code>std::pmr</code> namespace introduced in C++17.
+It covers how memory allocation strategies differ between the two, the
+role of static versus dynamic dispatch, the impact on container type
+identity and binary interfaces, and the performance trade-offs
+associated with each approach.</p>
+<h3 id="allocator-type-identity-and-abi-stability">Allocator Type
+Identity and ABI Stability</h3>
+<p>In the classic <code>std</code> namespace, containers are
+parameterized by their allocator type at compile time. For example,
+<code>std::vector&lt;T, Allocator&gt;</code> treats the allocator as an
+integral part of the vector's type signature. If two vectors use
+different allocators, they are distinct, incompatible types:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="bu">std::</span>allocator<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&gt;</span> standardVec<span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> MyCustomAllocator<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&gt;</span> customVec<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// standardVec and customVec cannot be passed to the same non-templated function.</span></span></code></pre></div>
+<p>In contrast, <code>std::pmr</code> (Polymorphic Memory Resource)
+containers use a single, unified allocator type:
+<code>std::pmr::polymorphic_allocator&lt;T&gt;</code>. All
+<code>std::pmr</code> containers are type aliases for their standard
+counterparts using this specific allocator. For example,
+<code>std::pmr::vector&lt;T&gt;</code> is defined as
+<code>std::vector&lt;T, std::pmr::polymorphic_allocator&lt;T&gt;&gt;</code>.</p>
+<p>Because the allocator type remains uniform, functions can accept
+<code>std::pmr</code> containers by reference without using templates,
+regardless of the underlying memory source:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="bu">std::</span>pmr::vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&amp;</span> data<span class="op">);</span> <span class="co">// Accepts any PMR vector of ints</span></span></code></pre></div>
+<h3 id="static-vs-dynamic-allocation-dispatch">Static vs. Dynamic
+Allocation Dispatch</h3>
+<p>Standard library allocators resolve allocation and deallocation
+operations at compile time. The compiler can inline calls to
+<code>allocate()</code> and <code>deallocate()</code>, which eliminates
+indirect call overhead. However, changing the allocation strategy
+requires recompilation and introduces new template instantiations.</p>
+<p><code>std::pmr</code> containers shift allocation dispatch to runtime
+through virtual function calls. The <code>polymorphic_allocator</code>
+wraps a pointer to an abstract base class,
+<code>std::pmr::memory_resource</code>, which defines pure virtual
+functions:</p>
+<ul>
+<li><code>do_allocate(size_t bytes, size_t alignment)</code></li>
+<li><code>do_deallocate(void* p, size_t bytes, size_t alignment)</code></li>
+<li><code>do_is_equal(const memory_resource&amp; other)</code></li>
+</ul>
+<p>Every allocation or deallocation in a <code>std::pmr</code> container
+incurs the overhead of a virtual function dispatch via a vtable
+pointer.</p>
+<h3 id="runtime-memory-strategy-flexibility">Runtime Memory Strategy
+Flexibility</h3>
+<p>Standard containers generally default to allocating directly from the
+global heap using operator <code>new</code> and <code>delete</code>.
+Changing this behavior requires writing a fully compliant C++ allocator
+class and applying it as a template argument.</p>
+<p><code>std::pmr</code> allows switching memory strategies dynamically
+at runtime by passing different <code>memory_resource</code> instances
+to the container's constructor. The standard library provides several
+built-in resources:</p>
+<ul>
+<li><strong><code>std::pmr::monotonic_buffer_resource</code></strong>:
+Fast, arena-style allocation that releases memory only when the resource
+itself is destroyed, eliminating individual deallocation costs. It can
+be backed by a stack buffer to avoid heap access entirely.</li>
+<li><strong><code>std::pmr::unsynchronized_pool_resource</code></strong>:
+Organizes allocations into pools of fixed-size chunks to minimize
+fragmentation and reuse memory, optimized for single-threaded
+usage.</li>
+<li><strong><code>std::pmr::synchronized_pool_resource</code></strong>:
+A thread-safe variant of the pool resource.</li>
+<li><strong><code>std::pmr::new_delete_resource()</code></strong>:
+Forwards requests directly to global <code>new</code> and
+<code>delete</code>.</li>
+</ul>
+<h3 id="performance-considerations">Performance Considerations</h3>
+<p>While <code>std::pmr</code> introduces virtual call overhead for each
+allocation, it often outperforms default <code>std</code> containers in
+scenarios with frequent allocations and deallocations. By combining
+<code>std::pmr</code> containers with a
+<code>monotonic_buffer_resource</code> or a stack-backed buffer,
+allocation reduces to a simple pointer bump, avoiding expensive
+system-level heap operations.</p>
+<p>Conversely, for long-lived containers that allocate infrequently,
+standard containers are typically more optimal because they avoid the
+memory overhead of storing a pointer to the memory resource and the
+execution cost of dynamic dispatch.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-pmr-containers-vs-standard-containers';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

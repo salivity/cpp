@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRTP and Static Polymorphism in C++ - cpp</title>
+    <meta name="description" content="The Curiously Recurring Template Pattern (CRTP) is an idiom in C++ that enables static polymorphism, allowing developers to achieve polymorphic behavior at compile time rather than runtime. By having a derived class inherit from a base class template inst">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/crtp-and-static-polymorphism-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CRTP and Static Polymorphism in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/crtp-and-static-polymorphism-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The Curiously Recurring Template Pattern (CRTP) is an idiom in C++ that enables static polymorphism, allowing developers to achieve polymorphic behavior at compile time rather than runtime. By having a derived class inherit from a base class template inst" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="crtp-and-static-polymorphism-in-c">CRTP and Static Polymorphism
+in C++</h1>
+<p>The Curiously Recurring Template Pattern (CRTP) is an idiom in C++
+that enables static polymorphism, allowing developers to achieve
+polymorphic behavior at compile time rather than runtime. By having a
+derived class inherit from a base class template instantiated with the
+derived class itself, CRTP allows base classes to invoke derived class
+member functions without relying on dynamic dispatch. This article
+explores how CRTP works, how it achieves static polymorphism, its
+performance advantages over traditional dynamic polymorphism, and its
+practical use cases.</p>
+<h3 id="the-mechanism-of-crtp">The Mechanism of CRTP</h3>
+<p>In dynamic polymorphism, the base class defines <code>virtual</code>
+member functions, and derived classes override them. This relies on
+runtime virtual method tables (vtables) and virtual table pointers
+(vptrs).</p>
+<p>CRTP achieves a similar polymorphic structure at compile time using
+templates:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Derived<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Base <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> interface<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Statically cast the base pointer to the derived type</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">static_cast</span><span class="op">&lt;</span>Derived<span class="op">*&gt;(</span><span class="kw">this</span><span class="op">)-&gt;</span>implementation<span class="op">();</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base<span class="op">&lt;</span>Derived<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> implementation<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Implementation logic</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Because the base class knows the exact type of the derived class at
+compile time through the template parameter <code>Derived</code>, it can
+safely perform a <code>static_cast</code> on its <code>this</code>
+pointer.</p>
+<h3 id="role-in-static-polymorphism">Role in Static Polymorphism</h3>
+<p>The primary role of CRTP is providing polymorphism without the
+runtime penalties of virtual dispatch:</p>
+<ol type="1">
+<li><strong>Elimination of vtable Overhead:</strong> Traditional virtual
+functions incur a pointer dereference overhead via the vtable, and
+objects require an additional pointer per instance. CRTP requires no
+vtable or vptr, reducing object size and memory overhead.</li>
+<li><strong>Compiler Inlining:</strong> Dynamic function calls cannot
+typically be inlined by the compiler because the concrete implementation
+is unknown until runtime. With CRTP, all function targets are resolved
+at compile time, allowing the compiler to aggressively inline method
+calls and perform deeper code optimizations.</li>
+<li><strong>Enforcing Compile-Time Interfaces:</strong> CRTP acts as an
+interface contract. If a derived class fails to provide the required
+method, the error is caught at compile time during template
+instantiation rather than remaining a missing runtime override.</li>
+</ol>
+<h3 id="common-use-cases">Common Use Cases</h3>
+<ul>
+<li><strong>Static Interfaces:</strong> Defining generic interfaces
+where derived implementations are strictly known during compilation,
+common in high-performance computing, numerical libraries, and game
+engines.</li>
+<li><strong>Mixin Classes:</strong> Adding reusable functionality to
+classes. For example, a base class can implement inequality
+(<code>!=</code>), greater-than (<code>&gt;</code>), or compound
+operators using only the equality (<code>==</code>) and less-than
+(<code>&lt;</code>) operators provided by the derived class.</li>
+<li><strong>Method Chaining (Fluent Interfaces):</strong> In class
+hierarchies, returning <code>*this</code> from a base class normally
+returns a reference to the base type. With CRTP, base methods can return
+a reference to <code>Derived&amp;</code>, preserving the fluent
+interface across inheritance levels.</li>
+</ul>
+<h3 id="trade-offs-and-limitations">Trade-offs and Limitations</h3>
+<p>While CRTP offers significant performance benefits, it is not a
+direct drop-in replacement for dynamic polymorphism:</p>
+<ul>
+<li><strong>Heterogeneous Containers:</strong> You cannot store multiple
+CRTP-derived classes in a single homogeneous container (e.g.,
+<code>std::vector&lt;Base*&gt;</code>) without using type erasure or a
+common non-templated base class, because <code>Base&lt;A&gt;</code> and
+<code>Base&lt;B&gt;</code> are fundamentally distinct types.</li>
+<li><strong>Code Bloat and Compilation Time:</strong> Because templates
+generate code per instantiation, heavy use of CRTP can increase binary
+sizes and compilation times.</li>
+<li><strong>Complex Diagnostics:</strong> Compiler error messages
+involving template instantiation failures can be harder to diagnose
+compared to runtime virtual function errors.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/crtp-and-static-polymorphism-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error Handling in C++ with std::expected - cpp</title>
+    <meta name="description" content="This article explores how std::expected, introduced in C++23, provides a robust, type-safe mechanism for managing fallible operations without the performance overhead or control-flow complexity of C++ exceptions. You will learn the mechanics of the std::e">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/error-handling-in-c-with-std-expected">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Error Handling in C++ with std::expected - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/error-handling-in-c-with-std-expected" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how std::expected, introduced in C++23, provides a robust, type-safe mechanism for managing fallible operations without the performance overhead or control-flow complexity of C++ exceptions. You will learn the mechanics of the std::e" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="error-handling-in-c-with-stdexpected">Error Handling in C++ with
+std::expected</h1>
+<p>This article explores how <code>std::expected</code>, introduced in
+C++23, provides a robust, type-safe mechanism for managing fallible
+operations without the performance overhead or control-flow complexity
+of C++ exceptions. You will learn the mechanics of the
+<code>std::expected&lt;T, E&gt;</code> vocabulary type, how it replaces
+error codes and exception handling, and how to chain operations using
+its functional monadic interface.</p>
+<h3 id="the-mechanics-of-stdexpected">The Mechanics of
+std::expected</h3>
+<p>Introduced in the C++23 standard library header
+<code>&lt;expected&gt;</code>, <code>std::expected&lt;T, E&gt;</code> is
+a vocabulary type that represents either a successful outcome containing
+a value of type <code>T</code>, or an unexpected failure containing an
+error of type <code>E</code>. Internally, it functions similarly to a
+specialized <code>std::variant&lt;T, E&gt;</code>, allocating sufficient
+storage to hold either <code>T</code> or <code>E</code> directly within
+its footprint without dynamic memory allocation.</p>
+<p>Because it does not rely on throwing exceptions,
+<code>std::expected</code> avoids the runtime cost of stack unwinding
+and table lookups, making it suitable for high-performance, real-time,
+and embedded systems where exception handling is disabled via compiler
+flags like <code>-fno-exceptions</code>.</p>
+<h3 id="basic-usage-and-syntax">Basic Usage and Syntax</h3>
+<p>When an operation succeeds, a function returns the value directly
+(implicitly converted to <code>T</code>). When an operation fails, the
+function returns the error wrapped in the helper type
+<code>std::unexpected</code>.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;expected&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string_view&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">enum</span> <span class="kw">class</span> ParseError <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    EmptyInput<span class="op">,</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    InvalidCharacter</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>expected<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> ParseError<span class="op">&gt;</span> parse_positive_digit<span class="op">(</span><span class="bu">std::</span>string_view sv<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>sv<span class="op">.</span>empty<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">std::</span>unexpected<span class="op">(</span>ParseError<span class="op">::</span>EmptyInput<span class="op">);</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>sv<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">&lt;</span> <span class="ch">&#39;0&#39;</span> <span class="op">||</span> sv<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">&gt;</span> <span class="ch">&#39;9&#39;</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">std::</span>unexpected<span class="op">(</span>ParseError<span class="op">::</span>InvalidCharacter<span class="op">);</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> sv<span class="op">[</span><span class="dv">0</span><span class="op">]</span> <span class="op">-</span> <span class="ch">&#39;0&#39;</span><span class="op">;</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>The caller checks the outcome using explicit boolean conversion or
+the <code>has_value()</code> member function:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> result <span class="op">=</span> parse_positive_digit<span class="op">(</span><span class="st">&quot;7&quot;</span><span class="op">);</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>result<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> value <span class="op">=</span> <span class="op">*</span>result<span class="op">;</span> <span class="co">// or result.value()</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    ParseError err <span class="op">=</span> result<span class="op">.</span>error<span class="op">();</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Accessing the value with <code>operator*</code> assumes success
+without runtime checking. Calling <code>.value()</code> on an instance
+containing an error throws a
+<code>std::bad_expected_access&lt;E&gt;</code> exception, providing an
+opt-in bridge back to standard exception mechanics when necessary.</p>
+<h3 id="composing-operations-with-monadic-interfaces">Composing
+Operations with Monadic Interfaces</h3>
+<p>To avoid repetitive <code>if (!result)</code> boilerplate,
+<code>std::expected</code> provides built-in monadic operations that
+allow fallible functions to be chained declaratively:</p>
+<ul>
+<li><strong><code>and_then</code></strong>: Accepts a invocable that
+takes <code>T</code> and returns a new
+<code>std::expected&lt;U, E&gt;</code>. If the original instance
+contains an error, the invocable is skipped, and the error propagates
+automatically.</li>
+<li><strong><code>transform</code></strong>: Accepts a function that
+maps <code>T</code> to <code>U</code> for non-fallible transformations,
+wrapping the result in <code>std::expected&lt;U, E&gt;</code>.</li>
+<li><strong><code>or_else</code></strong>: Accepts a function that
+handles the error case, taking <code>E</code> and returning a
+<code>std::expected&lt;T, NewError&gt;</code> or recovering from the
+error.</li>
+<li><strong><code>transform_error</code></strong>: Transforms the error
+type <code>E</code> into another error type without modifying successful
+values.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>expected<span class="op">&lt;</span><span class="dt">double</span><span class="op">,</span> ParseError<span class="op">&gt;</span> calculate_reciprocal<span class="op">(</span><span class="bu">std::</span>string_view input<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> parse_positive_digit<span class="op">(</span>input<span class="op">)</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="op">.</span>and_then<span class="op">([](</span><span class="dt">int</span> val<span class="op">)</span> <span class="op">-&gt;</span> <span class="bu">std::</span>expected<span class="op">&lt;</span><span class="dt">double</span><span class="op">,</span> ParseError<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>val <span class="op">==</span> <span class="dv">0</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> <span class="bu">std::</span>unexpected<span class="op">(</span>ParseError<span class="op">::</span>InvalidCharacter<span class="op">);</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> <span class="fl">1.0</span> <span class="op">/</span> val<span class="op">;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="op">});</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="advantages-over-alternative-techniques">Advantages Over
+Alternative Techniques</h3>
+<p>Compared to traditional error-handling strategies,
+<code>std::expected</code> offers distinct structural advantages:</p>
+<ul>
+<li><strong>Compared to Exceptions:</strong> It creates deterministic,
+visible execution paths. Callers cannot accidentally ignore the
+fallibility of a function because the return type mandates unpacking the
+result.</li>
+<li><strong>Compared to C-style Error Codes:</strong> It unifies the
+return channel. Functions no longer need output parameters passed by
+pointer or reference alongside an integer status code.</li>
+<li><strong>Compared to <code>std::optional</code>:</strong> While
+<code>std::optional</code> represents the potential absence of a value,
+it conveys no context regarding why an operation failed.
+<code>std::expected</code> preserves detailed diagnostic data through
+its error type <code>E</code>.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/error-handling-in-c-with-std-expected';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

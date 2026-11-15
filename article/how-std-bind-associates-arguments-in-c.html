@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::bind Associates Arguments in C++ - cpp</title>
+    <meta name="description" content="In C++, std::bind acts as a function adapter that generates a callable wrapper around an existing function, member function, or functor. It associates arguments with specific target parameters by either capturing fixed values at the time of binding or dyn">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-bind-associates-arguments-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::bind Associates Arguments in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-bind-associates-arguments-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, std::bind acts as a function adapter that generates a callable wrapper around an existing function, member function, or functor. It associates arguments with specific target parameters by either capturing fixed values at the time of binding or dyn" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdbind-associates-arguments-in-c">How std::bind Associates
+Arguments in C++</h1>
+<p>In C++, <code>std::bind</code> acts as a function adapter that
+generates a callable wrapper around an existing function, member
+function, or functor. It associates arguments with specific target
+parameters by either capturing fixed values at the time of binding or
+dynamically routing runtime arguments using placeholder tokens. This
+mechanism allows developers to partially apply functions, reorder
+parameters, or adapt signatures to fit specific interface
+requirements.</p>
+<h3 id="fixed-arguments">Fixed Arguments</h3>
+<p>When a value or variable is passed directly into
+<code>std::bind</code>, it is stored inside the resulting wrapper
+object. By default, <code>std::bind</code> stores these values by value,
+making copies or moving them into the wrapper. When the returned
+function object is invoked, these stored values are automatically passed
+to their corresponding parameter positions in the target function.</p>
+<p>To pass an argument by reference rather than by value, you must wrap
+the variable in <code>std::ref</code> or <code>std::cref</code>. Without
+these wrappers, any changes made to the original variable will not be
+reflected inside the bound function call, and modifications made by the
+target function will not alter the original variable.</p>
+<h3 id="dynamic-arguments-via-placeholders">Dynamic Arguments via
+Placeholders</h3>
+<p>To leave parameter slots open for values provided at call time,
+<code>std::bind</code> uses placeholders defined in the
+<code>std::placeholders</code> namespace, such as <code>_1</code>,
+<code>_2</code>, <code>_3</code>, and so on.</p>
+<p>The association works through a positional mapping system:</p>
+<ul>
+<li>The <strong>index of the placeholder</strong> (<code>_N</code>)
+specifies the position of the argument passed when calling the generated
+wrapper. For example, <code>_1</code> refers to the first argument
+passed to the wrapper, and <code>_2</code> refers to the second.</li>
+<li>The <strong>position of the placeholder inside
+<code>std::bind</code></strong> dictates which parameter of the
+underlying target function receives that value.</li>
+</ul>
+<h3 id="reordering-and-discarding-arguments">Reordering and Discarding
+Arguments</h3>
+<p>Because placeholders decouple the caller's argument list from the
+target function's signature, arguments can be rearranged or discarded
+entirely.</p>
+<p>Consider the following function:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> display<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">,</span> <span class="dt">int</span> c<span class="op">);</span></span></code></pre></div>
+<p>Using <code>std::bind</code>, the parameters can be mapped in various
+ways:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> <span class="kw">namespace</span> <span class="bu">std::</span>placeholders<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Binds &#39;b&#39; to a constant value of 42.</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Maps wrapper argument 1 to &#39;a&#39; and wrapper argument 2 to &#39;c&#39;.</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> fn1 <span class="op">=</span> <span class="bu">std::</span>bind<span class="op">(</span>display<span class="op">,</span> _1<span class="op">,</span> <span class="dv">42</span><span class="op">,</span> _2<span class="op">);</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>fn1<span class="op">(</span><span class="dv">10</span><span class="op">,</span> <span class="dv">20</span><span class="op">);</span> <span class="co">// Calls display(10, 42, 20)</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Inverts the caller&#39;s arguments.</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// The first wrapper argument maps to &#39;c&#39;, and the second maps to &#39;a&#39;.</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> fn2 <span class="op">=</span> <span class="bu">std::</span>bind<span class="op">(</span>display<span class="op">,</span> _2<span class="op">,</span> <span class="dv">100</span><span class="op">,</span> _1<span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>fn2<span class="op">(</span><span class="dv">5</span><span class="op">,</span> <span class="dv">15</span><span class="op">);</span> <span class="co">// Calls display(15, 100, 5)</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="co">// Ignores extra arguments.</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="co">// Only the first argument provided to fn3 is used; any subsequent arguments are ignored.</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> fn3 <span class="op">=</span> <span class="bu">std::</span>bind<span class="op">(</span>display<span class="op">,</span> _1<span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>fn3<span class="op">(</span><span class="dv">7</span><span class="op">,</span> <span class="dv">8</span><span class="op">,</span> <span class="dv">9</span><span class="op">);</span> <span class="co">// Calls display(7, 0, 0)</span></span></code></pre></div>
+<h3 id="member-functions-and-the-this-pointer">Member Functions and the
+<code>this</code> Pointer</h3>
+<p>When binding non-static member functions, the first argument to the
+underlying function must always be an instance of the class (the
+<code>this</code> pointer or object reference). <code>std::bind</code>
+associates the target instance either by passing an object pointer or
+reference directly as a fixed argument, or by supplying a placeholder
+like <code>_1</code> to require the caller to provide the instance at
+invocation time.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-std-bind-associates-arguments-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

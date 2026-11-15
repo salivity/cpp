@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::disjunction and Variadic Type Traits in C++ - cpp</title>
+    <meta name="description" content="std::disjunction is a compile-time utility introduced in C++17 that acts as a logical OR operator for variadic type traits. This article explores how std::disjunction evaluates type traits across parameter packs, detailing its mechanism for short-circuiti">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-disjunction-and-variadic-type-traits-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::disjunction and Variadic Type Traits in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-disjunction-and-variadic-type-traits-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="std::disjunction is a compile-time utility introduced in C++17 that acts as a logical OR operator for variadic type traits. This article explores how std::disjunction evaluates type traits across parameter packs, detailing its mechanism for short-circuiti" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stddisjunction-and-variadic-type-traits-in-c">std::disjunction
+and Variadic Type Traits in C++</h1>
+<p><code>std::disjunction</code> is a compile-time utility introduced in
+C++17 that acts as a logical OR operator for variadic type traits. This
+article explores how <code>std::disjunction</code> evaluates type traits
+across parameter packs, detailing its mechanism for short-circuiting
+template instantiations, its role in preventing compilation errors, and
+its practical application in template metaprogramming, SFINAE, and
+concept constraints.</p>
+<h3 id="the-purpose-of-stddisjunction">The Purpose of
+<code>std::disjunction</code></h3>
+<p>In C++ template metaprogramming, developers frequently need to query
+whether at least one type in a variadic parameter pack satisfies a
+particular condition. Prior to C++17, implementing a logical OR across a
+variadic pack required writing recursive template specializations or
+using fold expressions with static boolean values.</p>
+<p><code>std::disjunction</code>, defined in the
+<code>&lt;type_traits&gt;</code> header, standardizes this pattern. It
+accepts a variable number of trait classes as template arguments and
+inherits directly from either:</p>
+<ul>
+<li>The first type trait in the pack whose <code>::value</code> is
+<code>true</code>.</li>
+<li>The last type trait in the pack if all evaluate to
+<code>false</code>.</li>
+<li><code>std::false_type</code> if the parameter pack is empty.</li>
+</ul>
+<h3 id="short-circuit-evaluation-at-compile-time">Short-Circuit
+Evaluation at Compile Time</h3>
+<p>The defining feature of <code>std::disjunction</code> is compile-time
+short-circuit evaluation.</p>
+<p>When using fold expressions such as
+<code>(Traits&lt;Ts&gt;::value || ...)</code>, the compiler must
+instantiate <code>Traits&lt;Ts&gt;</code> for every type <code>Ts</code>
+in the pack before performing the logical OR fold. In contrast,
+<code>std::disjunction</code> instantiates traits lazily from left to
+right. Once it encounters a trait where <code>value</code> evaluates to
+<code>true</code>, instantiation stops.</p>
+<p>This short-circuit behavior provides two major advantages:</p>
+<ol type="1">
+<li><strong>Compilation Performance:</strong> By avoiding unnecessary
+template instantiations, <code>std::disjunction</code> significantly
+reduces compiler memory usage and improves build times on large
+codebases.</li>
+<li><strong>Preventing SFINAE and Substitution Failures:</strong> If a
+trait is invalid or produces a hard compiler error for certain types,
+placing a guarding trait before it prevents the invalid trait from ever
+being instantiated.</li>
+</ol>
+<h3 id="code-example-validating-types-in-a-parameter-pack">Code Example:
+Validating Types in a Parameter Pack</h3>
+<p>A common use case is checking whether a given type <code>T</code>
+matches any type within an allowed list of types:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;type_traits&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> AllowedTypes<span class="op">&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> is_any_of <span class="op">:</span> <span class="bu">std::</span>disjunction<span class="op">&lt;</span><span class="bu">std::</span>is_same<span class="op">&lt;</span>T<span class="op">,</span> AllowedTypes<span class="op">&gt;...&gt;</span> <span class="op">{};</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> AllowedTypes<span class="op">&gt;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">inline</span> <span class="kw">constexpr</span> <span class="dt">bool</span> is_any_of_v <span class="op">=</span> is_any_of<span class="op">&lt;</span>T<span class="op">,</span> AllowedTypes<span class="op">...&gt;::</span>value<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Usage:</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">static_assert</span><span class="op">(</span>is_any_of_v<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="dt">double</span><span class="op">,</span> <span class="dt">float</span><span class="op">,</span> <span class="dt">int</span><span class="op">&gt;);</span>    <span class="co">// Passes: int matches</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">static_assert</span><span class="op">(!</span>is_any_of_v<span class="op">&lt;</span><span class="dt">char</span><span class="op">,</span> <span class="dt">double</span><span class="op">,</span> <span class="dt">float</span><span class="op">,</span> <span class="dt">int</span><span class="op">&gt;);</span>   <span class="co">// Passes: char is not allowed</span></span></code></pre></div>
+<p>In this example, if <code>std::is_same&lt;int, double&gt;</code> is
+<code>false</code>, the compiler proceeds to
+<code>std::is_same&lt;int, float&gt;</code>, and so forth. If the match
+is found early, subsequent <code>is_same</code> instantiations are
+skipped.</p>
+<h3 id="safe-metaprogramming-with-invalid-types">Safe Metaprogramming
+with Invalid Types</h3>
+<p>The short-circuiting behavior allows safe probing of type properties
+that might otherwise cause a hard error. Consider checking if a type is
+either a pointer or defines a nested <code>::value_type</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="dt">has_value_type</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> type <span class="op">=</span> <span class="kw">typename</span> T<span class="op">::</span><span class="dt">value_type</span><span class="op">;</span> <span class="co">// Ill-formed if T is not a class or lacks value_type</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="kw">constexpr</span> <span class="dt">bool</span> value <span class="op">=</span> <span class="kw">true</span><span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="kw">using</span> <span class="dt">is_pointer_or_has_value_type</span> <span class="op">=</span> <span class="bu">std::</span>disjunction<span class="op">&lt;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>is_pointer<span class="op">&lt;</span>T<span class="op">&gt;,</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="dt">has_value_type</span><span class="op">&lt;</span>T<span class="op">&gt;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="op">&gt;;</span></span></code></pre></div>
+<p>If <code>T</code> is <code>int*</code>,
+<code>std::is_pointer&lt;int*&gt;::value</code> is <code>true</code>.
+Because of short-circuiting, <code>has_value_type&lt;int*&gt;</code> is
+never instantiated, safely avoiding a compile error on the invalid
+<code>int*::value_type</code> lookup.</p>
+<h3 id="role-in-function-constraints-sfinae-and-concepts">Role in
+Function Constraints (SFINAE and Concepts)</h3>
+<p><code>std::disjunction</code> integrates seamlessly with
+<code>std::enable_if</code> and C++20 <code>requires</code> clauses to
+constrain template overloads:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">requires</span> <span class="bu">std::</span>disjunction_v<span class="op">&lt;</span><span class="bu">std::</span>is_integral<span class="op">&lt;</span>Args<span class="op">&gt;...&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process_if_any_integral<span class="op">(</span>Args<span class="op">...</span> args<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Function is only enabled if at least one argument is an integral type</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Using <code>std::disjunction_v</code> provides an expressive,
+readable mechanism for multi-type logic, ensuring robust interface
+constraints while maintaining compiler efficiency.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/std-disjunction-and-variadic-type-traits-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

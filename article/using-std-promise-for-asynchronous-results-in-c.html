@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using std::promise for Asynchronous Results in C++ - cpp</title>
+    <meta name="description" content="This article provides an overview of std::promise in C++, explaining its fundamental role in multithreaded programming. It explores how std::promise acts as the producer endpoint in asynchronous communication, how it pairs with std::future to create a syn">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/using-std-promise-for-asynchronous-results-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using std::promise for Asynchronous Results in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/using-std-promise-for-asynchronous-results-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article provides an overview of std::promise in C++, explaining its fundamental role in multithreaded programming. It explores how std::promise acts as the producer endpoint in asynchronous communication, how it pairs with std::future to create a syn" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-stdpromise-for-asynchronous-results-in-c">Using
+std::promise for Asynchronous Results in C++</h1>
+<p>This article provides an overview of <code>std::promise</code> in
+C++, explaining its fundamental role in multithreaded programming. It
+explores how <code>std::promise</code> acts as the producer endpoint in
+asynchronous communication, how it pairs with <code>std::future</code>
+to create a synchronization channel, and how it enables threads to pass
+both computed values and unhandled exceptions safely across thread
+boundaries without manual locking primitives.</p>
+<h3 id="the-core-role-of-stdpromise">The Core Role of std::promise</h3>
+<p>In C++ concurrency, <code>std::promise</code> provides a mechanism to
+store a value or an exception that is later acquired asynchronously via
+a <code>std::future</code> object. Together, a <code>std::promise</code>
+and a <code>std::future</code> form a single-use communication
+channel:</p>
+<ul>
+<li><strong><code>std::promise</code> (The Producer):</strong> Owned by
+the thread that produces the result. It writes data to the shared
+state.</li>
+<li><strong><code>std::future</code> (The Consumer):</strong> Owned by
+the thread waiting for the result. It reads data from the shared
+state.</li>
+</ul>
+<p>While high-level utilities like <code>std::async</code> automatically
+manage this relationship behind the scenes, <code>std::promise</code>
+gives developers explicit control over when, where, and how a result is
+made available.</p>
+<h3 id="explicit-and-decoupled-synchronization">Explicit and Decoupled
+Synchronization</h3>
+<p>The primary advantage of <code>std::promise</code> is decoupling
+result production from thread execution. A thread does not need to
+terminate to yield its result. A worker thread can initialize a
+calculation, satisfy the promise midway through its execution by calling
+<code>set_value()</code>, and then continue performing other
+non-dependent operations.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;thread&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;future&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> computeValue<span class="op">(</span><span class="bu">std::</span>promise<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> resultPromise<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Perform intensive task</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> result <span class="op">=</span> <span class="dv">42</span><span class="op">;</span> </span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Make the result available to the waiting thread immediately</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    resultPromise<span class="op">.</span>set_value<span class="op">(</span>result<span class="op">);</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// The thread can continue running background cleanup or logging</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>promise<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> myPromise<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>future<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> myFuture <span class="op">=</span> myPromise<span class="op">.</span>get_future<span class="op">();</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>thread worker<span class="op">(</span>computeValue<span class="op">,</span> <span class="bu">std::</span>move<span class="op">(</span>myPromise<span class="op">));</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Blocks until resultPromise.set_value() is called</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Result: &quot;</span> <span class="op">&lt;&lt;</span> myFuture<span class="op">.</span>get<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>endl<span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    worker<span class="op">.</span>join<span class="op">();</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="exception-propagation-across-threads">Exception Propagation
+Across Threads</h3>
+<p>Standard C++ threads cannot naturally throw exceptions across
+execution contexts; an uncaught exception on a child thread typically
+triggers <code>std::terminate</code>.</p>
+<p><code>std::promise</code> solves this problem with the
+<code>set_exception()</code> method. By capturing an active exception
+pointer via <code>std::current_exception()</code>, a worker thread can
+store the failure inside the promise. When the consumer thread calls
+<code>.get()</code> on its associated <code>std::future</code>, the
+stored exception is re-thrown in the context of the consumer thread,
+allowing standard <code>try-catch</code> exception handling:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> riskyTask<span class="op">(</span><span class="bu">std::</span>promise<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> promise<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">throw</span> <span class="bu">std::</span>runtime_error<span class="op">(</span><span class="st">&quot;Calculation failed&quot;</span><span class="op">);</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">catch</span> <span class="op">(...)</span> <span class="op">{</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        promise<span class="op">.</span>set_exception<span class="op">(</span><span class="bu">std::</span>current_exception<span class="op">());</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="replacing-low-level-primitives">Replacing Low-Level
+Primitives</h3>
+<p>Before the introduction of <code>std::promise</code> in C++11,
+passing a single result between threads required combining a shared
+variable, a <code>std::mutex</code>, and a
+<code>std::condition_variable</code>.</p>
+<p>Using <code>std::promise</code> simplifies this pattern
+significantly:</p>
+<ol type="1">
+<li><strong>No Manual Locking:</strong> Thread synchronization and
+memory visibility barriers are handled internally.</li>
+<li><strong>Safety Guarantees:</strong> A promise can only be set once.
+Attempting to set a value or exception multiple times automatically
+throws a <code>std::future_error</code> with the error code
+<code>promise_already_satisfied</code>.</li>
+<li><strong>Broken Promise Detection:</strong> If a
+<code>std::promise</code> is destroyed before setting a value, its
+associated <code>std::future</code> will throw a
+<code>std::future_error</code> with <code>broken_promise</code>,
+preventing the consumer thread from blocking indefinitely.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/using-std-promise-for-asynchronous-results-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

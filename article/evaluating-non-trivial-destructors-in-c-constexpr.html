@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluating Non-Trivial Destructors in C++ Constexpr - cpp</title>
+    <meta name="description" content="Modern C++ allows objects with non-trivial destructors to be created, manipulated, and destroyed during compile-time constant expression evaluation. Introduced primarily in C++20, this capability enables standard containers like std::vector and std::strin">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/evaluating-non-trivial-destructors-in-c-constexpr">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Evaluating Non-Trivial Destructors in C++ Constexpr - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/evaluating-non-trivial-destructors-in-c-constexpr" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Modern C++ allows objects with non-trivial destructors to be created, manipulated, and destroyed during compile-time constant expression evaluation. Introduced primarily in C++20, this capability enables standard containers like std::vector and std::strin" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="evaluating-non-trivial-destructors-in-c-constexpr">Evaluating
+Non-Trivial Destructors in C++ Constexpr</h1>
+<p>Modern C++ allows objects with non-trivial destructors to be created,
+manipulated, and destroyed during compile-time constant expression
+evaluation. Introduced primarily in C++20, this capability enables
+standard containers like <code>std::vector</code> and
+<code>std::string</code> to function inside <code>constexpr</code> and
+<code>consteval</code> contexts. The compiler achieves this by executing
+a compile-time interpreter that tracks object lifetimes, recursively
+evaluates destructor bodies, and strictly enforces memory and
+undefined-behavior checks before constant evaluation concludes.</p>
+<h2 id="the-evolution-of-destructors-in-constant-expressions">The
+Evolution of Destructors in Constant Expressions</h2>
+<p>Prior to C++20, any type used in a constant expression had to be a
+<em>literal type</em>, which strictly required a trivial destructor. An
+object could not execute custom cleanup logic at compile time.</p>
+<p>C++20 relaxed this restriction by allowing destructors to be
+explicitly declared <code>constexpr</code>. Under these updated rules, a
+class with a non-trivial destructor can be evaluated at compile time
+provided that:</p>
+<ul>
+<li>The destructor is declared with the <code>constexpr</code>
+specifier.</li>
+<li>The operations within the destructor body satisfy all constraints of
+constant expressions.</li>
+<li>All subobjects, bases, and non-static data members have destructors
+that are also constexpr-evaluable.</li>
+</ul>
+<h2 id="how-the-compile-time-interpreter-evaluates-destructors">How the
+Compile-Time Interpreter Evaluates Destructors</h2>
+<p>Compilers evaluate constant expressions using an internal abstract
+machine, often implemented as an AST (Abstract Syntax Tree) interpreter
+or bytecode virtual machine. When evaluating non-trivial destructors,
+the compiler follows specific operational steps:</p>
+<h3 id="1-lifetime-tracking">1. Lifetime Tracking</h3>
+<p>The compiler maintains an internal environment mapping active objects
+and allocated storage. When a local variable is declared within a
+<code>constexpr</code> function, its lifetime begins. When the variable
+exits its lexical scope—or when an expression containing a temporary
+object finishes evaluation—the compiler automatically triggers the
+object's destructor.</p>
+<h3 id="2-recursive-execution-of-member-and-base-cleanups">2. Recursive
+Execution of Member and Base Cleanups</h3>
+<p>When invoking a <code>constexpr</code> non-trivial destructor, the
+compiler evaluates the statements inside the destructor body
+step-by-step:</p>
+<ol type="1">
+<li>It executes the statements in the custom destructor body.</li>
+<li>It evaluates non-trivial destructors for direct non-static data
+members in reverse order of declaration.</li>
+<li>It calls non-trivial destructors for direct base classes in reverse
+order of initialization.</li>
+</ol>
+<p>If the class uses virtual destructors, modern compilers perform
+compile-time dynamic dispatch. The compiler inspects the dynamic type
+assigned to the object during constant evaluation and resolves the
+correct destructor override.</p>
+<h3 id="3-destruction-of-dynamic-allocations">3. Destruction of Dynamic
+Allocations</h3>
+<p>C++20 introduced compile-time dynamic memory allocation via
+<code>std::allocator</code> or expressions using <code>new</code> and
+<code>delete</code>. A primary role of non-trivial destructors in
+constant expressions is freeing this dynamically allocated memory (for
+example, clearing elements and releasing internal buffers in a
+<code>std::vector</code>).</p>
+<p>When <code>delete</code> or <code>std::destroy_at</code> is
+encountered:</p>
+<ul>
+<li>The compiler executes the targeted object's destructor.</li>
+<li>The memory associated with the object is marked deallocated within
+the compiler's tracking map.</li>
+</ul>
+<h2 id="strict-enforcement-and-error-detection">Strict Enforcement and
+Error Detection</h2>
+<p>The compiler treats any invalid operation during destruction as a
+failure of the constant expression, resulting in a compile-time error
+rather than runtime undefined behavior. During destructor evaluation,
+the compiler enforces the following constraints:</p>
+<ul>
+<li><strong>Transient Allocation Requirement:</strong> All memory
+allocated dynamically during constant evaluation must be deallocated
+before the evaluation completes. If a non-trivial destructor fails to
+release memory, the compiler detects a memory leak and aborts
+compilation.</li>
+<li><strong>No Access to Destroyed Objects:</strong> If a destructor
+attempts to read from a member that has already ended its lifetime,
+evaluation fails.</li>
+<li><strong>Double Free and Invalid Pointers:</strong> Passing an
+invalid address or freeing an already deallocated pointer inside a
+destructor halts evaluation immediately with a diagnostic message.</li>
+</ul>
+<p>Through lifetime tracking, recursive subobject teardown, and rigorous
+undefined-behavior detection, the compiler ensures that non-trivial
+destructors run deterministically and safely during compilation.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/evaluating-non-trivial-destructors-in-c-constexpr';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

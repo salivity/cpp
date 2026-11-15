@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::countl_zero Counts Leading Zeros in C++ - cpp</title>
+    <meta name="description" content="Introduced in C++20 as part of the &lt;bit&gt; header, std::countlzero is a standard utility function that counts the number of consecutive zero bits in an unsigned integer starting from the most significant bit (the leftmost bit). Rather than manually shifting">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-countl-zero-counts-leading-zeros-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::countl_zero Counts Leading Zeros in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-countl-zero-counts-leading-zeros-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++20 as part of the &lt;bit&gt; header, std::countlzero is a standard utility function that counts the number of consecutive zero bits in an unsigned integer starting from the most significant bit (the leftmost bit). Rather than manually shifting" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdcountl_zero-counts-leading-zeros-in-c">How
+std::countl_zero Counts Leading Zeros in C++</h1>
+<p>Introduced in C++20 as part of the <code>&lt;bit&gt;</code> header,
+<code>std::countl_zero</code> is a standard utility function that counts
+the number of consecutive zero bits in an unsigned integer starting from
+the most significant bit (the leftmost bit). Rather than manually
+shifting bits in a loop, this function leverages modern CPU architecture
+instructions to perform the count in a single instruction cycle whenever
+possible. This article explains how <code>std::countl_zero</code> works
+under the hood, how compilers translate it into machine instructions,
+and how it safely handles edge cases like zero.</p>
+<h3 id="what-stdcountl_zero-does">What std::countl_zero Does</h3>
+<p>The function template <code>std::countl_zero</code> takes a single
+argument of an unsigned integer type (such as <code>unsigned int</code>,
+<code>uint8_t</code>, <code>uint32_t</code>, or <code>uint64_t</code>)
+and counts leading zeros.</p>
+<p>For example, consider an 8-bit unsigned integer representing the
+decimal number <code>18</code>:</p>
+<ul>
+<li>Binary representation: <code>00010010</code></li>
+<li>Starting from the most significant bit (left), there are three
+consecutive <code>0</code> bits before encountering the first
+<code>1</code>.</li>
+<li><code>std::countl_zero(static_cast&lt;uint8_t&gt;(18))</code>
+returns <code>3</code>.</li>
+</ul>
+<p>If the input is <code>0</code>, all bits are zero, so the function
+returns the total bit width of the type (e.g., <code>32</code> for a
+32-bit unsigned integer).</p>
+<h3 id="hardware-acceleration-and-compiler-intrinsics">Hardware
+Acceleration and Compiler Intrinsics</h3>
+<p>At the implementation level, compilers almost never implement
+<code>std::countl_zero</code> with a runtime loop. Instead, they map the
+function directly to compiler intrinsics, which translate to dedicated
+hardware instructions available in modern processors:</p>
+<ul>
+<li><strong>x86/x64 Architectures:</strong> Compilers emit instructions
+such as <code>LZCNT</code> (Leading Zero Count, introduced with AMD ABM
+and Intel Haswell) or use <code>BSR</code> (Bit Scan Reverse) combined
+with an XOR subtraction.</li>
+<li><strong>ARM Architectures:</strong> Compilers emit the native
+<code>CLZ</code> (Count Leading Zeros) instruction.</li>
+</ul>
+<p>Because these instructions execute directly in processor hardware,
+determining the leading zero count typically takes only a single CPU
+clock cycle.</p>
+<h3 id="safe-handling-of-zero">Safe Handling of Zero</h3>
+<p>Historically, developers relied on compiler-specific built-in
+functions, such as GCC and Clang's <code>__builtin_clz</code> or MSVC's
+<code>_BitScanReverse</code>. However, passing <code>0</code> to
+<code>__builtin_clz</code> results in undefined behavior because
+underlying instructions like <code>BSR</code> leave the destination
+register undefined when the input is zero.</p>
+<p><code>std::countl_zero</code> eliminates this pitfall. Standard
+library implementations check for zero—either via instructions like
+<code>LZCNT</code> that natively return the operand size when the input
+is zero, or by emitting a conditional branch or conditional move
+(<code>CMOV</code>) instruction to handle zero safely. If the operand is
+<code>0</code>, <code>std::countl_zero</code> is guaranteed to return
+<code>std::numeric_limits&lt;T&gt;::digits</code>.</p>
+<h3 id="software-fallback-algorithms">Software Fallback Algorithms</h3>
+<p>In environments where target architectures lack native bit-counting
+instructions, standard library implementations fall back to
+software-based algorithms. Common methods include:</p>
+<ol type="1">
+<li><strong>Binary Search / Branchless Bit Twiddling:</strong> Shifting
+bits in powers of two (e.g., checking if the upper 16 bits are zero,
+then the upper 8, then 4, etc.) to locate the first set bit in <span
+class="math inline">\(O(\log N)\)</span> operations.</li>
+<li><strong>De Bruijn Multiplication:</strong> Using a De Bruijn
+sequence multiplication and a lookup table to determine the index of the
+highest set bit in constant time without branching.</li>
+</ol>
+<h3 id="compile-time-evaluation">Compile-Time Evaluation</h3>
+<p><code>std::countl_zero</code> is declared as <code>constexpr</code>.
+When passed a compile-time constant, the compiler calculates the leading
+zeros during compilation, eliminating runtime overhead entirely and
+substituting the result directly into the generated binary.</p>
+<h3 id="example-usage">Example Usage</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;bit&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstdint&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">constexpr</span> <span class="dt">uint32_t</span> value <span class="op">=</span> <span class="bn">0b00000000&#39;00001010&#39;00000000&#39;00000000</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Evaluated at compile time</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">constexpr</span> <span class="dt">int</span> leading_zeros <span class="op">=</span> <span class="bu">std::</span>countl_zero<span class="op">(</span>value<span class="op">);</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Leading zeros: &quot;</span> <span class="op">&lt;&lt;</span> leading_zeros <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span> <span class="co">// Outputs: 12</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="dt">uint8_t</span> zero_byte <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Zeros in 0 (uint8_t): &quot;</span> <span class="op">&lt;&lt;</span> <span class="bu">std::</span>countl_zero<span class="op">(</span>zero_byte<span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span> <span class="co">// Outputs: 8</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Through a combination of strict type constraints, safe handling of
+zero, and direct mapping to CPU instructions,
+<code>std::countl_zero</code> provides a standardized, portable, and
+optimal way to inspect bit-level data in C++.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-std-countl-zero-counts-leading-zeros-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

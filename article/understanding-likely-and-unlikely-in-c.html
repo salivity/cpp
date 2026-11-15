@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Understanding [[likely]] and [[unlikely]] in C++ - cpp</title>
+    <meta name="description" content="Introduced in C++20, the [[likely]] and [[unlikely]] attributes provide explicit hints to the compiler regarding the expected execution probability of conditional paths. This article explains how these attributes work under the hood, the specific low-leve">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/understanding-likely-and-unlikely-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Understanding [[likely]] and [[unlikely]] in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/understanding-likely-and-unlikely-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++20, the [[likely]] and [[unlikely]] attributes provide explicit hints to the compiler regarding the expected execution probability of conditional paths. This article explains how these attributes work under the hood, the specific low-leve" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="understanding-likely-and-unlikely-in-c">Understanding [[likely]]
+and [[unlikely]] in C++</h1>
+<p>Introduced in C++20, the <code>[[likely]]</code> and
+<code>[[unlikely]]</code> attributes provide explicit hints to the
+compiler regarding the expected execution probability of conditional
+paths. This article explains how these attributes work under the hood,
+the specific low-level compiler optimizations they trigger—such as
+instruction cache locality and branch reordering—and the best practices
+for using them to maximize performance without unintentionally degrading
+runtime speed.</p>
+<h2 id="what-are-likely-and-unlikely">What Are <code>[[likely]]</code>
+and <code>[[unlikely]]</code>?</h2>
+<p>In C++, <code>[[likely]]</code> and <code>[[unlikely]]</code> are
+standardized attributes used to annotate statements and labels. They
+inform the compiler whether a particular execution branch is expected to
+be taken frequently (hot path) or rarely (cold path).</p>
+<p>These attributes do not alter the program's logic or guarantee
+changes in CPU execution; rather, they serve as optimization hints
+during the compilation phase, specifically during assembly code
+generation and intermediate representation optimization.</p>
+<h2 id="compiler-hints-and-optimizations">Compiler Hints and
+Optimizations</h2>
+<p>Modern processors use dynamic branch predictors at runtime, which
+learn branch patterns on the fly. However, compilers still make
+architectural decisions ahead of time. When supplied with
+<code>[[likely]]</code> or <code>[[unlikely]]</code>, the compiler
+implements several architectural optimizations:</p>
+<h3 id="1-code-layout-and-basic-block-placement">1. Code Layout and
+Basic Block Placement</h3>
+<p>The most significant impact of these attributes is on the physical
+layout of the generated machine code (basic block reordering):</p>
+<ul>
+<li><strong>Hot Paths:</strong> The code marked <code>[[likely]]</code>
+is arranged sequentially directly after the branch instruction (a
+fall-through path). This maximizes instruction cache (I-cache)
+utilization and prefetching efficiency.</li>
+<li><strong>Cold Paths:</strong> The code marked
+<code>[[unlikely]]</code> is often moved away from the main instruction
+stream, sometimes to a completely separate section of the binary. This
+keeps rarely executed code (such as error-handling routines) from
+polluting the instruction cache lines.</li>
+</ul>
+<h3 id="2-static-branch-prediction">2. Static Branch Prediction</h3>
+<p>When a CPU encounters a conditional jump that has not yet been
+recorded in its Branch Target Buffer (BTB), it falls back on static
+branch prediction heuristics. On many architectures, forward conditional
+jumps are assumed not taken, while backward conditional jumps (like
+loops) are assumed taken. Compilers use <code>[[likely]]</code> and
+<code>[[unlikely]]</code> to emit jump instructions that align with
+these hardware fallback rules, reducing branch misprediction penalties
+on cold runs.</p>
+<h3 id="3-inlining-and-register-allocation">3. Inlining and Register
+Allocation</h3>
+<p>Compilers may use branch likelihood to adjust function inlining
+thresholds. Functions called exclusively inside
+<code>[[unlikely]]</code> branches are less likely to be inlined,
+reducing binary bloat. Conversely, variables in <code>[[likely]]</code>
+paths may be given higher priority during register allocation, ensuring
+hot data remains in fast CPU registers.</p>
+<h2 id="syntax-and-practical-usage">Syntax and Practical Usage</h2>
+<p>The attributes can be applied to statements inside <code>if</code>
+statements, <code>else</code> blocks, and <code>switch</code> cases.</p>
+<h3 id="using-with-if-else">Using with <code>if-else</code></h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">bool</span> process_transaction<span class="op">(</span>Transaction<span class="op">*</span> txn<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>txn <span class="op">!=</span> <span class="kw">nullptr</span><span class="op">)</span> <span class="op">[[</span><span class="at">likely</span><span class="op">]]</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> txn<span class="op">-&gt;</span>execute<span class="op">();</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">[[</span><span class="at">unlikely</span><span class="op">]]</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        log_error<span class="op">(</span><span class="st">&quot;Null transaction received&quot;</span><span class="op">);</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="kw">false</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this example, the compiler places the
+<code>txn-&gt;execute()</code> instructions directly in the sequential
+pipeline, while the error logging routine is moved out of the primary
+execution stream.</p>
+<h3 id="using-with-switch">Using with <code>switch</code></h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> handle_event<span class="op">(</span>Event event<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">switch</span> <span class="op">(</span>event<span class="op">.</span>type<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> EventType<span class="op">::</span>NormalData<span class="op">:</span> <span class="op">[[</span><span class="at">likely</span><span class="op">]]</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>            process_data<span class="op">(</span>event<span class="op">);</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> EventType<span class="op">::</span>Heartbeat<span class="op">:</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>            refresh_connection<span class="op">();</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>            </span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="cf">case</span> EventType<span class="op">::</span>FatalError<span class="op">:</span> <span class="op">[[</span><span class="at">unlikely</span><span class="op">]]</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>            terminate_session<span class="op">();</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Here, the dispatch mechanism can prioritize jump checks or layout
+placement for <code>NormalData</code> ahead of
+<code>FatalError</code>.</p>
+<h2 id="best-practices-and-caveats">Best Practices and Caveats</h2>
+<ul>
+<li><strong>Use Sparingly:</strong> These attributes should be reserved
+for scenarios where the probability disparity is extreme (e.g., 99% vs.
+1%), such as error handling, bounds checking, or fast-path validation in
+high-frequency trading and game engines.</li>
+<li><strong>Avoid Guessing:</strong> Incorrect hints can degrade
+performance. If an <code>[[unlikely]]</code> branch is frequently taken,
+the CPU will suffer continuous branch mispredictions and frequent cache
+misses.</li>
+<li><strong>Profile-Guided Optimization (PGO) Precedence:</strong> PGO
+utilizes actual execution profiles to determine hot and cold paths. In
+most modern toolchains, PGO data will override manual
+<code>[[likely]]</code> and <code>[[unlikely]]</code> annotations.
+Prefer profiling over manual annotations whenever possible.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/understanding-likely-and-unlikely-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

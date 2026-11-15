@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Binary Right Fold Expansion Semantics - cpp</title>
+    <meta name="description" content="Fold expressions, introduced in C++17, provide a concise mechanism for unpacking variadic parameter packs over binary operators. A binary right fold expands an unexpanded parameter pack and an explicit initial value from right to left, creating a right-as">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-binary-right-fold-expansion-semantics">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Binary Right Fold Expansion Semantics - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-binary-right-fold-expansion-semantics" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Fold expressions, introduced in C++17, provide a concise mechanism for unpacking variadic parameter packs over binary operators. A binary right fold expands an unexpanded parameter pack and an explicit initial value from right to left, creating a right-as" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-binary-right-fold-expansion-semantics">C++ Binary Right Fold
+Expansion Semantics</h1>
+<p>Fold expressions, introduced in C++17, provide a concise mechanism
+for unpacking variadic parameter packs over binary operators. A binary
+right fold expands an unexpanded parameter pack and an explicit initial
+value from right to left, creating a right-associative sequence of
+operations. This article covers the syntax, formal expansion rules,
+evaluation characteristics, and practical behavior of binary right folds
+in modern C++.</p>
+<h2 id="syntax-and-structure">Syntax and Structure</h2>
+<p>A binary right fold requires an unexpanded parameter pack, an
+explicit initial operand, and two identical binary operators surrounding
+an ellipsis. The standard syntax is defined as:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="op">(</span> pack op <span class="op">...</span> op init <span class="op">)</span></span></code></pre></div>
+<ul>
+<li><strong><code>pack</code></strong>: An expression containing an
+unexpanded parameter pack.</li>
+<li><strong><code>op</code></strong>: Any valid C++ fold-supported
+binary operator (both instances of <code>op</code> must be
+identical).</li>
+<li><strong><code>...</code></strong>: The literal ellipsis token
+indicating pack expansion.</li>
+<li><strong><code>init</code></strong>: An expression representing the
+initial value or terminal operand, which does not contain an unexpanded
+pack.</li>
+<li><strong>Parentheses <code>(...)</code></strong>: The outer
+parentheses are mandatory; omitting them results in a compiler
+error.</li>
+</ul>
+<h2 id="expansion-semantics">Expansion Semantics</h2>
+<p>When the compiler instantiates a binary right fold, it resolves the
+parameter pack into individual elements <span class="math inline">\(E_1,
+E_2, \dots, E_N\)</span>. The expansion nests operations starting from
+the rightmost elements, pairing the final pack element with the
+<code>init</code> expression first.</p>
+<p>Mathematically, the expansion of <code>(pack op ... op init)</code>
+yields:</p>
+<p><span class="math display">\[E_1 \text{ op } (E_2 \text{ op } (\dots
+\text{ op } (E_{N-1} \text{ op } (E_N \text{ op }
+init))\dots))\]</span></p>
+<h3 id="non-empty-pack-behavior">Non-Empty Pack Behavior</h3>
+<p>If the pack expands to three elements <code>a, b, c</code> and the
+initial value is <code>z</code>, the expression
+<code>(pack + ... + z)</code> expands directly to:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>a <span class="op">+</span> <span class="op">(</span>b <span class="op">+</span> <span class="op">(</span>c <span class="op">+</span> z<span class="op">))</span></span></code></pre></div>
+<p>Because of the right-nested parentheses, evaluation of the operations
+proceeds from the inside out:</p>
+<ol type="1">
+<li><code>c + z</code> is evaluated first.</li>
+<li>The result of <code>(c + z)</code> is then combined with
+<code>b</code>.</li>
+<li>Finally, <code>a</code> is combined with the result of
+<code>(b + (c + z))</code>.</li>
+</ol>
+<h3 id="empty-pack-behavior">Empty Pack Behavior</h3>
+<p>Unlike unary folds, which are invalid for empty packs on most
+operators (with exceptions for <code>&amp;&amp;</code>, <code>||</code>,
+and <code>,</code>), a binary right fold is well-formed when the
+parameter pack is empty. If the pack contains zero elements, the entire
+expression evaluates strictly to the <code>init</code> expression:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> foldExample<span class="op">(</span>Args<span class="op">...</span> args<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>args <span class="op">+</span> <span class="op">...</span> <span class="op">+</span> <span class="dv">0</span><span class="op">);</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="co">// When args is empty:</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>foldExample<span class="op">();</span> <span class="co">// Evaluates directly to 0</span></span></code></pre></div>
+<h2 id="concrete-example-left-fold-vs-right-fold">Concrete Example: Left
+Fold vs. Right Fold</h2>
+<p>The distinction in expansion direction is particularly critical when
+using non-associative operators, such as subtraction (<code>-</code>) or
+division (<code>/</code>).</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> binaryRightFold<span class="op">(</span>Args<span class="op">...</span> args<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>args <span class="op">-</span> <span class="op">...</span> <span class="op">-</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span><span class="op">...</span> Args<span class="op">&gt;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> binaryLeftFold<span class="op">(</span>Args<span class="op">...</span> args<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span><span class="dv">1</span> <span class="op">-</span> <span class="op">...</span> <span class="op">-</span> args<span class="op">);</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Values: 10, 5, 2</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Right fold expands to: 10 - (5 - (2 - 1))</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2 - 1 = 1</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 5 - 1 = 4</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 10 - 4 = 6</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> binaryRightFold<span class="op">(</span><span class="dv">10</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">2</span><span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span> <span class="co">// Outputs 6</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Left fold expands to: ((1 - 10) - 5) - 2</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1 - 10 = -9</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">// -9 - 5 = -14</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="co">// -14 - 2 = -16</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> binaryLeftFold<span class="op">(</span><span class="dv">10</span><span class="op">,</span> <span class="dv">5</span><span class="op">,</span> <span class="dv">2</span><span class="op">)</span> <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span>  <span class="co">// Outputs -16</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h2 id="operator-precedence-and-evaluation-order">Operator Precedence
+and Evaluation Order</h2>
+<p>Even though right folds associate from right to left, C++ sequencing
+rules still apply to subexpressions:</p>
+<ol type="1">
+<li><strong>Short-Circuit Operators</strong>: When using
+<code>&amp;&amp;</code> or <code>||</code>, short-circuiting applies
+according to the grouped expression. In
+<code>a || (b || (c || init))</code>, if <code>a</code> evaluates to
+<code>true</code>, the nested right-hand side
+<code>(b || (c || init))</code> is not evaluated.</li>
+<li><strong>Comma Operator</strong>: In
+<code>(pack , ... , init)</code>, the expansion
+<code>E1 , (E2 , (... , (EN , init)))</code> evaluates each operand from
+left to right due to the sequenced-before rules of the comma operator,
+ultimately returning the value of <code>init</code>.</li>
+<li><strong>Assignment Operators</strong>: Because assignment operators
+(such as <code>=</code>, <code>+=</code>, etc.) are naturally
+right-associative in C++, binary right folds mirror native assignment
+semantics when chaining operations.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-binary-right-fold-expansion-semantics';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

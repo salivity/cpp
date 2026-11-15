@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safe Bit Manipulation in C++ with std::bit_cast - cpp</title>
+    <meta name="description" content="Introduced in C++20, std::bitcast provides a standard, type-safe mechanism to reinterpret the raw bit patterns of an object as another type without causing undefined behavior. Historically, developers relied on pointer casting, unions, or std::memcpy to i">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/safe-bit-manipulation-in-c-with-std-bit-cast">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Safe Bit Manipulation in C++ with std::bit_cast - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/safe-bit-manipulation-in-c-with-std-bit-cast" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++20, std::bitcast provides a standard, type-safe mechanism to reinterpret the raw bit patterns of an object as another type without causing undefined behavior. Historically, developers relied on pointer casting, unions, or std::memcpy to i" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="safe-bit-manipulation-in-c-with-stdbit_cast">Safe Bit
+Manipulation in C++ with std::bit_cast</h1>
+<p>Introduced in C++20, <code>std::bit_cast</code> provides a standard,
+type-safe mechanism to reinterpret the raw bit patterns of an object as
+another type without causing undefined behavior. Historically,
+developers relied on pointer casting, unions, or
+<code>std::memcpy</code> to inspect or convert binary representations,
+but these approaches frequently violated C++ memory models or lacked
+compile-time verification. By enforcing strict compile-time constraints
+and direct integration into the language standard,
+<code>std::bit_cast</code> achieves safe, zero-overhead bit-level
+manipulation that is also usable in <code>constexpr</code> contexts.</p>
+<h3 id="the-problem-with-traditional-bit-reinterpretation">The Problem
+with Traditional Bit Reinterpretation</h3>
+<p>Before C++20, developers typically used one of three methods to
+reinterpret bits between types, each carrying significant drawbacks:</p>
+<ol type="1">
+<li><strong><code>reinterpret_cast</code> and C-style casts</strong>:
+Casting a pointer of one type to another (e.g.,
+<code>*(int*)&amp;float_var</code>) violates the C++ Strict Aliasing
+Rule. This causes undefined behavior, allowing optimizing compilers to
+generate unpredictable code.</li>
+<li><strong>Union-based type punning</strong>: Writing to one union
+member and reading from another is permitted in C, but it constitutes
+undefined behavior in standard C++.</li>
+<li><strong><code>std::memcpy</code></strong>: Copying bits using
+<code>std::memcpy</code> avoids strict aliasing violations and is
+legally defined, but it lacks compile-time safety checks and, prior to
+C++20, could not be used in <code>constexpr</code> functions.</li>
+</ol>
+<h3 id="how-stdbit_cast-ensures-safety">How <code>std::bit_cast</code>
+Ensures Safety</h3>
+<p>Defined in the <code>&lt;bit&gt;</code> header,
+<code>std::bit_cast</code> is a function template that copies the bit
+representation of a source value directly into a new destination object.
+It achieves safety by enforcing constraints before code generation
+occurs.</p>
+<h4 id="1-compile-time-size-verification">1. Compile-Time Size
+Verification</h4>
+<p><code>std::bit_cast</code> requires that both the source and target
+types have the exact same size:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">sizeof</span><span class="op">(</span>To<span class="op">)</span> <span class="op">==</span> <span class="kw">sizeof</span><span class="op">(</span>From<span class="op">)</span></span></code></pre></div>
+<p>If the sizes differ, the code will fail to compile. This eliminates
+potential buffer overflows and partial reads that often occur with
+improper pointer arithmetic.</p>
+<h4 id="2-trivially-copyable-types">2. Trivially Copyable Types</h4>
+<p>Both the source (<code>From</code>) and destination (<code>To</code>)
+types must satisfy the <code>std::is_trivially_copyable</code>
+concept:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>is_trivially_copyable_v<span class="op">&lt;</span>To<span class="op">&gt;</span> <span class="op">==</span> <span class="kw">true</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>is_trivially_copyable_v<span class="op">&lt;</span>From<span class="op">&gt;</span> <span class="op">==</span> <span class="kw">true</span></span></code></pre></div>
+<p>Trivially copyable types have straightforward memory layouts that do
+not rely on complex copy constructors, destructors, or virtual method
+tables. Enforcing this constraint ensures that raw bit duplication
+produces a valid, self-contained object.</p>
+<h4 id="3-strict-aliasing-compliance">3. Strict Aliasing Compliance</h4>
+<p>Unlike pointer-based reinterpretation, <code>std::bit_cast</code>
+does not access an existing object through an incompatible type pointer.
+Instead, the compiler creates a distinct value of the target type
+initialized with the copied bits. This guarantees full adherence to the
+strict aliasing rules.</p>
+<h4 id="4-compile-time-evaluation-constexpr">4. Compile-Time Evaluation
+(<code>constexpr</code>)</h4>
+<p><code>std::bit_cast</code> is qualified as <code>constexpr</code>. If
+the arguments are compile-time constants and the types do not contain
+pointers or references, the bit manipulation is performed entirely at
+compile time:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;bit&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;cstdint&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="dt">float</span> f <span class="op">=</span> <span class="fl">1.0</span><span class="bu">f</span><span class="op">;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="dt">uint32_t</span> raw_bits <span class="op">=</span> <span class="bu">std::</span>bit_cast<span class="op">&lt;</span><span class="dt">uint32_t</span><span class="op">&gt;(</span>f<span class="op">);</span></span></code></pre></div>
+<h3 id="padding-bits-and-indeterminate-values">Padding Bits and
+Indeterminate Values</h3>
+<p>While <code>std::bit_cast</code> eliminates the major hazards of type
+punning, developers must still account for padding bits:</p>
+<ul>
+<li><strong>Padding in the source type</strong>: If the source object
+contains padding bits, the corresponding bits in the target object will
+have indeterminate values.</li>
+<li><strong>Pointers</strong>: If the source representation contains a
+pointer value, reinterpreting it as an integer at compile time will
+fail, because pointer addresses are non-deterministic during
+compilation.</li>
+</ul>
+<h3 id="conclusion">Conclusion</h3>
+<p><code>std::bit_cast</code> standardizes bit reinterpretation in C++
+by providing the safety of <code>std::memcpy</code> combined with
+compile-time assertions and <code>constexpr</code> support. It
+guarantees that operations are both strictly compliant with the C++
+abstract machine and optimized to native register moves at runtime.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/safe-bit-manipulation-in-c-with-std-bit-cast';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Function Template Default Arguments Syntax Rules - cpp</title>
+    <meta name="description" content="Default template arguments for function templates allow developers to specify fallback types or values when an argument is not explicitly provided and cannot be deduced. Introduced in C++11, these rules differ significantly from default arguments in class">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-function-template-default-arguments-syntax-rules">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Function Template Default Arguments Syntax Rules - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-function-template-default-arguments-syntax-rules" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Default template arguments for function templates allow developers to specify fallback types or values when an argument is not explicitly provided and cannot be deduced. Introduced in C++11, these rules differ significantly from default arguments in class" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-function-template-default-arguments-syntax-rules">C++ Function
+Template Default Arguments Syntax Rules</h1>
+<p>Default template arguments for function templates allow developers to
+specify fallback types or values when an argument is not explicitly
+provided and cannot be deduced. Introduced in C++11, these rules differ
+significantly from default arguments in class templates and regular
+function parameters. This article outlines the fundamental syntax rules,
+positioning constraints, redeclaration restrictions, and deduction
+behaviors governing default template arguments in C++ function
+templates.</p>
+<h3 id="language-support-and-basic-syntax">Language Support and Basic
+Syntax</h3>
+<p>Prior to C++11, default template arguments were strictly limited to
+class templates. Since C++11, function templates fully support default
+template arguments for both type parameters and non-type template
+parameters.</p>
+<p>The basic syntax mirrors that of class templates:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T <span class="op">=</span> <span class="dt">int</span><span class="op">,</span> <span class="dt">int</span> N <span class="op">=</span> <span class="dv">10</span><span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> printValue<span class="op">(</span>T val <span class="op">=</span> T<span class="op">())</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Implementation</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this example, if <code>T</code> and <code>N</code> are omitted
+during invocation and cannot be deduced, <code>T</code> defaults to
+<code>int</code> and <code>N</code> defaults to <code>10</code>.</p>
+<h3 id="non-trailing-default-arguments-are-allowed">Non-Trailing Default
+Arguments Are Allowed</h3>
+<p>Unlike ordinary function parameters and class template parameters, a
+default template argument in a function template does not need to appear
+at the end of the template parameter list.</p>
+<p>A parameter with a default argument can be followed by parameters
+without default arguments, provided that the trailing parameters can be
+deduced from the function's runtime arguments:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T <span class="op">=</span> <span class="dt">int</span><span class="op">,</span> <span class="kw">typename</span> U<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span>U value<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// T defaults to int if not explicitly provided</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// U is deduced from the argument &#39;value&#39;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    process<span class="op">(</span><span class="fl">3.14</span><span class="op">);</span>        <span class="co">// T = int, U = double</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    process<span class="op">&lt;</span><span class="dt">char</span><span class="op">&gt;(</span><span class="fl">3.14</span><span class="op">);</span>  <span class="co">// T = char, U = double</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Because template argument deduction can resolve trailing parameters
+from the call arguments, the compiler does not require default template
+arguments to be right-aligned.</p>
+<h3 id="redeclaration-restrictions">Redeclaration Restrictions</h3>
+<p>In standard C++, default template arguments for function templates
+cannot be added or modified in subsequent declarations.</p>
+<ul>
+<li>All default template arguments must be specified in the first
+declaration of the function template within a translation unit.</li>
+<li>You cannot specify a default argument in a definition if a prior
+declaration omitted it.</li>
+<li>You cannot "accumulate" defaults across multiple declarations in the
+same scope, which contrasts with the behavior of default runtime
+function arguments.</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// First declaration:</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T <span class="op">=</span> <span class="dt">int</span><span class="op">&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> execute<span class="op">();</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Ill-formed redeclaration:</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T <span class="op">=</span> <span class="dt">int</span><span class="op">&gt;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> execute<span class="op">()</span> <span class="op">{}</span> <span class="co">// Error: redefinition of default template argument</span></span></code></pre></div>
+<h3 id="parameter-dependency-rules">Parameter Dependency Rules</h3>
+<p>A default template argument can refer to any preceding template
+parameter, but it cannot refer to subsequent template parameters:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">,</span> <span class="kw">typename</span> U <span class="op">=</span> T<span class="op">&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> pairUp<span class="op">(</span>T first<span class="op">,</span> U second<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Valid: U defaults to the deduced or provided type of T</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Attempting to define
+<code>template &lt;typename T = U, typename U&gt;</code> is ill-formed
+because <code>U</code> has not yet been declared at the point
+<code>T</code> specifies its default.</p>
+<h3 id="parameter-packs-cannot-have-default-arguments">Parameter Packs
+Cannot Have Default Arguments</h3>
+<p>A template parameter pack cannot have a default template
+argument:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span><span class="op">...</span> Args <span class="op">=</span> <span class="dt">int</span><span class="op">&gt;</span> <span class="co">// Error: template parameter pack cannot have a default</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> variadicFunc<span class="op">();</span></span></code></pre></div>
+<p>However, a template parameter with a default argument can precede a
+parameter pack if the parameter pack can be deduced:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T <span class="op">=</span> <span class="dt">int</span><span class="op">,</span> <span class="kw">typename</span><span class="op">...</span> Rest<span class="op">&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> variadicFunc<span class="op">(</span>Rest<span class="op">...</span> args<span class="op">);</span> <span class="co">// Valid: Rest can be deduced as empty or populated</span></span></code></pre></div>
+<h3
+id="interaction-with-explicit-specialization-and-overload-resolution">Interaction
+with Explicit Specialization and Overload Resolution</h3>
+<p>When calling a function template:</p>
+<ol type="1">
+<li>Explicitly provided template arguments always take precedence over
+default template arguments.</li>
+<li>If an explicit argument is omitted, the compiler first attempts to
+deduce the parameter from the function call arguments.</li>
+<li>If deduction does not produce a type and no explicit argument was
+supplied, the default template argument is substituted.</li>
+<li>If deduction fails and no default exists, substitution fails
+(SFINAE) or a compile-time error occurs.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-function-template-default-arguments-syntax-rules';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

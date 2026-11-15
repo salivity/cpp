@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Latches and Barriers in C++ Thread Synchronization - cpp</title>
+    <meta name="description" content="Concurrent programming in C++ gained powerful synchronization mechanisms with C++20 through the introduction of std::latch and std::barrier. These primitives allow groups of threads to coordinate execution points and synchronize phases without the overhea">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/latches-and-barriers-in-c-thread-synchronization">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Latches and Barriers in C++ Thread Synchronization - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/latches-and-barriers-in-c-thread-synchronization" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Concurrent programming in C++ gained powerful synchronization mechanisms with C++20 through the introduction of std::latch and std::barrier. These primitives allow groups of threads to coordinate execution points and synchronize phases without the overhea" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="latches-and-barriers-in-c-thread-synchronization">Latches and
+Barriers in C++ Thread Synchronization</h1>
+<p>Concurrent programming in C++ gained powerful synchronization
+mechanisms with C++20 through the introduction of
+<code>std::latch</code> and <code>std::barrier</code>. These primitives
+allow groups of threads to coordinate execution points and synchronize
+phases without the overhead and complexity of manual mutexes and
+condition variables. This article explains how both primitives operate,
+their structural differences, and how to implement them to manage thread
+coordination efficiently.</p>
+<h3 id="understanding-stdlatch">Understanding
+<code>std::latch</code></h3>
+<p>A <code>std::latch</code> is a downward counter used to synchronize
+threads through a single-use countdown mechanism. Once initialized with
+an integral counter value, threads can decrement this count until it
+reaches zero.</p>
+<p>A latch is strictly single-use; its counter cannot be reset or reused
+once it hits zero. Key operations include:</p>
+<ul>
+<li><strong><code>count_down(n = 1)</code></strong>: Decrements the
+internal counter by <code>n</code> without blocking the calling
+thread.</li>
+<li><strong><code>wait()</code></strong>: Blocks the calling thread
+until the counter reaches zero. If the counter is already zero, it
+returns immediately.</li>
+<li><strong><code>arrive_and_wait(n = 1)</code></strong>: Atomically
+decrements the counter by <code>n</code> and blocks until the counter
+reaches zero.</li>
+</ul>
+<p>Latches are ideal for fork-join patterns, such as waiting for a pool
+of worker threads to finish data initialization before allowing
+processing to continue.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;thread&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;latch&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> worker<span class="op">(</span><span class="bu">std::</span>latch<span class="op">&amp;</span> work_done<span class="op">,</span> <span class="dt">int</span> id<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Perform task</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    work_done<span class="op">.</span>count_down<span class="op">();</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">constexpr</span> <span class="dt">int</span> num_threads <span class="op">=</span> <span class="dv">4</span><span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>latch work_done<span class="op">(</span>num_threads<span class="op">);</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>jthread<span class="op">&gt;</span> threads<span class="op">;</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> num_threads<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        threads<span class="op">.</span>emplace_back<span class="op">(</span>worker<span class="op">,</span> <span class="bu">std::</span>ref<span class="op">(</span>work_done<span class="op">),</span> i<span class="op">);</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    work_done<span class="op">.</span>wait<span class="op">();</span> <span class="co">// Blocks until all 4 workers call count_down()</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;All workers completed.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="understanding-stdbarrier">Understanding
+<code>std::barrier</code></h3>
+<p>A <code>std::barrier</code> is a reusable phase-synchronization
+primitive designed for iterative algorithms where a fixed set of threads
+must execute in lockstep across repeated cycles.</p>
+<p>Unlike a latch, a barrier resets its counter automatically at the end
+of each phase. It also accepts an optional completion function (a
+callable object) that executes atomically on one of the arriving threads
+after all threads have arrived, but before any threads are released for
+the next phase.</p>
+<p>Key operations include:</p>
+<ul>
+<li><strong><code>arrive_and_wait()</code></strong>: Arrives at the
+synchronization point, decrements the expected counter, and blocks until
+the phase completion step finishes.</li>
+<li><strong><code>arrive(n = 1)</code></strong>: Decrements the counter
+without blocking, allowing a thread to signal completion of its phase
+early.</li>
+<li><strong><code>arrive_and_drop()</code></strong>: Decrements the
+counter for the current phase and permanently decreases the expected
+count for all subsequent phases, removing the calling thread from the
+synchronization group.</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;barrier&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;thread&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> on_phase_complete<span class="op">()</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">int</span> phase <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Phase &quot;</span> <span class="op">&lt;&lt;</span> phase<span class="op">++</span> <span class="op">&lt;&lt;</span> <span class="st">&quot; completed.</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> step_worker<span class="op">(</span><span class="bu">std::</span>barrier<span class="op">&lt;</span><span class="dt">void</span><span class="op">(*)()</span> <span class="kw">noexcept</span><span class="op">&gt;&amp;</span> sync_point<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> step <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> step <span class="op">&lt;</span> <span class="dv">2</span><span class="op">;</span> <span class="op">++</span>step<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Perform work for the current step</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        sync_point<span class="op">.</span>arrive_and_wait<span class="op">();</span> <span class="co">// Wait for all threads to finish step</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">constexpr</span> <span class="dt">int</span> num_threads <span class="op">=</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>barrier sync_point<span class="op">(</span>num_threads<span class="op">,</span> on_phase_complete<span class="op">);</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>jthread<span class="op">&gt;</span> threads<span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> num_threads<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        threads<span class="op">.</span>emplace_back<span class="op">(</span>step_worker<span class="op">,</span> <span class="bu">std::</span>ref<span class="op">(</span>sync_point<span class="op">));</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="choosing-between-latches-and-barriers">Choosing Between Latches
+and Barriers</h3>
+<p>Select <code>std::latch</code> when you have a one-off dependency
+where one or more threads need to wait for a fixed number of operations
+to finish before proceeding. It acts as an irreversible checkpoint.</p>
+<p>Select <code>std::barrier</code> when multiple threads repeatedly run
+in parallel stages, needing to rendezvous at intermediate steps before
+transitioning together into the next computation phase.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/latches-and-barriers-in-c-thread-synchronization';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

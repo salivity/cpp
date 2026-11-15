@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why C++ Function Templates Cannot Be Partially Specialized - cpp</title>
+    <meta name="description" content="In standard C++, class and variable templates can be partially specialized, but function templates cannot. This article explains the technical and architectural reasons behind this restriction in the ISO C++ standard, focusing primarily on the conflicts t">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/why-c-function-templates-cannot-be-partially-specialized">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why C++ Function Templates Cannot Be Partially Specialized - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/why-c-function-templates-cannot-be-partially-specialized" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In standard C++, class and variable templates can be partially specialized, but function templates cannot. This article explains the technical and architectural reasons behind this restriction in the ISO C++ standard, focusing primarily on the conflicts t" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-c-function-templates-cannot-be-partially-specialized">Why
+C++ Function Templates Cannot Be Partially Specialized</h1>
+<p>In standard C++, class and variable templates can be partially
+specialized, but function templates cannot. This article explains the
+technical and architectural reasons behind this restriction in the ISO
+C++ standard, focusing primarily on the conflicts that would arise
+between partial specialization and function overloading. It also covers
+the design rationale established by the C++ standardization committee
+and outlines the standard, idiomatic workarounds developers use to
+achieve the same behavior.</p>
+<h3 id="the-conflict-with-function-overloading">The Conflict with
+Function Overloading</h3>
+<p>The fundamental reason function templates cannot be partially
+specialized is that function templates can be overloaded, whereas class
+templates cannot.</p>
+<p>Class templates have a single primary definition. When you partially
+specialize a class template, the compiler simply selects the most
+specialized matching pattern from a single family of templates.</p>
+<p>Function templates, however, participate in function overload
+resolution. If partial specialization were permitted for function
+templates, it would introduce deep ambiguities into the language
+regarding when overload resolution should happen relative to
+specialization matching:</p>
+<ol type="1">
+<li>Should the compiler run overload resolution among all primary
+function templates first, and then check for partial specializations of
+the winning template?</li>
+<li>Or should the compiler treat all partial specializations as
+candidates alongside the primary templates during overload
+resolution?</li>
+</ol>
+<p>Neither approach yields intuitive or consistent behavior. If overload
+resolution occurs first, a developer might write a partial
+specialization that appears to be the best match for a set of arguments,
+yet the compiler could select a completely different primary template
+overload because specializations do not participate in overload
+resolution. If specializations were included directly in overload
+resolution, the distinction between an overload and a specialization
+would vanish, creating duplicate mechanisms with subtle, bug-prone
+differences.</p>
+<h3 id="language-complexity-and-brittleness">Language Complexity and
+Brittleness</h3>
+<p>Herb Sutter addressed this problem extensively in standard committee
+discussions and his writings. Introducing partial specialization for
+functions would make the already complex rules of C++ overload
+resolution significantly harder to implement and reason about.</p>
+<p>Because overloading already allows developers to provide alternative
+implementations for specific types, adding partial specialization would
+provide redundant functionality with worse ergonomics. Full
+specialization of function templates already suffers from non-intuitive
+behavior because full specializations do not overload; they only
+specialize a specific primary template after overload resolution is
+complete. Adding partial specialization would amplify this pitfall
+across complex template codebases.</p>
+<h3 id="standard-workarounds">Standard Workarounds</h3>
+<p>Because function templates cannot be partially specialized, modern
+C++ provides several reliable idioms to achieve the same result:</p>
+<h4 id="1-function-overloading">1. Function Overloading</h4>
+<p>In many cases, simple function overloading provides the exact
+behavior desired without requiring specialization:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span>T val<span class="op">);</span> <span class="co">// Primary template</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span>T<span class="op">*</span> val<span class="op">);</span> <span class="co">// Overload for pointers</span></span></code></pre></div>
+<h4 id="2-delegating-to-a-class-template">2. Delegating to a Class
+Template</h4>
+<p>When partial specialization is strictly necessary, standard practice
+is to delegate the function call to a static member of a class or struct
+template, which natively supports partial specialization:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> ProcessHelper <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span> run<span class="op">(</span>T val<span class="op">)</span> <span class="op">{</span> <span class="co">/* generic implementation */</span> <span class="op">}</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> ProcessHelper<span class="op">&lt;</span>T<span class="op">*&gt;</span> <span class="op">{</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">void</span> run<span class="op">(</span>T<span class="op">*</span> val<span class="op">)</span> <span class="op">{</span> <span class="co">/* pointer partial specialization */</span> <span class="op">}</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span>T val<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    ProcessHelper<span class="op">&lt;</span>T<span class="op">&gt;::</span>run<span class="op">(</span>val<span class="op">);</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h4 id="3-c20-concepts-and-constraints">3. C++20 Concepts and
+Constraints</h4>
+<p>In modern C++, concepts provide the cleanest alternative to partial
+specialization for functions. By applying <code>requires</code> clauses,
+you can constrain overloads based on type traits or properties:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span>T val<span class="op">)</span> <span class="op">{</span> <span class="co">/* generic */</span> <span class="op">}</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="kw">requires</span> <span class="bu">std::</span>is_pointer_v<span class="op">&lt;</span>T<span class="op">&gt;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span>T val<span class="op">)</span> <span class="op">{</span> <span class="co">/* constrained overload */</span> <span class="op">}</span></span></code></pre></div>
+<p>By relying on overloading, class delegation, and concepts, C++
+achieves the flexibility needed for generic algorithms while keeping the
+rules governing function templates deterministic and implementable.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/why-c-function-templates-cannot-be-partially-specialized';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

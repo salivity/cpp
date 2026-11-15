@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Is the Most Vexing Parse in C++? - cpp</title>
+    <meta name="description" content="The most vexing parse is a specific type of syntactic ambiguity in C++ where a statement intended to be an object initialization is instead interpreted by the compiler as a function declaration. Coined by Scott Meyers in his 2001 book Effective STL, this">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/what-is-the-most-vexing-parse-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Is the Most Vexing Parse in C++? - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/what-is-the-most-vexing-parse-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The most vexing parse is a specific type of syntactic ambiguity in C++ where a statement intended to be an object initialization is instead interpreted by the compiler as a function declaration. Coined by Scott Meyers in his 2001 book Effective STL, this" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-is-the-most-vexing-parse-in-c">What Is the Most Vexing
+Parse in C++?</h1>
+<p>The most vexing parse is a specific type of syntactic ambiguity in
+C++ where a statement intended to be an object initialization is instead
+interpreted by the compiler as a function declaration. Coined by Scott
+Meyers in his 2001 book <em>Effective STL</em>, this issue stems from an
+inherited C ambiguity resolution rule that prioritizes declarations over
+expressions. Understanding why this occurs requires examining the
+grammar rules governing C++ parameter declarations and learning how
+modern language features, such as uniform initialization, easily prevent
+the bug.</p>
+<h3 id="the-problem-illustrated">The Problem Illustrated</h3>
+<p>The most famous manifestation of the most vexing parse occurs when
+passing a temporary object to an object's constructor:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iterator&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;fstream&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Timer <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    Timer<span class="op">()</span> <span class="op">{}</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Task <span class="op">{</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    Task<span class="op">(</span>Timer t<span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Intended: Construct an object &#39;t&#39; of type Task, passing a temporary Timer.</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Actual: Declares a function named &#39;t&#39; returning Task.</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    Task t<span class="op">(</span>Timer<span class="op">());</span> </span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Instead of instantiating <code>Task t</code>, the compiler treats
+<code>Task t(Timer());</code> as a declaration of a function named
+<code>t</code> that returns a <code>Task</code> and accepts a single,
+unnamed parameter of type "pointer to a function taking no arguments and
+returning a <code>Timer</code>".</p>
+<h3 id="why-the-grammar-favors-function-declarations">Why the Grammar
+Favors Function Declarations</h3>
+<p>The ambiguity arises because C++ grammar allows extraneous
+parentheses around variable and parameter names, a feature inherited
+from C:</p>
+<ol type="1">
+<li><strong>Redundant Parentheses in Types and Names:</strong> In C and
+C++, <code>int (x)</code> is functionally identical to
+<code>int x</code>. Likewise, <code>Timer()</code> can be evaluated as
+an invocation of the default constructor, but it can also be evaluated
+as a parameter of type <code>Timer</code> with omitted parameter names
+and redundant parentheses.</li>
+<li><strong>Ambiguity Resolution Rule:</strong> The C++ standard
+explicitly defines how to handle syntactic ambiguity: if an expression
+can be parsed as a declaration, it <strong>must</strong> be parsed as a
+declaration.</li>
+</ol>
+<p>When the compiler encounters <code>Task t(Timer())</code>, it
+evaluates two possible interpretations:</p>
+<ul>
+<li><strong>Expression/Initialization:</strong> Define an object
+<code>t</code> of type <code>Task</code> initialized with a temporary
+<code>Timer</code>.</li>
+<li><strong>Declaration:</strong> Declare a function <code>t</code>
+returning <code>Task</code> that accepts a parameter of type
+<code>Timer()</code> (a function returning <code>Timer</code>).</li>
+</ul>
+<p>Because both interpretations are syntactically valid, the standard's
+disambiguation rule takes effect. The compiler chooses the declaration,
+silently converting what was supposed to be a runtime variable into a
+function prototype.</p>
+<h3 id="common-manifestations">Common Manifestations</h3>
+<p>Another common example occurs with stream iterators:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>ifstream file<span class="op">(</span><span class="st">&quot;data.txt&quot;</span><span class="op">);</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">// Parsed as a function declaration:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> data<span class="op">(</span><span class="bu">std::</span>istream_iterator<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span>file<span class="op">),</span> <span class="bu">std::</span>istream_iterator<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;());</span></span></code></pre></div>
+<p>Here, the first argument
+<code>std::istream_iterator&lt;int&gt;(file)</code> is interpreted as a
+parameter named <code>file</code> of type
+<code>std::istream_iterator&lt;int&gt;</code>. The second argument
+<code>std::istream_iterator&lt;int&gt;()</code> is interpreted as an
+unnamed function pointer parameter.</p>
+<p>A simpler, related pitfall is default initialization:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Timer t<span class="op">();</span> <span class="co">// Not an object &#39;t&#39;, but a function &#39;t&#39; taking no arguments and returning a Timer.</span></span></code></pre></div>
+<h3 id="how-to-fix-it">How to Fix It</h3>
+<p>Modern C++ provides several direct solutions to bypass the
+disambiguation rule:</p>
+<ol type="1">
+<li><p><strong>Braced Initialization (C++11 and newer):</strong> Uniform
+initialization with curly braces cannot be parsed as a function
+declaration.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>Task t<span class="op">{</span>Timer<span class="op">{}};</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> data<span class="op">{</span><span class="bu">std::</span>istream_iterator<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;(</span>file<span class="op">),</span> <span class="bu">std::</span>istream_iterator<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;()};</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>Timer t<span class="op">{};</span></span></code></pre></div></li>
+<li><p><strong>Named Instances:</strong> Instantiate the temporary
+object on a separate line before passing it.</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>Timer timer<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>Task t<span class="op">(</span>timer<span class="op">);</span></span></code></pre></div></li>
+<li><p><strong>Extra Parentheses:</strong> Wrapping an entire argument
+in an extra pair of parentheses prevents the compiler from treating the
+contents as a parameter declaration:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>Task t<span class="op">((</span>Timer<span class="op">()));</span></span></code></pre></div></li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/what-is-the-most-vexing-parse-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

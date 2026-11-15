@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why std::make_shared Delays Memory Deallocation - cpp</title>
+    <meta name="description" content="Using std::makeshared in C++ combines the allocation of a managed object and its reference control block into a single contiguous chunk of heap memory to boost performance and reduce allocation overhead. However, this optimization couples the lifetime of">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/why-std-make-shared-delays-memory-deallocation">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why std::make_shared Delays Memory Deallocation - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/why-std-make-shared-delays-memory-deallocation" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Using std::makeshared in C++ combines the allocation of a managed object and its reference control block into a single contiguous chunk of heap memory to boost performance and reduce allocation overhead. However, this optimization couples the lifetime of" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-stdmake_shared-delays-memory-deallocation">Why
+std::make_shared Delays Memory Deallocation</h1>
+<p>Using <code>std::make_shared</code> in C++ combines the allocation of
+a managed object and its reference control block into a single
+contiguous chunk of heap memory to boost performance and reduce
+allocation overhead. However, this optimization couples the lifetime of
+the underlying memory to both strong and weak reference counts. While an
+object’s destructor executes as soon as its strong reference count drops
+to zero, the actual memory block cannot be released back to the
+allocator until every associated <code>std::weak_ptr</code> is also
+destroyed, which can lead to significant memory retention issues when
+long-lived weak pointers persist.</p>
+<h3 id="the-anatomy-of-shared-pointers">The Anatomy of Shared
+Pointers</h3>
+<p>To understand this behavior, it is necessary to examine how
+<code>std::shared_ptr</code> manages resources. A shared pointer setup
+relies on two key components: the managed object itself and a control
+block. The control block stores essential metadata, including:</p>
+<ul>
+<li>The <strong>strong reference count</strong> (the number of active
+<code>std::shared_ptr</code> instances owning the object).</li>
+<li>The <strong>weak reference count</strong> (the number of active
+<code>std::weak_ptr</code> instances observing the object, plus one
+while the strong count is greater than zero).</li>
+<li>Custom deleters and allocators, if provided.</li>
+</ul>
+<h3 id="separate-allocation-vs-stdmake_shared">Separate Allocation vs.
+<code>std::make_shared</code></h3>
+<p>When creating a shared pointer using direct initialization, such as
+<code>std::shared_ptr&lt;T&gt;(new T())</code>, two distinct dynamic
+allocations occur. The <code>new T()</code> expression allocates the
+object on the heap, and the <code>std::shared_ptr</code> constructor
+allocates a separate control block.</p>
+<p>When the strong count reaches zero:</p>
+<ol type="1">
+<li>The object's destructor <code>~T()</code> is invoked.</li>
+<li>The memory allocated for <code>T</code> is immediately deallocated
+via <code>operator delete</code>.</li>
+<li>The control block remains in memory until the weak reference count
+also reaches zero, at which point the control block's memory is
+separately deallocated.</li>
+</ol>
+<p>In contrast, <code>std::make_shared&lt;T&gt;()</code> performs a
+single dynamic allocation that encompasses space for both the control
+block and the <code>T</code> instance side by side.</p>
+<h3 id="why-memory-deallocation-is-delayed">Why Memory Deallocation Is
+Delayed</h3>
+<p>Because <code>std::make_shared</code> allocates the object and the
+control block in one contiguous buffer, the C++ runtime can only execute
+a single deallocation call for the entire chunk.</p>
+<p>When the last <code>std::shared_ptr</code> pointing to an object
+created with <code>std::make_shared</code> is destroyed:</p>
+<ol type="1">
+<li>The strong count drops to zero.</li>
+<li>The runtime explicitly calls the destructor <code>~T()</code> on the
+object.</li>
+<li>Any resources held by <code>T</code> internally (such as
+<code>std::vector</code> buffers, file handles, or nested pointers) are
+released.</li>
+<li><strong>However</strong>, the raw memory footprint occupied by
+<code>sizeof(T)</code> cannot be returned to the heap because doing so
+would also invalidate the adjacent control block.</li>
+</ol>
+<p><code>std::weak_ptr</code> relies on the control block remaining
+valid so it can inspect the strong reference count and safely determine
+whether the object has expired via <code>weak_ptr::expired()</code> or
+<code>weak_ptr::lock()</code>. Consequently, the entire combined memory
+block must remain allocated until the last <code>std::weak_ptr</code>
+goes out of scope and the weak count reaches zero.</p>
+<h3 id="practical-implications-and-solutions">Practical Implications and
+Solutions</h3>
+<p>This delayed deallocation becomes problematic when the managed type
+<code>T</code> has a large memory footprint directly embedded within its
+layout (for example, a large static array member like
+<code>struct HugeData { char buffer[10 * 1024 * 1024]; };</code>) and
+weak pointers are retained over long periods, such as in caching layers,
+observer registries, or cyclic-reference breakers. Even though
+<code>HugeData</code> is destroyed, its 10-megabyte footprint lingers in
+RAM alongside the control block.</p>
+<p>When handling large objects observed by long-lived weak pointers, you
+should bypass <code>std::make_shared</code> and use explicit separate
+allocations:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Allows immediate memory deallocation of HugeData when strong count reaches zero:</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>shared_ptr<span class="op">&lt;</span>HugeData<span class="op">&gt;</span> ptr<span class="op">(</span><span class="kw">new</span> HugeData<span class="op">());</span></span></code></pre></div>
+<p>This trade-off introduces a second heap allocation during creation
+but guarantees that the object’s memory footprint is reclaimed
+immediately when its lifetime ends, regardless of persisting weak
+pointers.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/why-std-make-shared-delays-memory-deallocation';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

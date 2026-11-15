@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ [[maybe_unused]] and Compiler Warnings - cpp</title>
+    <meta name="description" content="The [[maybeunused]] attribute, introduced in C++17, provides a standard way to tell the compiler that a declared entity might not be used intentionally. Its primary effect is the suppression of compiler warnings related to unused variables, parameters, fu">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-maybe-unused-and-compiler-warnings">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ [[maybe_unused]] and Compiler Warnings - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-maybe-unused-and-compiler-warnings" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The [[maybeunused]] attribute, introduced in C++17, provides a standard way to tell the compiler that a declared entity might not be used intentionally. Its primary effect is the suppression of compiler warnings related to unused variables, parameters, fu" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-maybe_unused-and-compiler-warnings">C++ [[maybe_unused]] and
+Compiler Warnings</h1>
+<p>The <code>[[maybe_unused]]</code> attribute, introduced in C++17,
+provides a standard way to tell the compiler that a declared entity
+might not be used intentionally. Its primary effect is the suppression
+of compiler warnings related to unused variables, parameters, functions,
+or types, allowing developers to maintain clean, warning-free builds
+without resorting to non-portable compiler extensions or hacky
+cast-to-void workarounds.</p>
+<h3 id="compiler-diagnostics-suppression">Compiler Diagnostics
+Suppression</h3>
+<p>Compilers such as GCC, Clang, and MSVC commonly emit diagnostic
+warnings (e.g., <code>-Wunused-variable</code>,
+<code>-Wunused-parameter</code>, or
+<code>C4100</code>/<code>C4189</code>) when an entity is declared but
+never referenced in code. When the compiler encounters
+<code>[[maybe_unused]]</code> attached to an entity, it suppresses these
+specific diagnostic messages.</p>
+<p>Importantly, the attribute only suppresses warnings if the entity is
+not used; it has no adverse effect and generates no errors if the entity
+<em>is</em> used.</p>
+<h3 id="where-the-attribute-can-be-applied">Where the Attribute Can Be
+Applied</h3>
+<p>The <code>[[maybe_unused]]</code> attribute can be applied to a wide
+range of C++ entities, including:</p>
+<ul>
+<li><strong>Variables:</strong> Local variables, global variables,
+static data members, and structured bindings.</li>
+<li><strong>Function Parameters:</strong> Arguments required to match a
+specific callback signature or interface but not utilized within the
+function body.</li>
+<li><strong>Functions:</strong> Helper or utility functions that might
+only be invoked in certain build configurations.</li>
+<li><strong>Types and Enumerations:</strong> <code>class</code>,
+<code>struct</code>, <code>union</code>, <code>enum</code>, and
+<code>typedef</code> declarations, as well as individual
+enumerators.</li>
+<li><strong>Non-static Data Members:</strong> Members of a class or
+struct that exist for layout compatibility or padding.</li>
+</ul>
+<h3 id="common-use-cases">Common Use Cases</h3>
+<h4 id="1-debug-assertions">1. Debug Assertions</h4>
+<p>A common source of unused variable warnings occurs when a variable is
+only used inside an <code>assert()</code> statement:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="dt">int</span> size<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="op">[[</span><span class="at">maybe_unused</span><span class="op">]]</span> <span class="dt">bool</span> success <span class="op">=</span> validateSize<span class="op">(</span>size<span class="op">);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="ot">assert</span><span class="op">(</span>success<span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In Release builds where <code>NDEBUG</code> is defined,
+<code>assert()</code> expands to nothing. Without
+<code>[[maybe_unused]]</code>, the compiler would warn that
+<code>success</code> is set but never used.</p>
+<h4 id="2-generic-interfaces-and-callbacks">2. Generic Interfaces and
+Callbacks</h4>
+<p>When implementing an abstract interface or responding to an event,
+the signature may require parameters that a specific implementation does
+not need:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> onEvent<span class="op">(</span><span class="dt">int</span> eventType<span class="op">,</span> <span class="op">[[</span><span class="at">maybe_unused</span><span class="op">]]</span> <span class="dt">void</span><span class="op">*</span> payload<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>eventType <span class="op">==</span> <span class="dv">1</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        handleReset<span class="op">();</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h4 id="3-platform-specific-or-conditional-code">3. Platform-Specific or
+Conditional Code</h4>
+<p>Variables or functions that are only referenced inside
+<code>#ifdef</code> blocks can be tagged to prevent warnings in
+configurations where those blocks are compiled out.</p>
+<h3 id="performance-and-binary-impact">Performance and Binary
+Impact</h3>
+<p>The <code>[[maybe_unused]]</code> attribute is purely a compile-time
+directive. It does not alter code generation, runtime behavior, memory
+layout, or execution speed. It serves solely as metadata for the
+compiler's diagnostic engine, promoting cleaner, more maintainable
+codebases across different toolchains.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-maybe-unused-and-compiler-warnings';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

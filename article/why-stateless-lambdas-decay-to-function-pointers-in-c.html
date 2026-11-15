@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why Stateless Lambdas Decay to Function Pointers in C++ - cpp</title>
+    <meta name="description" content="In C++, a stateless lambda—defined with an empty capture list []—can automatically decay into a standard C-style function pointer. This capability exists because the lambda captures no local state, allowing the compiler to generate an implicit conversion">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/why-stateless-lambdas-decay-to-function-pointers-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why Stateless Lambdas Decay to Function Pointers in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/why-stateless-lambdas-decay-to-function-pointers-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, a stateless lambda—defined with an empty capture list []—can automatically decay into a standard C-style function pointer. This capability exists because the lambda captures no local state, allowing the compiler to generate an implicit conversion" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-stateless-lambdas-decay-to-function-pointers-in-c">Why
+Stateless Lambdas Decay to Function Pointers in C++</h1>
+<p>In C++, a stateless lambda—defined with an empty capture list
+<code>[]</code>—can automatically decay into a standard C-style function
+pointer. This capability exists because the lambda captures no local
+state, allowing the compiler to generate an implicit conversion operator
+that returns a pointer to an internal static function. This article
+breaks down the internal mechanics of lambda closure types, explains how
+compilers implement this conversion under the ISO C++ standard, and
+highlights why stateful lambdas cannot do the same.</p>
+<h3 id="the-underlying-anatomy-of-a-c-lambda">The Underlying Anatomy of
+a C++ Lambda</h3>
+<p>Under the hood, a C++ lambda expression is syntactic sugar for
+generating a unique, unnamed closure object (a functor class) that
+overloads the call operator <code>operator()</code>.</p>
+<p>When you define a lambda such as:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> add <span class="op">=</span> <span class="op">[](</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span> <span class="op">};</span></span></code></pre></div>
+<p>The compiler transforms this into a class roughly equivalent to:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> __Lambda_Unique_Name <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="kw">operator</span><span class="op">()(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">)</span> <span class="at">const</span> <span class="op">{</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="the-role-of-the-capture-list">The Role of the Capture List</h3>
+<p>The distinction between a stateless and a stateful lambda lies in
+whether the generated closure class must store member variables:</p>
+<ul>
+<li><strong>Stateful Lambdas (<code>[x]</code>,
+<code>[&amp;]</code>):</strong> When a lambda captures variables by
+value or reference, those variables become member fields of the closure
+class. To execute <code>operator()</code>, the program must provide an
+instance of that class via the implicit <code>this</code> pointer to
+access the captured data. Because an ordinary function pointer has no
+mechanism to carry an object instance (<code>this</code>), a stateful
+lambda cannot decay to a simple function pointer.</li>
+<li><strong>Stateless Lambdas (<code>[]</code>):</strong> A lambda with
+an empty capture list stores no data members. It has no external
+dependencies and relies solely on the arguments explicitly passed to it.
+Because it does not require a <code>this</code> pointer to execute its
+logic, it behaves identically to a standalone, free function.</li>
+</ul>
+<h3
+id="the-standard-mandate-static-invocation-and-conversion-operators">The
+Standard Mandate: Static Invocation and Conversion Operators</h3>
+<p>To facilitate seamless interoperability with legacy C APIs, the ISO
+C++ standard (starting in C++11) explicitly mandates that closure types
+with no capture list must provide an implicit conversion operator to a
+function pointer.</p>
+<p>To satisfy this requirement, the compiler generates two crucial
+members inside the closure class:</p>
+<ol type="1">
+<li><strong>A Static Member Function (The Invoker):</strong> A static
+function has no implicit <code>this</code> parameter. Its calling
+convention and memory layout match an ordinary global or namespace-level
+C-style function. The body of this static invoker executes the exact
+same logic defined in the lambda's <code>operator()</code>.</li>
+<li><strong>A Conversion Operator:</strong> An overloaded
+<code>operator Ret(*)(Args...)()</code> that returns the address of the
+generated static invoker function.</li>
+</ol>
+<p>When expanded, the compiler's generated code for a stateless lambda
+looks conceptually like this:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> __Stateless_Lambda <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Standard function call operator</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> <span class="kw">operator</span><span class="op">()(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">)</span> <span class="at">const</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Static function matching ordinary function pointer signatures</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">static</span> <span class="dt">int</span> __invoke<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">)</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Conversion operator to function pointer</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">using</span> FunctionPtr <span class="op">=</span> <span class="dt">int</span><span class="op">(*)(</span><span class="dt">int</span><span class="op">,</span> <span class="dt">int</span><span class="op">);</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">constexpr</span> <span class="kw">operator</span> FunctionPtr<span class="op">()</span> <span class="at">const</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">&amp;</span>__invoke<span class="op">;</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>When you pass a stateless lambda to a function expecting a raw
+function pointer, the compiler invokes this conversion operator,
+seamlessly converting the lambda instance into the address of
+<code>__invoke</code>.</p>
+<h3 id="generic-lambdas-and-c14">Generic Lambdas and C++14</h3>
+<p>Starting with C++14, lambdas can be generic by declaring parameters
+as <code>auto</code>:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> generic_add <span class="op">=</span> <span class="op">[](</span><span class="kw">auto</span> a<span class="op">,</span> <span class="kw">auto</span> b<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span> <span class="op">};</span></span></code></pre></div>
+<p>For stateless generic lambdas, the compiler generates a templated
+conversion operator. The lambda will decay into the appropriate function
+pointer type based on the target signature:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> <span class="op">(*</span>int_func<span class="op">)(</span><span class="dt">int</span><span class="op">,</span> <span class="dt">int</span><span class="op">)</span> <span class="op">=</span> generic_add<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="dt">double</span> <span class="op">(*</span>double_func<span class="op">)(</span><span class="dt">double</span><span class="op">,</span> <span class="dt">double</span><span class="op">)</span> <span class="op">=</span> generic_add<span class="op">;</span></span></code></pre></div>
+<p>The compiler instantiates the corresponding static invoker for each
+specific signature on demand.</p>
+<h3 id="practical-implications">Practical Implications</h3>
+<p>The ability of stateless lambdas to decay into function pointers
+provides critical advantages:</p>
+<ul>
+<li><strong>C Interoperability:</strong> Stateless lambdas can be passed
+directly to C-style APIs expecting callback function pointers (such as
+<code>qsort</code>, Win32 API callbacks, or POSIX threads) without
+manual wrapper functions.</li>
+<li><strong>Zero Overhead:</strong> Unlike <code>std::function</code>,
+which involves type erasure, dynamic memory allocation, and indirection
+overhead, a decaying lambda resolves to a direct pointer invocation with
+zero runtime performance cost.</li>
+<li><strong>Unary Plus Idiom:</strong> Prepending a unary plus operator
+(<code>+[](int x){ return x * 2; }</code>) explicitly forces a stateless
+lambda to decay into its raw function pointer type, which is useful when
+template argument deduction needs an exact pointer type rather than the
+unique closure type.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/why-stateless-lambdas-decay-to-function-pointers-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::pmr::unsynchronized_pool_resource Bucket Management - cpp</title>
+    <meta name="description" content="This article explains how the C++ polymorphic memory resource std::pmr::unsynchronizedpoolresource manages fixed-size memory buckets to accelerate allocations and mitigate fragmentation. It covers the internal structure of memory pools, how allocation req">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-pmr-unsynchronized-pool-resource-bucket-management">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::pmr::unsynchronized_pool_resource Bucket Management - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-pmr-unsynchronized-pool-resource-bucket-management" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains how the C++ polymorphic memory resource std::pmr::unsynchronizedpoolresource manages fixed-size memory buckets to accelerate allocations and mitigate fragmentation. It covers the internal structure of memory pools, how allocation req" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1
+id="stdpmrunsynchronized_pool_resource-bucket-management">std::pmr::unsynchronized_pool_resource
+Bucket Management</h1>
+<p>This article explains how the C++ polymorphic memory resource
+<code>std::pmr::unsynchronized_pool_resource</code> manages fixed-size
+memory buckets to accelerate allocations and mitigate fragmentation. It
+covers the internal structure of memory pools, how allocation requests
+are routed to specific size classes, how chunk replenishment works via
+upstream resources, and how deallocations are processed without
+thread-synchronization overhead.</p>
+<h3 id="the-pool-and-bucket-architecture">The Pool and Bucket
+Architecture</h3>
+<p><code>std::pmr::unsynchronized_pool_resource</code> organizes memory
+into a collection of distinct pools, commonly referred to as "buckets."
+Each bucket is dedicated to serving allocation requests for a specific,
+fixed block size.</p>
+<p>When initialized, the resource configures a geometric or stepped
+progression of block sizes across these buckets (for example: 8, 16, 32,
+64, 128, and up to a designated maximum block size). Rather than
+allocating individual blocks directly from the system heap, each bucket
+manages memory in large contiguous buffers called <em>chunks</em>.</p>
+<h3 id="routing-allocations-to-buckets">Routing Allocations to
+Buckets</h3>
+<p>When <code>allocate(bytes, alignment)</code> is called, the resource
+determines how to fulfill the request based on the requested size:</p>
+<ol type="1">
+<li><strong>Size-Class Matching:</strong> The resource searches its
+array of buckets to find the smallest bucket whose block size can
+satisfy both the requested byte count and alignment constraint.</li>
+<li><strong>Bucket Allocation:</strong> If the request size is less than
+or equal to <code>largest_required_pool_block</code>, it is assigned to
+that bucket's free list.</li>
+<li><strong>Oversized Requests:</strong> If the requested size exceeds
+the capacity of the largest bucket, the resource bypasses the bucket
+architecture entirely and forwards the allocation directly to the
+upstream memory resource (such as
+<code>std::pmr::new_delete_resource()</code>).</li>
+</ol>
+<h3 id="chunk-allocation-and-free-lists">Chunk Allocation and Free
+Lists</h3>
+<p>Each bucket maintains an internal free list of unused blocks using an
+intrusive linked-list design:</p>
+<ul>
+<li><strong>Intrusive Storage:</strong> Because an unallocated block is
+unused memory, the bucket stores metadata—such as pointers to the next
+free block—directly inside the payload area of the idle block itself,
+eliminating separate per-block allocation overhead.</li>
+<li><strong>Serving a Request:</strong> Serving a block from an existing
+chunk is an <span class="math inline">\(O(1)\)</span> operation that
+simply pops the head element off the bucket's intrusive free list.</li>
+<li><strong>Replenishing Empty Buckets:</strong> When a bucket's free
+list is exhausted, the resource requests a new, larger chunk of
+contiguous memory from its configured upstream resource. The size of
+these chunks typically increases geometrically up to
+<code>max_blocks_per_chunk</code> to amortize upstream allocation costs
+over time. Once fetched, the new chunk is subdivided into uniform blocks
+of that bucket's designated size, and those blocks are chained onto the
+bucket's free list.</li>
+</ul>
+<h3 id="deallocation-workflow">Deallocation Workflow</h3>
+<p>When memory is released via
+<code>deallocate(ptr, bytes, alignment)</code>:</p>
+<ul>
+<li><strong>Bucket Retrieval:</strong> The resource identifies which
+bucket the pointer belongs to based on the size passed to
+<code>deallocate</code>.</li>
+<li><strong>Pushing to Free List:</strong> The block is pushed back to
+the head of that bucket's intrusive free list in an <span
+class="math inline">\(O(1)\)</span> operation.</li>
+<li><strong>Deferred Upstream Release:</strong> Memory is generally not
+returned to the upstream allocator immediately upon individual block
+deallocation. Instead, chunks remain allocated to their respective
+buckets for fast reuse in future allocations. The entire accumulated
+memory is released back to the upstream resource only when
+<code>release()</code> is called or when the
+<code>unsynchronized_pool_resource</code> destructor executes.</li>
+</ul>
+<h3 id="customization-with-stdpmrpool_options">Customization with
+<code>std::pmr::pool_options</code></h3>
+<p>Developers can fine-tune bucket allocation behavior by passing a
+<code>std::pmr::pool_options</code> structure during construction:</p>
+<ul>
+<li><code>max_blocks_per_chunk</code>: Limits the maximum number of
+blocks a single chunk can hold, preventing individual pools from
+claiming disproportionately large blocks of contiguous memory from the
+upstream allocator.</li>
+<li><code>largest_required_pool_block</code>: Sets the upper boundary
+for bucket sizes. Any allocation request exceeding this value will
+bypass the pooled buckets and go straight to the upstream
+allocator.</li>
+</ul>
+<h3 id="the-unsynchronized-advantage">The Unsynchronized Advantage</h3>
+<p>Unlike <code>std::pmr::synchronized_pool_resource</code>, the
+unsynchronized variant does not use mutexes, atomics, or thread-locking
+mechanisms to guard bucket structures. Free list traversal, chunk
+acquisition, and block carving occur with zero synchronization overhead,
+making this bucket management strategy ideal for thread-confined
+workloads, local stack allocators, and single-threaded
+performance-critical paths.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/std-pmr-unsynchronized-pool-resource-bucket-management';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

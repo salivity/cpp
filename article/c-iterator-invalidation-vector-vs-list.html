@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Iterator Invalidation: Vector vs List - cpp</title>
+    <meta name="description" content="Understanding iterator invalidation rules is essential for writing safe, bug-free C++ code, as accessing an invalidated iterator results in undefined behavior. The primary difference between std::vector and std::list stems from their underlying memory lay">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-iterator-invalidation-vector-vs-list">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Iterator Invalidation: Vector vs List - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-iterator-invalidation-vector-vs-list" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Understanding iterator invalidation rules is essential for writing safe, bug-free C++ code, as accessing an invalidated iterator results in undefined behavior. The primary difference between std::vector and std::list stems from their underlying memory lay" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-iterator-invalidation-vector-vs-list">C++ Iterator
+Invalidation: Vector vs List</h1>
+<p>Understanding iterator invalidation rules is essential for writing
+safe, bug-free C++ code, as accessing an invalidated iterator results in
+undefined behavior. The primary difference between
+<code>std::vector</code> and <code>std::list</code> stems from their
+underlying memory layouts: <code>std::vector</code> stores elements
+contiguously in a dynamic array, making its iterators vulnerable to
+shifts and reallocations, whereas <code>std::list</code> is a doubly
+linked list composed of individually allocated nodes, granting its
+iterators exceptional stability during structural modifications.</p>
+<h2 id="memory-architecture-and-its-impact">Memory Architecture and Its
+Impact</h2>
+<p>The storage model directly dictates how each container manages
+iterators:</p>
+<ul>
+<li><strong><code>std::vector</code>:</strong> Elements reside
+sequentially in a single contiguous memory block. Inserting or deleting
+an element requires shifting subsequent elements, and exceeding current
+capacity triggers a reallocation of the entire memory block.</li>
+<li><strong><code>std::list</code>:</strong> Elements are stored in
+isolated, heap-allocated nodes connected via pointers. Inserting or
+removing an element simply involves relinking pointers without moving
+existing nodes in memory.</li>
+</ul>
+<h2 id="insertion-invalidation-rules">Insertion Invalidation Rules</h2>
+<h3 id="stdvector"><code>std::vector</code></h3>
+<ul>
+<li><strong>If a reallocation occurs:</strong> If the new size exceeds
+<code>vector::capacity()</code>, a new, larger memory block is
+allocated, all elements are moved or copied, and the old memory is
+freed. Consequently, <strong>all</strong> iterators, pointers, and
+references to elements in the vector are invalidated.</li>
+<li><strong>If no reallocation occurs:</strong> If the new size is less
+than or equal to <code>capacity()</code>, no reallocation happens.
+However, because elements must remain contiguous, all elements at and
+after the insertion point are shifted to the right. Therefore,
+iterators, pointers, and references <strong>at or after the insertion
+point are invalidated</strong>, while those before the insertion point
+remain valid.</li>
+</ul>
+<h3 id="stdlist"><code>std::list</code></h3>
+<ul>
+<li>Inserting elements (via <code>insert</code>, <code>emplace</code>,
+<code>push_back</code>, or <code>push_front</code>) <strong>never
+invalidates</strong> any existing iterators, references, or pointers.
+The newly added node is simply linked to its neighbors without altering
+the memory addresses of existing nodes.</li>
+</ul>
+<h2 id="deletion-erasure-invalidation-rules">Deletion (Erasure)
+Invalidation Rules</h2>
+<h3 id="stdvector-1"><code>std::vector</code></h3>
+<ul>
+<li>When removing an element using <code>erase</code>,
+<code>pop_back</code>, or similar operations, the erased element and all
+elements positioned after it must be shifted left to close the gap.</li>
+<li>As a result, iterators, pointers, and references <strong>at or after
+the point of erasure are invalidated</strong>, including the
+<code>end()</code> iterator.</li>
+<li>Iterators and references pointing to elements before the erasure
+point remain completely valid.</li>
+</ul>
+<h3 id="stdlist-1"><code>std::list</code></h3>
+<ul>
+<li>Erasing an element (via <code>erase</code>, <code>pop_back</code>,
+or <code>pop_front</code>) <strong>only invalidates iterators,
+references, and pointers pointing specifically to the erased
+element</strong>.</li>
+<li>Iterators pointing to any other element in the list—whether before
+or after the erased node—remain entirely valid.</li>
+</ul>
+<h2 id="special-operations-splicing-and-swapping">Special Operations:
+Splicing and Swapping</h2>
+<ul>
+<li><strong><code>std::vector::swap</code>:</strong> Swaps container
+contents in <span class="math inline">\(O(1)\)</span> time. Iterators
+remain valid but now point to the same index within the other vector
+object (except <code>end()</code>, which invalidates).</li>
+<li><strong><code>std::list::splice</code>:</strong> Moves nodes between
+lists without copying. Iterators pointing to the moved elements remain
+valid, but they now refer to elements inside the destination list.</li>
+</ul>
+<h2 id="quick-reference-summary">Quick Reference Summary</h2>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Operation</th>
+<th style="text-align: left;"><code>std::vector</code></th>
+<th style="text-align: left;"><code>std::list</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Insertion
+(Reallocation)</strong></td>
+<td style="text-align: left;"><strong>All</strong> iterators
+invalidated</td>
+<td style="text-align: left;">Not applicable</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Insertion (No
+Reallocation)</strong></td>
+<td style="text-align: left;">Invalidates from insertion point to
+<code>end()</code></td>
+<td style="text-align: left;"><strong>None</strong> invalidated</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Erasure</strong></td>
+<td style="text-align: left;">Invalidates from erasure point to
+<code>end()</code></td>
+<td style="text-align: left;">Only erased element invalidated</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong><code>clear()</code></strong></td>
+<td style="text-align: left;">Invalidates <strong>all</strong>
+iterators</td>
+<td style="text-align: left;">Invalidates <strong>all</strong>
+iterators</td>
+</tr>
+</tbody>
+</table></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-iterator-invalidation-vector-vs-list';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

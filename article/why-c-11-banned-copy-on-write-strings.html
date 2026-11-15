@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why C++11 Banned Copy-on-Write Strings - cpp</title>
+    <meta name="description" content="Copy-on-Write (COW) string optimization was a widely used technique in early C++ implementations designed to minimize unnecessary memory allocations and deep copies by sharing underlying data buffers across multiple string instances. While effective in si">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/why-c-11-banned-copy-on-write-strings">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why C++11 Banned Copy-on-Write Strings - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/why-c-11-banned-copy-on-write-strings" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Copy-on-Write (COW) string optimization was a widely used technique in early C++ implementations designed to minimize unnecessary memory allocations and deep copies by sharing underlying data buffers across multiple string instances. While effective in si" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-c11-banned-copy-on-write-strings">Why C++11 Banned
+Copy-on-Write Strings</h1>
+<p>Copy-on-Write (COW) string optimization was a widely used technique
+in early C++ implementations designed to minimize unnecessary memory
+allocations and deep copies by sharing underlying data buffers across
+multiple string instances. While effective in single-threaded
+environments, the introduction of the standardized C++11 memory model
+fundamentally altered how concurrency and object lifetimes are governed,
+rendering the COW approach non-compliant. This article explores how
+copy-on-write strings work and the specific architectural and
+thread-safety requirements in C++11 that forced standard library
+implementations to abandon the technique in favor of alternatives like
+Small String Optimization (SSO).</p>
+<h3 id="what-is-copy-on-write-string-optimization">What Is Copy-on-Write
+String Optimization?</h3>
+<p>In early implementations of <code>std::string</code> (such as GNU
+<code>libstdc++</code> prior to GCC 5), copying a string was an
+expensive operation if it required allocating dynamic memory on the heap
+and copying every character. Copy-on-Write aimed to make string copies
+fast and lightweight:</p>
+<ol type="1">
+<li><strong>Shared State:</strong> When a string was copy-constructed or
+assigned, the new string object did not allocate its own buffer.
+Instead, it pointed to the existing buffer of the source string.</li>
+<li><strong>Reference Counting:</strong> A control block stored a
+reference count tracking how many <code>std::string</code> instances
+shared the same memory buffer.</li>
+<li><strong>Lazy Duplication:</strong> As long as instances only
+performed read operations, they continued to share the buffer. Only when
+an operation attempted to modify the string (such as appending,
+modifying a character via <code>operator[]</code>, or calling
+<code>c_str()</code>) would the implementation allocate a new memory
+buffer, copy the contents, decrement the original reference counter, and
+perform the write on the new buffer.</li>
+</ol>
+<p>In pure single-threaded contexts, this optimization provided <span
+class="math inline">\(O(1)\)</span> string copies and saved substantial
+memory when strings were passed by value without mutation.</p>
+<h3 id="why-the-c11-memory-model-banned-cow">Why the C++11 Memory Model
+Banned COW</h3>
+<p>C++11 introduced a formal multithreading execution model,
+standardizing thread safety guarantees for the standard library. Under
+these rules, distinct objects must behave independently across threads
+without requiring manual synchronization by the user. Copy-on-Write
+directly conflicted with these guarantees for several key reasons.</p>
+<h4 id="1-concurrency-and-data-races-on-distinct-objects">1. Concurrency
+and Data Races on Distinct Objects</h4>
+<p>The C++11 standard mandates that concurrent <code>const</code>
+(read-only) member function calls on distinct objects must not cause a
+data race.</p>
+<p>In a COW implementation, two distinct <code>std::string</code>
+objects in different threads might share the same underlying buffer and
+reference counter:</p>
+<ul>
+<li>Thread A destroys its string, requiring a write to decrement the
+shared reference count.</li>
+<li>Thread B reads from its string, accessing the same metadata or
+buffer.</li>
+</ul>
+<p>To prevent a data race, the reference count had to be modified using
+atomic operations. However, atomic increments and decrements introduce
+bus locking overhead and prevent compiler optimizations. The
+synchronization overhead required to make COW thread-safe often canceled
+out the performance benefits of avoiding heap allocations in
+multithreaded code.</p>
+<h4 id="2-the-operator-mutation-dilemma">2. The <code>operator[]</code>
+Mutation Dilemma</h4>
+<p>Under C++11, calling a non-<code>const</code> indexing operator such
+as <code>str[0]</code> must return a valid reference
+(<code>char&amp;</code>) to an element in the string. The implementation
+cannot know whether the caller intends to read or write through this
+reference:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string a <span class="op">=</span> <span class="st">&quot;hello&quot;</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string b <span class="op">=</span> a<span class="op">;</span> <span class="co">// Shared buffer under COW</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="dt">char</span><span class="op">&amp;</span> ref <span class="op">=</span> a<span class="op">[</span><span class="dv">0</span><span class="op">];</span>  <span class="co">// May write later, e.g., ref = &#39;H&#39;;</span></span></code></pre></div>
+<p>Because <code>ref</code> can be written to at any arbitrary point in
+the future, <code>a</code> must detach and make an unshared copy of the
+buffer immediately during the call to <code>operator[]</code>.</p>
+<p>Furthermore, C++11 introduced strict rules regarding iterator and
+reference invalidation:</p>
+<ul>
+<li>Modifying one string must never invalidate references, pointers, or
+iterators pointing to characters in an entirely separate string
+instance.</li>
+<li>In COW, if <code>a</code> and <code>b</code> share memory, calling a
+mutating method on <code>a</code> either requires detaching
+<code>a</code> (which might leave references to <code>a</code> pointing
+to the old shared buffer) or mutating the shared buffer (which would
+violate <code>b</code>'s immutability). Fulfilling all reference
+invalidation requirements while preserving lazy copying proved
+mathematically incompatible.</li>
+</ul>
+<h4
+id="3-strict-complexity-guarantees-and-direct-storage-requirements">3.
+Strict Complexity Guarantees and Direct Storage Requirements</h4>
+<p>C++11 established strict complexity guarantees that COW struggles to
+meet:</p>
+<ul>
+<li><strong>Direct Access:</strong> Member functions like
+<code>data()</code> and <code>c_str()</code> were standardized to
+guarantee contiguous storage and predictable access times without hidden
+reallocations.</li>
+<li><strong>Predictable Modifiers:</strong> Non-<code>const</code>
+operations like <code>front()</code>, <code>back()</code>, and
+<code>begin()</code> cannot trigger allocations or throw exceptions in
+circumstances where reallocation is not permitted. Under COW, obtaining
+a non-<code>const</code> iterator must trigger a detach, which can fail
+with <code>std::bad_alloc</code> if the system is out of memory.</li>
+</ul>
+<h3 id="the-replacement-small-string-optimization-sso">The Replacement:
+Small String Optimization (SSO)</h3>
+<p>Because the C++11 rules made COW compliant implementation impossible,
+standard library vendors transitioned to <strong>Small String
+Optimization (SSO)</strong>.</p>
+<p>With SSO, the <code>std::string</code> object contains a small
+internal character array (typically 15 to 23 bytes, depending on whether
+the architecture is 32-bit or 64-bit) embedded directly within its
+stack-allocated control structure. Strings that fit within this buffer
+require no heap allocation, avoid all reference counting and
+synchronization, maintain independent memory for every object, and
+natively comply with the C++11 thread-safety model.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/why-c-11-banned-copy-on-write-strings';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

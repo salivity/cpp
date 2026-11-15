@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Explicit Template Instantiation in C++ - cpp</title>
+    <meta name="description" content="Explicit template instantiation in C++ is a technique used to eliminate redundant compilation of template code across multiple translation units. By default, C++ relies on implicit instantiation, which forces the compiler to generate duplicate machine cod">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/explicit-template-instantiation-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Explicit Template Instantiation in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/explicit-template-instantiation-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Explicit template instantiation in C++ is a technique used to eliminate redundant compilation of template code across multiple translation units. By default, C++ relies on implicit instantiation, which forces the compiler to generate duplicate machine cod" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="explicit-template-instantiation-in-c">Explicit Template
+Instantiation in C++</h1>
+<p>Explicit template instantiation in C++ is a technique used to
+eliminate redundant compilation of template code across multiple
+translation units. By default, C++ relies on implicit instantiation,
+which forces the compiler to generate duplicate machine code in every
+object file that uses a specific template specialization, leaving the
+linker to discard the duplicates. By pairing an explicit instantiation
+definition in a single source file with <code>extern template</code>
+declarations in headers, developers force the compiler to generate the
+specialized code only once, significantly cutting compile times and
+reducing intermediate object file sizes.</p>
+<h3 id="the-problem-implicit-instantiation-overhead">The Problem:
+Implicit Instantiation Overhead</h3>
+<p>Templates are typically defined entirely within header files so that
+the compiler can see their definitions whenever they are used. Under
+implicit instantiation, every time a source file (<code>.cpp</code>)
+includes the header and uses a specialization—such as
+<code>std::vector&lt;int&gt;</code> or a custom
+<code>Calculator&lt;float&gt;</code>—the compiler fully compiles the
+corresponding functions and types for that specific translation
+unit.</p>
+<p>If ten separate source files use
+<code>Calculator&lt;float&gt;</code>, the compiler processes the AST,
+analyzes the types, and generates machine instructions for
+<code>Calculator&lt;float&gt;</code> ten separate times. The compiler
+tags these duplicate definitions as weak symbols or places them in
+mergeable sections (such as COMDAT sections). During the link phase, the
+linker scans these sections, keeps a single copy of the machine code,
+and discards the remaining nine copies. While the final binary contains
+only one version, significant CPU cycles and memory are wasted compiling
+and storing identical code across intermediate <code>.o</code> or
+<code>.obj</code> files.</p>
+<h3
+id="the-solution-explicit-instantiation-declarations-and-definitions">The
+Solution: Explicit Instantiation Declarations and Definitions</h3>
+<p>C++ resolves this inefficiency through two complementary mechanisms:
+explicit instantiation definitions and explicit instantiation
+declarations (<code>extern template</code>).</p>
+<h4 id="1-explicit-instantiation-declaration-extern-template">1.
+Explicit Instantiation Declaration (<code>extern template</code>)</h4>
+<p>Introduced in C++11, the <code>extern template</code> syntax informs
+the compiler that a specific specialization is instantiated elsewhere in
+the project.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Calculator.h</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Calculator <span class="op">{</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    T add<span class="op">(</span>T a<span class="op">,</span> T b<span class="op">);</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="co">// Explicit template declaration</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="at">extern</span> <span class="kw">template</span> <span class="kw">class</span> Calculator<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;;</span></span></code></pre></div>
+<p>When the compiler encounters an <code>extern template</code>
+declaration in a translation unit, it suppresses code generation for
+that specialization. It treats the members of
+<code>Calculator&lt;int&gt;</code> as external references, generating
+symbolic references rather than full function bodies.</p>
+<h4 id="2-explicit-instantiation-definition">2. Explicit Instantiation
+Definition</h4>
+<p>To provide the actual implementation for the suppressed code, an
+explicit instantiation definition is placed in exactly one source
+file.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Calculator.cpp</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;Calculator.h&quot;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>T Calculator<span class="op">&lt;</span>T<span class="op">&gt;::</span>add<span class="op">(</span>T a<span class="op">,</span> T b<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">+</span> b<span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">// Explicit template definition</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="kw">class</span> Calculator<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;;</span></span></code></pre></div>
+<p>The syntax drops the <code>extern</code> keyword. This instructs the
+compiler to fully parse and compile all members of
+<code>Calculator&lt;int&gt;</code> inside <code>Calculator.cpp</code>,
+emitting strong symbols into <code>Calculator.o</code>.</p>
+<h3 id="how-duplicate-compilation-is-prevented">How Duplicate
+Compilation Is Prevented</h3>
+<ol type="1">
+<li><strong>Compilation Phase:</strong> Translation units including
+<code>Calculator.h</code> see the
+<code>extern template class Calculator&lt;int&gt;;</code> directive. The
+compiler skips instantiating the class methods for <code>int</code>,
+saving parsing and code generation time. Only
+<code>Calculator.cpp</code> compiles the method definitions for
+<code>int</code>.</li>
+<li><strong>Intermediate Storage:</strong> Object files for other
+translation units remain smaller because they omit the machine
+instructions and debug metadata for
+<code>Calculator&lt;int&gt;</code>.</li>
+<li><strong>Linking Phase:</strong> The linker receives a single, strong
+definition of <code>Calculator&lt;int&gt;</code> from
+<code>Calculator.o</code>. It resolves external symbol references from
+other object files directly to this location, eliminating the need to
+inspect and deduplicate identical COMDAT sections across multiple
+files.</li>
+</ol>
+<h3 id="considerations-and-limitations">Considerations and
+Limitations</h3>
+<p>Explicit template instantiation works best for libraries or large
+projects with heavily used templates instantiated over a known, closed
+set of types (such as primitive data types or core engine structures).
+However, it prevents the compiler from inlining template functions
+across different translation units unless Link-Time Optimization (LTO)
+is enabled, because the calling translation units no longer have
+visibility into the function bodies at compile time.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/explicit-template-instantiation-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

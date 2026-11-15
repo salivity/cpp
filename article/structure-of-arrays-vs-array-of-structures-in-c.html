@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Structure of Arrays vs Array of Structures in C++ - cpp</title>
+    <meta name="description" content="In C++, choosing between the Array of Structures (AoS) and Structure of Arrays (SoA) memory layouts fundamentally dictates how efficiently hardware executes code. This article examines the architectural differences between AoS and SoA, detailing how CPU c">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/structure-of-arrays-vs-array-of-structures-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Structure of Arrays vs Array of Structures in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/structure-of-arrays-vs-array-of-structures-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, choosing between the Array of Structures (AoS) and Structure of Arrays (SoA) memory layouts fundamentally dictates how efficiently hardware executes code. This article examines the architectural differences between AoS and SoA, detailing how CPU c" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="structure-of-arrays-vs-array-of-structures-in-c">Structure of
+Arrays vs Array of Structures in C++</h1>
+<p>In C++, choosing between the Array of Structures (AoS) and Structure
+of Arrays (SoA) memory layouts fundamentally dictates how efficiently
+hardware executes code. This article examines the architectural
+differences between AoS and SoA, detailing how CPU cache line
+utilization, SIMD vectorization, and memory access patterns determine
+runtime performance, along with practical guidelines for selecting the
+optimal layout for performance-critical systems.</p>
+<h3 id="understanding-aos-and-soa">Understanding AoS and SoA</h3>
+<p>The Array of Structures (AoS) pattern represents the classic
+object-oriented paradigm. Individual entities are modeled as C++
+<code>struct</code> or <code>class</code> types, and instances are
+placed contiguously in memory within a container such as
+<code>std::vector</code>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Particle <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> x<span class="op">,</span> y<span class="op">,</span> z<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> vx<span class="op">,</span> vy<span class="op">,</span> vz<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> mass<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span>Particle<span class="op">&gt;</span> particles<span class="op">;</span></span></code></pre></div>
+<p>In AoS, all attributes for a single entity reside sequentially in
+memory.</p>
+<p>Conversely, the Structure of Arrays (SoA) follows a data-oriented
+design. Instead of wrapping individual components into a composite
+object, each attribute forms its own dedicated array:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Particles <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">float</span><span class="op">&gt;</span> x<span class="op">,</span> y<span class="op">,</span> z<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">float</span><span class="op">&gt;</span> vx<span class="op">,</span> vy<span class="op">,</span> vz<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">float</span><span class="op">&gt;</span> mass<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>Particles particles<span class="op">;</span></span></code></pre></div>
+<p>Here, identical components across all entities are grouped
+contiguously in memory.</p>
+<h3 id="cache-line-utilization-and-spatial-locality">Cache Line
+Utilization and Spatial Locality</h3>
+<p>Modern CPUs do not fetch individual bytes from main memory; they load
+fixed-size blocks—typically 64 bytes—known as cache lines. Performance
+largely depends on whether an application uses all the data transferred
+into the cache.</p>
+<ul>
+<li><strong>AoS under partial updates:</strong> If a physics loop only
+updates positions using velocities (<code>x += vx</code>), it reads
+fields <code>x</code>, <code>y</code>, <code>z</code>, <code>vx</code>,
+<code>vy</code>, and <code>vz</code>, while ignoring <code>mass</code>.
+Despite being unused, <code>mass</code> still occupies space within each
+loaded 64-byte cache line. This introduces cache pollution and wastes
+memory bandwidth.</li>
+<li><strong>SoA under partial updates:</strong> When processing only the
+<code>x</code> component, the CPU loads a cache line filled exclusively
+with consecutive <code>x</code> coordinates. Sixteen single-precision
+floats (64 bytes / 4 bytes) fit into a single cache line without any
+padding or irrelevant fields. Memory bandwidth efficiency reaches near
+100%, and L1/L2 data cache hit rates increase dramatically.</li>
+</ul>
+<p>However, if an algorithm processes <em>all</em> attributes of a
+single entity at once (such as initializing, serializing, or
+transforming a specific particle), AoS exhibits superior spatial
+locality, whereas SoA would require the CPU to maintain multiple
+independent cache lines simultaneously.</p>
+<h3 id="simd-and-auto-vectorization">SIMD and Auto-Vectorization</h3>
+<p>Single Instruction, Multiple Data (SIMD) instruction sets (such as
+SSE, AVX-256, and AVX-512) allow the CPU to perform operations on
+multiple data points in a single clock cycle.</p>
+<ul>
+<li><strong>Vectorization in SoA:</strong> Because homogenous data is
+contiguous, compilers can trivially map SoA arrays directly to vector
+registers. For example, using AVX2, eight consecutive <code>x</code>
+floats can be loaded with a single <code>_mm256_load_ps</code>
+instruction. Mathematical operations run at maximum throughput without
+rearrangement.</li>
+<li><strong>Vectorization in AoS:</strong> Because identical fields are
+interleaved with other member variables, vectorized operations require
+strided loads. The CPU must either rely on costly gather/scatter
+instructions or spend cycles shuffling and unpacking registers before
+and after performing computations. Consequently, compilers frequently
+fail to auto-vectorize loops written over AoS layouts.</li>
+</ul>
+<h3 id="structural-trade-offs">Structural Trade-offs</h3>
+<p>While SoA improves throughput for high-volume, batch-processed
+workloads, it introduces engineering trade-offs:</p>
+<ol type="1">
+<li><strong>API Ergonomics:</strong> Passing an individual entity across
+function boundaries is trivial in AoS
+(<code>void update(Particle&amp; p)</code>), but cumbersome in SoA,
+often requiring an index-based reference or custom proxy object.</li>
+<li><strong>Dynamic Operations:</strong> Inserting, deleting, or
+resizing elements in SoA requires synchronizing operations across
+multiple distinct dynamic arrays.</li>
+</ol>
+<h3 id="the-hybrid-approach-aosoa">The Hybrid Approach: AoSoA</h3>
+<p>To reconcile the benefits of both patterns, high-performance C++
+applications often employ an Array of Structures of Arrays (AoSoA), also
+known as tiled SoA:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> ParticlePacket <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> x<span class="op">[</span><span class="dv">8</span><span class="op">],</span> y<span class="op">[</span><span class="dv">8</span><span class="op">],</span> z<span class="op">[</span><span class="dv">8</span><span class="op">];</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">float</span> vx<span class="op">[</span><span class="dv">8</span><span class="op">],</span> vy<span class="op">[</span><span class="dv">8</span><span class="op">],</span> vz<span class="op">[</span><span class="dv">8</span><span class="op">];</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span>ParticlePacket<span class="op">&gt;</span> particles<span class="op">;</span></span></code></pre></div>
+<p>By sizing the inner fixed arrays to match the width of the target
+SIMD register (e.g., 8 floats for 256-bit AVX), AoSoA enables direct
+aligned SIMD loads while preserving the modular allocation, sorting, and
+entity-management benefits of AoS.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/structure-of-arrays-vs-array-of-structures-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

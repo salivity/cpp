@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Why C++ Templates Must Be Defined in Header Files - cpp</title>
+    <meta name="description" content="In the C++ programming language, template definitions must generally reside within header files because templates are not executable code, but rather blueprints instantiated by the compiler at compile time. Due to C++&#39;s separate compilation model, the com">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/why-c-templates-must-be-defined-in-header-files">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Why C++ Templates Must Be Defined in Header Files - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/why-c-templates-must-be-defined-in-header-files" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In the C++ programming language, template definitions must generally reside within header files because templates are not executable code, but rather blueprints instantiated by the compiler at compile time. Due to C++&#39;s separate compilation model, the com" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="why-c-templates-must-be-defined-in-header-files">Why C++
+Templates Must Be Defined in Header Files</h1>
+<p>In the C++ programming language, template definitions must generally
+reside within header files because templates are not executable code,
+but rather blueprints instantiated by the compiler at compile time. Due
+to C++'s separate compilation model, the compiler processes each
+translation unit independently and must have access to the complete
+implementation of a template to generate the concrete machine code for
+the specific types being used. Without the definition present in the
+header, the compiler cannot generate the required code, leading to
+unresolved symbol errors during the linking phase.</p>
+<h3 id="the-mechanism-of-c-compilation">The Mechanism of C++
+Compilation</h3>
+<p>C++ uses a separate compilation model where each source file
+(<code>.cpp</code>), along with the headers it includes, forms an
+independent translation unit (TU). The compiler processes each
+translation unit in isolation to produce an object file (<code>.o</code>
+or <code>.obj</code>).</p>
+<p>For standard non-template functions, a declaration in a header file
+is sufficient for other source files to call the function. The compiler
+inserts a placeholder symbol, and the linker later matches that call to
+the compiled function definition found in another object file.</p>
+<h3 id="why-templates-differ-from-regular-functions">Why Templates
+Differ from Regular Functions</h3>
+<p>Templates do not generate machine code on their own. A function
+template like <code>template &lt;typename T&gt; void print(T val)</code>
+is merely an instruction set detailing how to generate a function once a
+concrete type (such as <code>int</code> or <code>std::string</code>) is
+provided.</p>
+<p>When the compiler encounters code like <code>print(5)</code>, it
+performs <em>template instantiation</em>. To substitute <code>int</code>
+for <code>T</code> and generate the appropriate assembly code, the
+compiler requires the full body of the template function at that exact
+moment.</p>
+<h3 id="the-linker-failure">The Linker Failure</h3>
+<p>If a template function is declared in a header file
+(<code>utility.h</code>) and defined in a separate source file
+(<code>utility.cpp</code>):</p>
+<ol type="1">
+<li><strong>Compilation of <code>main.cpp</code>:</strong> The compiler
+reads <code>utility.h</code>, encounters the call <code>print(5)</code>,
+recognizes that <code>print&lt;int&gt;</code> should exist, but lacks
+the definition to generate the code. Relying on standard function rules,
+it defers resolution to the linker, leaving an undefined reference to
+<code>print&lt;int&gt;</code>.</li>
+<li><strong>Compilation of <code>utility.cpp</code>:</strong> The
+compiler sees the template definition, but because
+<code>utility.cpp</code> does not call <code>print&lt;int&gt;</code>,
+the compiler generates no machine code for that specific type.</li>
+<li><strong>Linking:</strong> The linker attempts to combine the object
+files, finds the unresolved request for <code>print&lt;int&gt;</code>
+from <code>main.o</code>, finds no definition for
+<code>print&lt;int&gt;</code> in <code>utility.o</code>, and terminates
+with an "undefined reference" or "unresolved external symbol"
+error.</li>
+</ol>
+<p>Placing the template definition directly in the header file solves
+this issue. Every translation unit that includes the header gets access
+to the complete template definition, allowing the compiler to
+instantiate the template immediately for any types used within that
+unit. Duplicate instantiations across multiple translation units are
+automatically deduplicated by the linker.</p>
+<h3 id="alternative-approaches">Alternative Approaches</h3>
+<p>While defining templates in headers is standard practice, there are
+two alternatives:</p>
+<ul>
+<li><strong>Explicit Instantiation:</strong> If a template definition
+resides in a <code>.cpp</code> file, you can explicitly instantiate the
+specific types that will be used (e.g.,
+<code>template void print&lt;int&gt;(int);</code>). This instructs the
+compiler to generate code for those types in that object file, enabling
+the linker to find them. However, this restricts the template to only
+the pre-instantiated types.</li>
+<li><strong>C++20 Modules:</strong> Modules eliminate the text-inclusion
+model of header files. With modules, template definitions can be
+exported from a module interface file, allowing other files to import
+the module and instantiate the template without placing the definition
+in a traditional <code>.h</code> file.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/why-c-templates-must-be-defined-in-header-files';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

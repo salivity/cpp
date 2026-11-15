@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++11 Right Angle Bracket Fix for Nested Templates - cpp</title>
+    <meta name="description" content="In early standards of the C++ programming language, declaring nested templates required inserting a whitespace between consecutive closing angle brackets to avoid syntax errors. The C++11 standard resolved this longstanding usability issue by introducing">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-11-right-angle-bracket-fix-for-nested-templates">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++11 Right Angle Bracket Fix for Nested Templates - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-11-right-angle-bracket-fix-for-nested-templates" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In early standards of the C++ programming language, declaring nested templates required inserting a whitespace between consecutive closing angle brackets to avoid syntax errors. The C++11 standard resolved this longstanding usability issue by introducing" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c11-right-angle-bracket-fix-for-nested-templates">C++11 Right
+Angle Bracket Fix for Nested Templates</h1>
+<p>In early standards of the C++ programming language, declaring nested
+templates required inserting a whitespace between consecutive closing
+angle brackets to avoid syntax errors. The C++11 standard resolved this
+longstanding usability issue by introducing context-sensitive parsing
+rules that allow the compiler to recognize adjacent right angle brackets
+as two separate closing template delimiters rather than a single bitwise
+right-shift operator. This article explains the underlying parsing
+conflict in pre-C++11 compilers, the mechanics of the C++11 solution,
+and how the language handles potential ambiguities in template
+expressions.</p>
+<h3 id="the-pre-c11-problem-the-maximal-munch-rule">The Pre-C++11
+Problem: The Maximal Munch Rule</h3>
+<p>Prior to C++11, compiling nested templates without spaces resulted in
+a compiler error. For example, the following declaration was invalid
+under C++98 and C++03:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;&gt;</span> matrix<span class="op">;</span> <span class="co">// Compile error in C++98/03</span></span></code></pre></div>
+<p>Developers were required to manually separate the closing brackets
+with whitespace:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> <span class="op">&gt;</span> matrix<span class="op">;</span> <span class="co">// Valid in C++98/03</span></span></code></pre></div>
+<p>This limitation stemmed from the standard lexical analysis phase of
+the compiler, specifically a principle known as "Maximal Munch" (or the
+longest match rule). Traditional compilers perform lexical analysis
+(tokenization) independently of syntactic analysis (parsing).</p>
+<p>When the lexer encountered two consecutive right angle brackets
+(<code>&gt;&gt;</code>), Maximal Munch dictated that the lexer must
+consume the longest possible sequence of characters that forms a valid
+token. Because <code>&gt;&gt;</code> matched the right-shift operator
+token, the lexer emitted <code>&gt;&gt;</code> instead of two separate
+<code>&gt;</code> tokens. When the parser subsequently evaluated the
+template declaration, it received a right-shift operator where it
+expected the closure of the outer template argument list, triggering a
+syntax error.</p>
+<h3 id="how-c11-resolved-the-issue">How C++11 Resolved the Issue</h3>
+<p>Standard proposal N1757 addressed this behavior by introducing a
+contextual lexical rule in C++11. Rather than treating tokenization as
+strictly independent of the parser, C++11 modified the grammar so that
+the meaning of <code>&gt;&gt;</code> depends on the surrounding
+syntactic context.</p>
+<p>Under C++11 rules, when the compiler parses a template parameter list
+or a template argument list, a <code>&gt;</code> character is treated as
+a closing bracket delimiter unless it explicitly forms part of an
+enclosed expression. If the compiler encounters two consecutive right
+angle brackets (<code>&gt;&gt;</code>) while inside an active template
+argument list, it splits the token into two distinct closing bracket
+delimiters (<code>&gt;</code> and <code>&gt;</code>).</p>
+<p>This allows expressions like
+<code>std::vector&lt;std::vector&lt;int&gt;&gt;</code> to be correctly
+recognized as closing the inner <code>vector&lt;int&gt;</code> and the
+outer <code>vector&lt;...&gt;</code> sequentially without requiring
+artificial whitespace. The same logic extends to deeper nestings, such
+as triple brackets (<code>&gt;&gt;&gt;</code>), parsing them as three
+distinct closing delimiters.</p>
+<h3 id="handling-ambiguity-in-template-expressions">Handling Ambiguity
+in Template Expressions</h3>
+<p>Allowing <code>&gt;&gt;</code> to be treated as closing brackets
+introduced a potential grammar conflict: non-type template arguments can
+contain expressions that legitimately use the right-shift operator. For
+example:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="dt">int</span> N<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> BitShiftContainer <span class="op">{};</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Ambiguity: Is &quot;&gt;&gt;&quot; a right shift or two closing brackets?</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>BitShiftContainer<span class="op">&lt;</span><span class="dv">16</span> <span class="op">&gt;&gt;</span> <span class="dv">2</span><span class="op">&gt;</span> container<span class="op">;</span> </span></code></pre></div>
+<p>To prevent the compiler from prematurely closing the template at the
+<code>&gt;&gt;</code> characters, C++11 established a precedence rule:
+inside a template argument list, any <code>&gt;&gt;</code> token is
+always treated as closing brackets unless the expression using the
+right-shift operator is wrapped in parentheses.</p>
+<p>To use the bitwise right-shift operator inside a template argument
+list, the programmer must parenthesize the expression:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>BitShiftContainer<span class="op">&lt;(</span><span class="dv">16</span> <span class="op">&gt;&gt;</span> <span class="dv">2</span><span class="op">)&gt;</span> container<span class="op">;</span> <span class="co">// Valid in C++11: parentheses protect the operator</span></span></code></pre></div>
+<p>The presence of parentheses informs the parser that the enclosed
+tokens belong to an arithmetic expression, thereby restoring the
+standard operator interpretation of <code>&gt;&gt;</code>.</p>
+<h3 id="impact-on-c-development">Impact on C++ Development</h3>
+<p>The C++11 right angle bracket fix resolved one of the most common
+syntactical frustrations for C++ programmers without breaking backward
+compatibility. By creating a context-aware boundary between the lexer
+and the parser for template argument lists, the language simplified
+template-heavy idioms, improved readability, and eliminated an
+unnecessary vestige of early compiler design.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-11-right-angle-bracket-fix-for-nested-templates';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

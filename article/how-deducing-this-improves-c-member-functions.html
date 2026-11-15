@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Deducing This Improves C++ Member Functions - cpp</title>
+    <meta name="description" content="Introduced in C++23, explicit object parameters—commonly referred to as &quot;deducing this&quot;—fundamentally modernize how member functions interact with the invoking object. By declaring the calling instance explicitly as the function&#39;s first parameter, C++ res">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-deducing-this-improves-c-member-functions">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Deducing This Improves C++ Member Functions - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-deducing-this-improves-c-member-functions" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++23, explicit object parameters—commonly referred to as &quot;deducing this&quot;—fundamentally modernize how member functions interact with the invoking object. By declaring the calling instance explicitly as the function&#39;s first parameter, C++ res" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-deducing-this-improves-c-member-functions">How Deducing This
+Improves C++ Member Functions</h1>
+<p>Introduced in C++23, explicit object parameters—commonly referred to
+as "deducing <code>this</code>"—fundamentally modernize how member
+functions interact with the invoking object. By declaring the calling
+instance explicitly as the function's first parameter, C++ resolves
+long-standing design limitations. This feature eliminates redundant
+boilerplate for const- and ref-qualified overloads, simplifies the
+Curiously Recurring Template Pattern (CRTP), enables clean recursive
+lambdas, and unlocks better compiler optimizations for passing small
+objects by value.</p>
+<h3 id="eliminating-duplicate-member-function-overloads">Eliminating
+Duplicate Member Function Overloads</h3>
+<p>Before C++23, designing accessors that respect the value category of
+the host object often required up to four identical overloads: non-const
+lvalue reference, const lvalue reference, non-const rvalue reference,
+and const rvalue reference.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Pre-C++23: Four distinct implementations</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Container <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> data<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span><span class="op">&amp;</span> get<span class="op">()</span> <span class="op">&amp;</span>             <span class="op">{</span> <span class="cf">return</span> data<span class="op">.</span>front<span class="op">();</span> <span class="op">}</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="dt">int</span><span class="op">&amp;</span> get<span class="op">()</span> <span class="at">const</span><span class="op">&amp;</span>  <span class="op">{</span> <span class="cf">return</span> data<span class="op">.</span>front<span class="op">();</span> <span class="op">}</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span><span class="op">&amp;&amp;</span> get<span class="op">()</span> <span class="op">&amp;&amp;</span>           <span class="op">{</span> <span class="cf">return</span> <span class="bu">std::</span>move<span class="op">(</span>data<span class="op">).</span>front<span class="op">();</span> <span class="op">}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="dt">int</span><span class="op">&amp;&amp;</span> get<span class="op">()</span> <span class="at">const</span><span class="op">&amp;&amp;{</span> <span class="cf">return</span> <span class="bu">std::</span>move<span class="op">(</span>data<span class="op">).</span>front<span class="op">();</span> <span class="op">}</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>With an explicit object parameter, a single templated function
+handles all value categories and qualifiers simultaneously. The compiler
+deduces the exact type and qualification of the calling instance:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// C++23: A single deduced member function</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Container <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> data<span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Self<span class="op">&gt;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span><span class="op">&amp;&amp;</span> get<span class="op">(</span><span class="kw">this</span> Self<span class="op">&amp;&amp;</span> self<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">std::</span>forward<span class="op">&lt;</span>Self<span class="op">&gt;(</span>self<span class="op">).</span>data<span class="op">.</span>front<span class="op">();</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>This drastically reduces boilerplate, minimizes maintenance overhead,
+and ensures consistent behavior across accessors.</p>
+<h3
+id="simplifying-the-curiously-recurring-template-pattern-crtp">Simplifying
+the Curiously Recurring Template Pattern (CRTP)</h3>
+<p>The Curiously Recurring Template Pattern (CRTP) is traditionally used
+to achieve static polymorphism without the runtime overhead of virtual
+dispatch. Historically, this required the base class to be a template
+parameterized by the derived class:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Pre-C++23 CRTP</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Derived<span class="op">&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Base <span class="op">{</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> interface<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">static_cast</span><span class="op">&lt;</span>Derived<span class="op">*&gt;(</span><span class="kw">this</span><span class="op">)-&gt;</span>implementation<span class="op">();</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base<span class="op">&lt;</span>Derived<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> implementation<span class="op">();</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>Deducing <code>this</code> removes the requirement for the base class
+to be a template. The base class member function deduces the derived
+type directly from the explicit parameter:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// C++23 Static Polymorphism</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Base <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Self<span class="op">&gt;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> interface<span class="op">(</span><span class="kw">this</span> Self<span class="op">&amp;&amp;</span> self<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        self<span class="op">.</span>implementation<span class="op">();</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Derived <span class="op">:</span> <span class="kw">public</span> Base <span class="op">{</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> implementation<span class="op">();</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>This pattern prevents template bloat, simplifies class hierarchies,
+and eliminates type-casting errors associated with mismatched template
+arguments.</p>
+<h3 id="enabling-clean-recursive-lambdas">Enabling Clean Recursive
+Lambdas</h3>
+<p>Because lambdas in C++ are translated into anonymous function
+objects, they previously could not directly reference themselves inside
+their own bodies without workarounds like <code>std::function</code>
+(which incurs dynamic allocation and indirection overhead) or external
+generic combinators.</p>
+<p>An explicit object parameter allows a lambda to capture a reference
+to itself as its first argument:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> factorial <span class="op">=</span> <span class="op">[](</span><span class="kw">this</span> <span class="kw">auto</span> self<span class="op">,</span> <span class="dt">int</span> n<span class="op">)</span> <span class="op">-&gt;</span> <span class="dt">int</span> <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="op">(</span>n <span class="op">&lt;=</span> <span class="dv">1</span><span class="op">)</span> <span class="op">?</span> <span class="dv">1</span> <span class="op">:</span> n <span class="op">*</span> self<span class="op">(</span>n <span class="op">-</span> <span class="dv">1</span><span class="op">);</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>This delivers efficient, fully inlined recursion with no heap
+allocation, dynamic overhead, or convoluted template wrappers.</p>
+<h3 id="passing-the-this-pointer-by-value">Passing the <code>this</code>
+Pointer by Value</h3>
+<p>Traditional member functions pass the calling object implicitly via a
+pointer register (the <code>this</code> pointer). For small, trivially
+copyable types like iterators, string views, or complex numbers, passing
+by value in CPU registers is significantly faster than passing an
+address via a pointer.</p>
+<p>With explicit object parameters, functions can specify that the
+instance is passed by value:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Iterator <span class="op">{</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span><span class="op">*</span> ptr<span class="op">;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Passed directly in a register rather than via a pointer</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    Iterator next<span class="op">(</span><span class="kw">this</span> Iterator self<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="op">++</span>self<span class="op">.</span>ptr<span class="op">;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> self<span class="op">;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>This gives developers fine-grained control over ABI calling
+conventions, enabling targeted micro-optimizations that were previously
+exclusive to free functions.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-deducing-this-improves-c-member-functions';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

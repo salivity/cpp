@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Branch Prediction Miss Penalty in C++ Tight Loops - cpp</title>
+    <meta name="description" content="In high-performance C++ applications, tight loops often serve as the computational core where maximizing instruction throughput is critical. Modern superscalar CPUs rely on speculative execution and branch prediction to keep their deep instruction pipelin">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/branch-prediction-miss-penalty-in-c-tight-loops">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Branch Prediction Miss Penalty in C++ Tight Loops - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/branch-prediction-miss-penalty-in-c-tight-loops" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In high-performance C++ applications, tight loops often serve as the computational core where maximizing instruction throughput is critical. Modern superscalar CPUs rely on speculative execution and branch prediction to keep their deep instruction pipelin" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="branch-prediction-miss-penalty-in-c-tight-loops">Branch
+Prediction Miss Penalty in C++ Tight Loops</h1>
+<p>In high-performance C++ applications, tight loops often serve as the
+computational core where maximizing instruction throughput is critical.
+Modern superscalar CPUs rely on speculative execution and branch
+prediction to keep their deep instruction pipelines saturated; however,
+when the processor miscalculates the outcome of a conditional jump, it
+must discard speculatively executed instructions and reload the
+pipeline. This article examines the mechanics of branch misprediction
+penalties, quantifies their disproportionate impact on tight C++ loops,
+illustrates this behavior with code, and outlines concrete engineering
+techniques to eliminate or mitigate these penalties.</p>
+<hr />
+<h3 id="understanding-the-branch-misprediction-penalty">Understanding
+the Branch Misprediction Penalty</h3>
+<p>Modern processors feature deep execution pipelines, typically ranging
+between 12 and 20+ stages. To avoid idling while evaluating whether a
+conditional instruction will jump, the hardware branch prediction unit
+(BPU) guesses the target path and begins fetching, decoding, and
+speculatively executing subsequent instructions.</p>
+<p>When the CPU's prediction is correct, execution proceeds without
+latency. When the prediction is incorrect, the processor experiences a
+branch misprediction penalty:</p>
+<ol type="1">
+<li><strong>Pipeline Flush:</strong> All speculatively fetched and
+partially executed instructions along the incorrect path must be
+identified, halted, and discarded.</li>
+<li><strong>State Recovery:</strong> Architectural registers, renamed
+registers, and tracking tables (such as the Reorder Buffer) are rolled
+back to the state immediately preceding the branch.</li>
+<li><strong>Pipeline Refill:</strong> The instruction fetch unit
+redirects to the correct branch target, incurring the latency required
+to traverse the pipeline's fetch, decode, rename, and dispatch stages
+before useful execution resumes.</li>
+</ol>
+<p>On contemporary x86-64 architectures (such as Intel Core or AMD Zen),
+this penalty typically costs between <strong>10 and 20 clock
+cycles</strong>.</p>
+<hr />
+<h3 id="the-amplified-effect-in-tight-c-loops">The Amplified Effect in
+Tight C++ Loops</h3>
+<p>In non-performance-critical code, a 15-cycle penalty is negligible.
+In a tight C++ loop, however, the entire loop body might normally
+execute in only 2 to 5 cycles.</p>
+<p>When an unpredictable branch resides inside a loop processing
+millions of iterations:</p>
+<ul>
+<li><strong>Throughput Inversion:</strong> A loop iteration that should
+take 3 cycles can suddenly cost 18 cycles whenever a branch is
+mispredicted.</li>
+<li><strong>Resource Depletion:</strong> Pipeline bubbles starve
+arithmetic logic units (ALUs), reducing Instructions Per Cycle (IPC)
+from near-optimal levels (e.g., 3.0–4.0 IPC) down to fractions of an
+instruction per cycle.</li>
+<li><strong>Speculative Cache Invalidation:</strong> Speculatively
+loaded data can displace useful lines in the L1/L2 caches, causing
+secondary memory stalls.</li>
+</ul>
+<p>If an inner loop evaluates random, 50/50 conditions, the predictor
+cannot establish a pattern, leading to mispredictions on up to half of
+all iterations. Under these conditions, the CPU spends the vast majority
+of its total runtime recovering from pipeline flushes rather than
+executing loop logic.</p>
+<hr />
+<h3
+id="demonstrating-the-penalty-predictable-vs-unpredictable-data">Demonstrating
+the Penalty: Predictable vs. Unpredictable Data</h3>
+<p>The classic demonstration of this performance divergence involves
+processing sorted versus unsorted data arrays:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;algorithm&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;chrono&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;random&gt;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">const</span> <span class="dt">size_t</span> array_size <span class="op">=</span> <span class="dv">32768</span><span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>vector<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> data<span class="op">(</span>array_size<span class="op">);</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>mt19937 gen<span class="op">(</span><span class="dv">1337</span><span class="op">);</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>uniform_int_distribution<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> dis<span class="op">(</span><span class="dv">0</span><span class="op">,</span> <span class="dv">255</span><span class="op">);</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">size_t</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> array_size<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        data<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> dis<span class="op">(</span>gen<span class="op">);</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Processing unsorted data (unpredictable branch)</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="dt">long</span> <span class="dt">long</span> sum_unsorted <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> start_unsorted <span class="op">=</span> <span class="bu">std::</span>chrono::high_resolution_clock::now<span class="op">();</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> run <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> run <span class="op">&lt;</span> <span class="dv">10000</span><span class="op">;</span> <span class="op">++</span>run<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">size_t</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> array_size<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>data<span class="op">[</span>i<span class="op">]</span> <span class="op">&gt;=</span> <span class="dv">128</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>                sum_unsorted <span class="op">+=</span> data<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> end_unsorted <span class="op">=</span> <span class="bu">std::</span>chrono::high_resolution_clock::now<span class="op">();</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Sort the data to make the branch completely predictable</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>sort<span class="op">(</span>data<span class="op">.</span>begin<span class="op">(),</span> data<span class="op">.</span>end<span class="op">());</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Processing sorted data (predictable branch)</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="dt">long</span> <span class="dt">long</span> sum_sorted <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> start_sorted <span class="op">=</span> <span class="bu">std::</span>chrono::high_resolution_clock::now<span class="op">();</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> <span class="op">(</span><span class="dt">int</span> run <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> run <span class="op">&lt;</span> <span class="dv">10000</span><span class="op">;</span> <span class="op">++</span>run<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> <span class="op">(</span><span class="dt">size_t</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> array_size<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> <span class="op">(</span>data<span class="op">[</span>i<span class="op">]</span> <span class="op">&gt;=</span> <span class="dv">128</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>                sum_sorted <span class="op">+=</span> data<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>            <span class="op">}</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>        <span class="op">}</span></span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> end_sorted <span class="op">=</span> <span class="bu">std::</span>chrono::high_resolution_clock::now<span class="op">();</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>chrono::duration<span class="op">&lt;</span><span class="dt">double</span><span class="op">,</span> <span class="bu">std::</span>milli<span class="op">&gt;</span> elapsed_unsorted <span class="op">=</span> end_unsorted <span class="op">-</span> start_unsorted<span class="op">;</span></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>chrono::duration<span class="op">&lt;</span><span class="dt">double</span><span class="op">,</span> <span class="bu">std::</span>milli<span class="op">&gt;</span> elapsed_sorted <span class="op">=</span> end_sorted <span class="op">-</span> start_sorted<span class="op">;</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Unsorted processing time: &quot;</span> <span class="op">&lt;&lt;</span> elapsed_unsorted<span class="op">.</span>count<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="st">&quot; ms</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;Sorted processing time:   &quot;</span> <span class="op">&lt;&lt;</span> elapsed_sorted<span class="op">.</span>count<span class="op">()</span> <span class="op">&lt;&lt;</span> <span class="st">&quot; ms</span><span class="sc">\n</span><span class="st">&quot;</span><span class="op">;</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In this benchmark, the mathematical operations performed in both
+passes are identical. However, the sorted variant typically runs
+<strong>3x to 6x faster</strong>. In the sorted array, the condition
+evaluates to <code>false</code> repeatedly, transitions once, and
+evaluates to <code>true</code> repeatedly, allowing the hardware
+predictor to maintain near 100% accuracy. In the unsorted array, the
+condition fluctuates randomly, triggering constant pipeline flushes.</p>
+<hr />
+<h3 id="mitigation-strategies-in-c">Mitigation Strategies in C++</h3>
+<p>To prevent branch penalties from degrading loop performance, C++
+engineers apply several architectural and algorithmic patterns:</p>
+<h4 id="1-branchless-arithmetic-and-bitwise-logic">1. Branchless
+Arithmetic and Bitwise Logic</h4>
+<p>Replacing explicit control flow with mathematical operations removes
+the branch instruction entirely from the emitted assembly:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Branching: emits a conditional jump (e.g., JGE/JL)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="op">(</span>data<span class="op">[</span>i<span class="op">]</span> <span class="op">&gt;=</span> <span class="dv">128</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    sum <span class="op">+=</span> data<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Branchless: uses arithmetic masking</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">// (data[i] &gt;= 128) evaluates to 1 or 0</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>sum <span class="op">+=</span> data<span class="op">[</span>i<span class="op">]</span> <span class="op">*</span> <span class="op">(</span>data<span class="op">[</span>i<span class="op">]</span> <span class="op">&gt;=</span> <span class="dv">128</span><span class="op">);</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Alternatively, using bit manipulation for signed integers:</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> mask <span class="op">=</span> <span class="op">-(</span>data<span class="op">[</span>i<span class="op">]</span> <span class="op">&gt;=</span> <span class="dv">128</span><span class="op">);</span> <span class="co">// 0xFFFFFFFF or 0x00000000</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>sum <span class="op">+=</span> data<span class="op">[</span>i<span class="op">]</span> <span class="op">&amp;</span> mask<span class="op">;</span></span></code></pre></div>
+<h4 id="2-encouraging-conditional-moves-cmov">2. Encouraging Conditional
+Moves (<code>CMOV</code>)</h4>
+<p>The ternary operator (<code>?:</code>) or functions like
+<code>std::clamp</code> and <code>std::min</code>/<code>std::max</code>
+often encourage compilers to emit conditional move instructions
+(<code>cmov</code> on x86) instead of jump instructions. Conditional
+moves execute speculatively without flushing the pipeline on condition
+changes, trading a fixed instruction cost for branch immunity:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Frequently compiled to a CMOV instruction</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>sum <span class="op">+=</span> <span class="op">(</span>data<span class="op">[</span>i<span class="op">]</span> <span class="op">&gt;=</span> <span class="dv">128</span><span class="op">)</span> <span class="op">?</span> data<span class="op">[</span>i<span class="op">]</span> <span class="op">:</span> <span class="dv">0</span><span class="op">;</span></span></code></pre></div>
+<h4 id="3-loop-peeling-and-splitting">3. Loop Peeling and Splitting</h4>
+<p>When conditions inside a loop depend on iteration thresholds or known
+invariants, split the loop rather than branching inside it:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Inefficient: evaluated every iteration</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">size_t</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>i <span class="op">&lt;</span> boundary<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        process_first_segment<span class="op">(</span>data<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span> <span class="cf">else</span> <span class="op">{</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        process_second_segment<span class="op">(</span>data<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Optimized: zero branch mispredictions</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">size_t</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> boundary<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    process_first_segment<span class="op">(</span>data<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">size_t</span> i <span class="op">=</span> boundary<span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    process_second_segment<span class="op">(</span>data<span class="op">[</span>i<span class="op">]);</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h4 id="4-compiler-branch-weight-attributes">4. Compiler Branch Weight
+Attributes</h4>
+<p>If a branch inside a loop is genuinely biased toward one direction
+(e.g., handling rare edge cases or error conditions), C++20 provides the
+<code>[[likely]]</code> and <code>[[unlikely]]</code> attributes. These
+instruct the compiler to lay out the binary code so that the cold path
+is moved out-of-line, optimizing instruction cache locality and default
+static branch prediction:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> <span class="op">(</span><span class="dt">size_t</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> n<span class="op">;</span> <span class="op">++</span>i<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="op">(</span>ptr<span class="op">[</span>i<span class="op">]</span> <span class="op">==</span> <span class="kw">nullptr</span><span class="op">)</span> <span class="op">[[</span><span class="at">unlikely</span><span class="op">]]</span> <span class="op">{</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>        handle_null_error<span class="op">(</span>i<span class="op">);</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    ptr<span class="op">[</span>i<span class="op">]-&gt;</span>compute<span class="op">();</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By systematically identifying unpredictable branches with hardware
+performance counters (such as <code>perf</code> or Intel VTune) and
+converting them into branchless logic or predictable layouts, tight C++
+loops can consistently achieve peak throughput.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/branch-prediction-miss-penalty-in-c-tight-loops';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

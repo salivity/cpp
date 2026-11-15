@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>std::is_same vs std::is_base_of in C++ - cpp</title>
+    <meta name="description" content="In modern C++, compile-time type introspection is primarily handled by the &lt;typetraits&gt; header, where std::issame and std::isbaseof are two fundamental tools for evaluating relationships between types. While both return a compile-time boolean value, they">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/std-is-same-vs-std-is-base-of-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="std::is_same vs std::is_base_of in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/std-is-same-vs-std-is-base-of-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In modern C++, compile-time type introspection is primarily handled by the &lt;typetraits&gt; header, where std::issame and std::isbaseof are two fundamental tools for evaluating relationships between types. While both return a compile-time boolean value, they" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="stdis_same-vs-stdis_base_of-in-c">std::is_same vs
+std::is_base_of in C++</h1>
+<p>In modern C++, compile-time type introspection is primarily handled
+by the <code>&lt;type_traits&gt;</code> header, where
+<code>std::is_same</code> and <code>std::is_base_of</code> are two
+fundamental tools for evaluating relationships between types. While both
+return a compile-time boolean value, they serve fundamentally different
+purposes: <code>std::is_same</code> checks whether two types are
+strictly identical, whereas <code>std::is_base_of</code> tests for an
+inheritance hierarchy between class types. This article breaks down how
+each trait works, their key technical differences, edge cases, and
+appropriate use cases.</p>
+<h3 id="understanding-stdis_same">Understanding std::is_same</h3>
+<p><code>std::is_same&lt;T, U&gt;</code> checks for exact type
+equivalence at compile time. It yields <code>true</code> if
+<code>T</code> and <code>U</code> refer to the exact same type, and
+<code>false</code> otherwise.</p>
+<p>Crucially, <code>std::is_same</code> is sensitive to type qualifiers,
+references, and distinct types even if they are structurally
+compatible:</p>
+<ul>
+<li><strong>Const and Volatile:</strong>
+<code>std::is_same&lt;int, const int&gt;::value</code> is
+<code>false</code>.</li>
+<li><strong>References:</strong>
+<code>std::is_same&lt;int, int&amp;&gt;::value</code> is
+<code>false</code>.</li>
+<li><strong>Inheritance:</strong>
+<code>std::is_same&lt;Base, Derived&gt;::value</code> is always
+<code>false</code>.</li>
+<li><strong>Type Aliases:</strong> <code>using MyInt = int;</code>
+followed by <code>std::is_same&lt;int, MyInt&gt;::value</code> is
+<code>true</code>, because aliases do not create distinct types.</li>
+</ul>
+<h3 id="understanding-stdis_base_of">Understanding std::is_base_of</h3>
+<p><code>std::is_base_of&lt;Base, Derived&gt;</code> determines whether
+<code>Base</code> is a base class of <code>Derived</code>. It yields
+<code>true</code> if:</p>
+<ol type="1">
+<li><code>Base</code> is an unambiguous and accessible or inaccessible
+base of <code>Derived</code>.</li>
+<li>Both <code>Base</code> and <code>Derived</code> are the same
+non-union class type (regardless of cv-qualifiers).</li>
+</ol>
+<p>If either type is a primitive, a union, or a non-class type,
+<code>std::is_base_of</code> evaluates to <code>false</code>. Top-level
+<code>const</code> and <code>volatile</code> qualifiers are ignored when
+comparing types with <code>std::is_base_of</code>.</p>
+<h3 id="core-differences">Core Differences</h3>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>std::is_same&lt;A, B&gt;</code></th>
+<th
+style="text-align: left;"><code>std::is_base_of&lt;A, B&gt;</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Relationship Tested</strong></td>
+<td style="text-align: left;">Exact type identity</td>
+<td style="text-align: left;">Inheritance hierarchy (is-a
+relationship)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Base and Derived
+Classes</strong></td>
+<td style="text-align: left;"><code>false</code></td>
+<td style="text-align: left;"><code>true</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Identical Class
+Types</strong></td>
+<td style="text-align: left;"><code>true</code></td>
+<td style="text-align: left;"><code>true</code> (if class type)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Identical Primitive
+Types</strong></td>
+<td style="text-align: left;"><code>true</code> (e.g., <code>int</code>,
+<code>int</code>)</td>
+<td style="text-align: left;"><code>false</code> (e.g.,
+<code>int</code>, <code>int</code>)</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>cv-qualifiers
+(<code>const</code>/<code>volatile</code>)</strong></td>
+<td style="text-align: left;">Strict (<code>int</code> <span
+class="math inline">\(\neq\)</span> <code>const int</code>)</td>
+<td style="text-align: left;">Ignored on class types</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Private/Protected
+Inheritance</strong></td>
+<td style="text-align: left;">N/A</td>
+<td style="text-align: left;"><code>true</code> (evaluates relationship
+regardless of access)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="practical-code-comparison">Practical Code Comparison</h3>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;type_traits&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Base <span class="op">{};</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Derived <span class="op">:</span> Base <span class="op">{};</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 1. Inheritance verification</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>is_same<span class="op">&lt;</span>Base<span class="op">,</span> Derived<span class="op">&gt;::</span>value<span class="op">;</span>    <span class="co">// Outputs 0 (false)</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>is_base_of<span class="op">&lt;</span>Base<span class="op">,</span> Derived<span class="op">&gt;::</span>value<span class="op">;</span> <span class="co">// Outputs 1 (true)</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 2. Exact same class</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>is_same<span class="op">&lt;</span>Base<span class="op">,</span> Base<span class="op">&gt;::</span>value<span class="op">;</span>       <span class="co">// Outputs 1 (true)</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>is_base_of<span class="op">&lt;</span>Base<span class="op">,</span> Base<span class="op">&gt;::</span>value<span class="op">;</span>    <span class="co">// Outputs 1 (true)</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 3. Modifiers (const)</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>is_same<span class="op">&lt;</span>Base<span class="op">,</span> <span class="at">const</span> Base<span class="op">&gt;::</span>value<span class="op">;</span>    <span class="co">// Outputs 0 (false)</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>is_base_of<span class="op">&lt;</span>Base<span class="op">,</span> <span class="at">const</span> Base<span class="op">&gt;::</span>value<span class="op">;</span> <span class="co">// Outputs 1 (true)</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 4. Fundamental types</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>is_same<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="dt">int</span><span class="op">&gt;::</span>value<span class="op">;</span>       <span class="co">// Outputs 1 (true)</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="bu">std::</span>is_base_of<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> <span class="dt">int</span><span class="op">&gt;::</span>value<span class="op">;</span>    <span class="co">// Outputs 0 (false)</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="when-to-use-which">When to Use Which</h3>
+<ul>
+<li><strong>Use <code>std::is_same</code></strong> when implementing
+template specializations, verifying template argument matches, or
+writing concepts that demand exact type conformity. It ensures that no
+implicit conversions, polymorphism, or unintended base-class slicing
+occur.</li>
+<li><strong>Use <code>std::is_base_of</code></strong> when constraining
+generic algorithms to an object-oriented class hierarchy. It is commonly
+used in SFINAE (<code>std::enable_if</code>) or C++20 concepts to accept
+any object belonging to an inheritance tree, enabling compile-time
+polymorphism.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/std-is-same-vs-std-is-base-of-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

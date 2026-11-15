@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tokenization and Lexical Analysis in C++ - cpp</title>
+    <meta name="description" content="Lexical analysis is the initial phase of the C++ compilation pipeline, responsible for converting raw source code text into a structured sequence of discrete units known as tokens. This article explores the mechanics of lexical analysis, explains how toke">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/tokenization-and-lexical-analysis-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Tokenization and Lexical Analysis in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/tokenization-and-lexical-analysis-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Lexical analysis is the initial phase of the C++ compilation pipeline, responsible for converting raw source code text into a structured sequence of discrete units known as tokens. This article explores the mechanics of lexical analysis, explains how toke" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="tokenization-and-lexical-analysis-in-c">Tokenization and Lexical
+Analysis in C++</h1>
+<p>Lexical analysis is the initial phase of the C++ compilation
+pipeline, responsible for converting raw source code text into a
+structured sequence of discrete units known as tokens. This article
+explores the mechanics of lexical analysis, explains how tokenization
+transforms character streams into meaningful syntactic categories, and
+details the specific rules—such as the Maximal Munch principle—that
+govern how C++ compilers interpret source files before parsing.</p>
+<h2 id="the-role-of-lexical-analysis-in-c">The Role of Lexical Analysis
+in C++</h2>
+<p>Before a C++ compiler can evaluate program logic or generate machine
+code, it must interpret the plain text stored in <code>.cpp</code> and
+<code>.h</code> files. The lexical analyzer, or <em>lexer</em> (often
+paired with a scanner), sits at the front end of this process.</p>
+<p>In C++, compilation occurs across several standardized translation
+phases. Lexical analysis operates during these early stages:</p>
+<ol type="1">
+<li>It processes raw characters, handling encodings, universal character
+names, and line splices.</li>
+<li>It strips out comments and non-essential whitespace.</li>
+<li>It identifies valid language symbols and yields a linear stream of
+tokens for the parser (syntactic analysis).</li>
+</ol>
+<h2 id="what-is-a-token">What is a Token?</h2>
+<p>A token is an atomic, categorized unit of source text that holds
+syntactic meaning for the compiler. A raw string of characters
+representing an entity is termed a <em>lexeme</em>, and the lexer maps
+each lexeme to a formal token type.</p>
+<p>In C++, tokens are grouped into five core categories:</p>
+<ul>
+<li><strong>Keywords:</strong> Reserved words defining language
+semantics, such as <code>auto</code>, <code>template</code>,
+<code>constexpr</code>, and <code>co_await</code>.</li>
+<li><strong>Identifiers:</strong> User-defined labels for variables,
+functions, types, and namespaces (e.g., <code>calculateTotal</code>,
+<code>MyClass</code>).</li>
+<li><strong>Literals:</strong> Constant values embedded directly in
+code, including integer literals (<code>42</code>), floating-point
+literals (<code>3.14f</code>), character literals (<code>'a'</code>),
+and string literals (<code>"Hello"</code>).</li>
+<li><strong>Operators:</strong> Symbols indicating computations or
+assignments, such as <code>+</code>, <code>-&gt;*</code>,
+<code>sizeof</code>, and <code>new</code>.</li>
+<li><strong>Punctuators (Delimiters):</strong> Structural markers that
+organize code, such as semicolons (<code>;</code>), braces
+(<code>{}</code>), parentheses (<code>()</code>), and commas
+(<code>,</code>).</li>
+</ul>
+<p>For example, given the statement:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> counter <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span></code></pre></div>
+<p>The lexer breaks the character sequence into five distinct
+tokens:</p>
+<ol type="1">
+<li><code>[KEYWORD: int]</code></li>
+<li><code>[IDENTIFIER: counter]</code></li>
+<li><code>[OPERATOR: =]</code></li>
+<li><code>[LITERAL_INT: 10]</code></li>
+<li><code>[PUNCTUATOR: ;]</code></li>
+</ol>
+<h2 id="how-lexical-analysis-processes-c-source-code">How Lexical
+Analysis Processes C++ Source Code</h2>
+<p>The lexer scans the input stream sequentially using
+state-machine-driven logic, typically modeled via Deterministic Finite
+Automata (DFA). The processing sequence follows a structured
+pattern:</p>
+<h3 id="1-character-scanning-and-normalization">1. Character Scanning
+and Normalization</h3>
+<p>The lexer reads the source file byte-by-byte or
+character-by-character. It normalizes line terminators (CRLF vs. LF) and
+removes physical line continuations (lines ending with a backslash
+<code>\</code>).</p>
+<h3 id="2-discarding-trivia-whitespace-and-comments">2. Discarding
+Trivia (Whitespace and Comments)</h3>
+<p>Spaces, tabs, newlines, and comments (<code>//</code> and
+<code>/* ... */</code>) serve as boundaries between tokens. Except
+within character or string literals, the lexer discards these
+characters. In modern compilers, source location data (line and column
+numbers) is preserved alongside tokens for error reporting and debugging
+symbols.</p>
+<h3 id="3-pattern-recognition-via-regular-expressions">3. Pattern
+Recognition via Regular Expressions</h3>
+<p>The lexer employs regular grammars to recognize token patterns:</p>
+<ul>
+<li>An identifier must begin with a letter or underscore, followed by
+letters, digits, or underscores.</li>
+<li>Numeric literals are scanned based on prefixes (e.g.,
+<code>0x</code> for hexadecimal) and suffixes (e.g., <code>ULL</code>,
+<code>f</code>).</li>
+<li>String literals are tracked from an opening quote to an unescaped
+closing quote, with special parsing rules applied to raw string literals
+(<code>R"(...)"</code>).</li>
+</ul>
+<h3 id="4-resolving-ambiguity-the-maximal-munch-rule">4. Resolving
+Ambiguity: The Maximal Munch Rule</h3>
+<p>A fundamental rule in C++ lexical analysis is the <strong>Maximal
+Munch</strong> (or longest match) rule. The lexer always forms the
+longest possible valid token from the remaining input characters.</p>
+<ul>
+<li>The character sequence <code>+++</code> is tokenized as
+<code>++</code> followed by <code>+</code>, not <code>+</code> followed
+by <code>++</code>.</li>
+<li>In older C++ standards (prior to C++11), nested templates written as
+<code>std::vector&lt;std::vector&lt;int&gt;&gt;</code> caused compiler
+errors because <code>&gt;&gt;</code> was lexed as the right-shift
+operator due to the Maximal Munch rule. C++11 introduced contextual
+rules allowing the parser and lexer to treat <code>&gt;&gt;</code> as
+two consecutive closing angle brackets in template arguments.</li>
+</ul>
+<h2 id="transition-to-syntactic-analysis">Transition to Syntactic
+Analysis</h2>
+<p>Once lexical analysis is complete, the flat stream of characters has
+been transformed into a validated, strongly categorized stream of
+tokens. This token stream forms the input for the compiler's syntax
+analyzer (parser), which verifies that the sequence adheres to the C++
+grammar and arranges the tokens into an Abstract Syntax Tree (AST).</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/tokenization-and-lexical-analysis-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

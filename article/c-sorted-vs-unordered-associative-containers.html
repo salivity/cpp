@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Sorted vs Unordered Associative Containers - cpp</title>
+    <meta name="description" content="In C++, associative containers store elements using key-based lookup, but the standard library divides them into two distinct categories: sorted associative containers (std::set, std::map, std::multiset, std::multimap) and unordered associative containers">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-sorted-vs-unordered-associative-containers">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Sorted vs Unordered Associative Containers - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-sorted-vs-unordered-associative-containers" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, associative containers store elements using key-based lookup, but the standard library divides them into two distinct categories: sorted associative containers (std::set, std::map, std::multiset, std::multimap) and unordered associative containers" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-sorted-vs-unordered-associative-containers">C++ Sorted vs
+Unordered Associative Containers</h1>
+<p>In C++, associative containers store elements using key-based lookup,
+but the standard library divides them into two distinct categories:
+sorted associative containers (<code>std::set</code>,
+<code>std::map</code>, <code>std::multiset</code>,
+<code>std::multimap</code>) and unordered associative containers
+(<code>std::unordered_set</code>, <code>std::unordered_map</code>,
+<code>std::unordered_multiset</code>,
+<code>std::unordered_multimap</code>). The primary differences between
+these two families stem from their underlying data structures, which
+dictate their element ordering, algorithmic time complexity, memory
+footprint, and the requirements imposed on the stored key types.</p>
+<h2 id="underlying-data-structures">Underlying Data Structures</h2>
+<ul>
+<li><strong>Sorted Containers:</strong> Implemented using self-balancing
+binary search trees, typically Red-Black trees. Every element is
+allocated as an individual tree node linked by pointers.</li>
+<li><strong>Unordered Containers:</strong> Implemented using hash
+tables. They consist of an array of "buckets" containing linked lists or
+arrays to handle collisions.</li>
+</ul>
+<h2 id="element-ordering">Element Ordering</h2>
+<ul>
+<li><strong>Sorted Containers:</strong> Elements are always stored in a
+strictly defined order based on a comparison criterion (by default,
+<code>std::less</code> using <code>operator&lt;</code>). Iterating over
+a sorted container traverses elements from lowest to highest.</li>
+<li><strong>Unordered Containers:</strong> Elements are placed based on
+their hash values. There is no guaranteed order, and the sequence of
+elements can change unpredictably when insertions trigger a rehashing of
+the table.</li>
+</ul>
+<h2 id="time-complexity">Time Complexity</h2>
+<p>The architectural divergence leads to different performance
+characteristics for search, insertion, and deletion operations:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Operation</th>
+<th style="text-align: left;">Sorted Containers (Tree-based)</th>
+<th style="text-align: left;">Unordered Containers (Hash-based)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Search / Lookup</strong></td>
+<td style="text-align: left;">Guaranteed <span
+class="math inline">\(O(\log n)\)</span></td>
+<td style="text-align: left;">Average <span
+class="math inline">\(O(1)\)</span>, Worst-case <span
+class="math inline">\(O(n)\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Insertion</strong></td>
+<td style="text-align: left;">Guaranteed <span
+class="math inline">\(O(\log n)\)</span></td>
+<td style="text-align: left;">Average <span
+class="math inline">\(O(1)\)</span>, Worst-case <span
+class="math inline">\(O(n)\)</span></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Deletion</strong></td>
+<td style="text-align: left;">Guaranteed <span
+class="math inline">\(O(\log n)\)</span></td>
+<td style="text-align: left;">Average <span
+class="math inline">\(O(1)\)</span>, Worst-case <span
+class="math inline">\(O(n)\)</span></td>
+</tr>
+</tbody>
+</table>
+<p>Sorted containers provide consistent, predictable performance without
+worst-case degradation. Unordered containers provide faster average
+lookups, but poor hash functions or frequent collisions can degrade
+operations to linear time <span class="math inline">\(O(n)\)</span>.</p>
+<h2 id="requirements-on-key-types">Requirements on Key Types</h2>
+<ul>
+<li><strong>Sorted Containers:</strong> The key type must support strict
+weak ordering. This requires an overload for <code>operator&lt;</code>
+or a custom comparator functor.</li>
+<li><strong>Unordered Containers:</strong> The key type requires an
+equality operator (<code>operator==</code>) to resolve hash collisions
+and a specialization of <code>std::hash&lt;Key&gt;</code> (or a custom
+hash function object) to map the key to a size integer.</li>
+</ul>
+<h2 id="iterators-and-traversal">Iterators and Traversal</h2>
+<ul>
+<li><strong>Sorted Containers:</strong> Provide bidirectional iterators.
+They natively support range queries and boundary lookups using member
+functions like <code>lower_bound()</code> and
+<code>upper_bound()</code>.</li>
+<li><strong>Unordered Containers:</strong> Provide forward iterators.
+Because elements are scattered across buckets without global ordering,
+range queries (such as finding all keys between value <span
+class="math inline">\(A\)</span> and value <span
+class="math inline">\(B\)</span>) are not supported efficiently and
+require a full scan of the container.</li>
+</ul>
+<h2 id="memory-and-overhead">Memory and Overhead</h2>
+<ul>
+<li><strong>Sorted Containers:</strong> Allocate memory node-by-node.
+Each node carries the overhead of three pointers (parent, left child,
+right child) and a color bit for the Red-Black tree mechanics.</li>
+<li><strong>Unordered Containers:</strong> Require continuous memory for
+the bucket array in addition to the memory for node lists. When the load
+factor exceeds a threshold, the bucket array is dynamically reallocated
+and all elements are rehashed, causing temporary memory spikes and
+latency.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-sorted-vs-unordered-associative-containers';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

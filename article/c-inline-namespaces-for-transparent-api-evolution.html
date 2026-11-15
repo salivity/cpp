@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Inline Namespaces for Transparent API Evolution - cpp</title>
+    <meta name="description" content="This article explains the concept of inline namespaces in C++ and demonstrates how they enable seamless, backwards-compatible library versioning. Introduced in C++11, inline namespaces allow library authors to expose declarations from a nested namespace i">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-inline-namespaces-for-transparent-api-evolution">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Inline Namespaces for Transparent API Evolution - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-inline-namespaces-for-transparent-api-evolution" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explains the concept of inline namespaces in C++ and demonstrates how they enable seamless, backwards-compatible library versioning. Introduced in C++11, inline namespaces allow library authors to expose declarations from a nested namespace i" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-inline-namespaces-for-transparent-api-evolution">C++ Inline
+Namespaces for Transparent API Evolution</h1>
+<p>This article explains the concept of inline namespaces in C++ and
+demonstrates how they enable seamless, backwards-compatible library
+versioning. Introduced in C++11, inline namespaces allow library authors
+to expose declarations from a nested namespace into an enclosing
+namespace automatically, providing a mechanism to update APIs and symbol
+names without breaking existing client code.</p>
+<h3 id="what-is-an-inline-namespace">What Is an Inline Namespace?</h3>
+<p>An inline namespace is defined using the
+<code>inline namespace</code> syntax. When a namespace is declared as
+<code>inline</code>, all declarations within it are automatically
+treated as if they are direct members of the enclosing parent namespace
+for the purposes of name lookup.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> MyLib <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">inline</span> <span class="kw">namespace</span> v2 <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> processData<span class="op">();</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">namespace</span> v1 <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">void</span> processData<span class="op">();</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>In the example above, a caller can invoke <code>processData()</code>
+via <code>MyLib::processData()</code>, and the compiler automatically
+resolves this call to <code>MyLib::v2::processData()</code>. At the same
+time, the qualified path <code>MyLib::v2::processData()</code> remains
+valid.</p>
+<h3 id="mechanisms-for-transparent-api-evolution">Mechanisms for
+Transparent API Evolution</h3>
+<p>Inline namespaces solve several long-standing challenges in C++
+library maintenance:</p>
+<ol type="1">
+<li><p><strong>Default Version Selection Without Name
+Collisions</strong><br />
+Before inline namespaces, maintainers often used
+<code>using namespace</code> inside an outer namespace to expose default
+versions. However, this caused ambiguous lookup errors if multiple
+versions contained symbols with identical signatures. An inline
+namespace makes its members visible to unqualified and qualified lookup
+in the parent namespace without ambiguity, establishing the inline
+version as the explicit default.</p></li>
+<li><p><strong>Preserving Explicit Opt-Ins for Legacy
+Code</strong><br />
+When a library introduces a breaking change, maintainers can create a
+new inline namespace (e.g., <code>v2</code>) while removing the
+<code>inline</code> specifier from the previous version
+(<code>v1</code>). New users automatically call
+<code>MyLib::processData()</code> and get the updated <code>v2</code>
+implementation. Existing users who depend on the old behavior can update
+their call sites to explicitly use
+<code>MyLib::v1::processData()</code>, ensuring their code continues to
+compile and behave as expected.</p></li>
+<li><p><strong>Mangled Names and ABI Stability</strong><br />
+Even though the outer namespace treats an inline namespace's members as
+its own for lookup, the compiler includes the inline namespace in the
+mangled name of symbols (e.g.,
+<code>_ZN5MyLib2v211processDataEv</code>). This prevents One Definition
+Rule (ODR) violations and subtle runtime errors that occur when
+different translation units link against different binary versions of
+the same function.</p></li>
+<li><p><strong>Valid Template Specialization</strong><br />
+C++ rules require template specializations to be declared in the same
+namespace as the original template declaration or in an enclosing
+namespace. Because inline namespaces are formally recognized as part of
+the enclosing scope, users can specialize a template defined inside an
+inline namespace directly within the parent namespace:</p></li>
+</ol>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> MyLib <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">inline</span> <span class="kw">namespace</span> v2 <span class="op">{</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> T<span class="op">&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">struct</span> Formatter<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Fully valid template specialization in the parent scope:</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;&gt;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">struct</span> Formatter<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="at">static</span> <span class="dt">void</span> format<span class="op">(</span><span class="dt">int</span> value<span class="op">);</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="op">};</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By leveraging these properties, C++ library authors can evolve
+algorithms, change data structures, and manage binary interfaces across
+releases while keeping migration paths frictionless for consumers.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-inline-namespaces-for-transparent-api-evolution';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

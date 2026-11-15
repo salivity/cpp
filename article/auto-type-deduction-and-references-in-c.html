@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto Type Deduction and References in C++ - cpp</title>
+    <meta name="description" content="In C++, auto type deduction primarily follows the rules of template argument deduction, which means it behaves differently depending on whether reference declarators are explicitly attached. When using a plain auto keyword, reference qualifiers and top-le">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/auto-type-deduction-and-references-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Auto Type Deduction and References in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/auto-type-deduction-and-references-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, auto type deduction primarily follows the rules of template argument deduction, which means it behaves differently depending on whether reference declarators are explicitly attached. When using a plain auto keyword, reference qualifiers and top-le" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="auto-type-deduction-and-references-in-c">Auto Type Deduction and
+References in C++</h1>
+<p>In C++, <code>auto</code> type deduction primarily follows the rules
+of template argument deduction, which means it behaves differently
+depending on whether reference declarators are explicitly attached. When
+using a plain <code>auto</code> keyword, reference qualifiers and
+top-level <code>const</code> qualifiers are stripped by default, causing
+the deduced variable to be an independent copy. To retain reference
+semantics, developers must explicitly annotate the specifier as an
+lvalue reference (<code>auto&amp;</code>), a const lvalue reference
+(<code>const auto&amp;</code>), a forwarding reference
+(<code>auto&amp;&amp;</code>), or use <code>decltype(auto)</code>.</p>
+<h3 id="plain-auto-ignores-references">Plain <code>auto</code> Ignores
+References</h3>
+<p>When a variable is declared using plain <code>auto</code>, the
+compiler treats the initializer as an expression and deduces the
+non-reference value type. Even if the initialized expression is a
+reference to another object, the reference is dropped.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> original <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span><span class="op">&amp;</span> ref <span class="op">=</span> original<span class="op">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> deduced <span class="op">=</span> ref<span class="op">;</span> <span class="co">// Type is &#39;int&#39;, not &#39;int&amp;&#39;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>deduced <span class="op">=</span> <span class="dv">100</span><span class="op">;</span>      <span class="co">// &#39;original&#39; remains 42</span></span></code></pre></div>
+<p>In this case, <code>deduced</code> is a brand-new object of type
+<code>int</code>. Modifying <code>deduced</code> has no impact on
+<code>original</code>. Plain <code>auto</code> also drops top-level
+<code>const</code> attributes, meaning a <code>const int&amp;</code>
+will be deduced simply as a mutable <code>int</code>.</p>
+<h3 id="explicit-lvalue-references-auto">Explicit Lvalue References
+(<code>auto&amp;</code>)</h3>
+<p>To bind a deduced variable directly to an existing object without
+copying, an ampersand must be explicitly added to <code>auto</code>.
+When using <code>auto&amp;</code>, reference qualifiers on the
+initializer are preserved.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> original <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span><span class="op">&amp;</span> ref <span class="op">=</span> original<span class="op">;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span><span class="op">&amp;</span> deducedRef <span class="op">=</span> ref<span class="op">;</span> <span class="co">// Type is &#39;int&amp;&#39;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>deducedRef <span class="op">=</span> <span class="dv">100</span><span class="op">;</span>       <span class="co">// &#39;original&#39; is now 100</span></span></code></pre></div>
+<p>With <code>auto&amp;</code>, the variable becomes a reference to the
+initializer. Furthermore, constness is preserved. If the initializer is
+a <code>const int</code> or a <code>const int&amp;</code>,
+<code>auto&amp;</code> will deduce the type as
+<code>const int&amp;</code>. If you wish to ensure read-only access
+regardless of the source type, you can explicitly declare
+<code>const auto&amp;</code>.</p>
+<h3 id="forwarding-references-auto">Forwarding References
+(<code>auto&amp;&amp;</code>)</h3>
+<p>Using <code>auto&amp;&amp;</code> creates a universal (or forwarding)
+reference. The deduction mechanism relies on reference collapsing
+rules:</p>
+<ul>
+<li>If initialized with an lvalue of type <code>T</code>,
+<code>auto</code> deduces to <code>T&amp;</code>, and the type collapses
+to an lvalue reference (<code>T&amp;</code>).</li>
+<li>If initialized with an rvalue of type <code>T</code>,
+<code>auto</code> deduces to <code>T</code>, resulting in an rvalue
+reference (<code>T&amp;&amp;</code>).</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> x <span class="op">=</span> <span class="dv">10</span><span class="op">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span><span class="op">&amp;&amp;</span> lvalueRef <span class="op">=</span> x<span class="op">;</span>  <span class="co">// &#39;x&#39; is an lvalue -&gt; deduced as &#39;int&amp;&#39;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span><span class="op">&amp;&amp;</span> rvalueRef <span class="op">=</span> <span class="dv">20</span><span class="op">;</span> <span class="co">// &#39;20&#39; is an rvalue -&gt; deduced as &#39;int&amp;&amp;&#39;</span></span></code></pre></div>
+<p><code>auto&amp;&amp;</code> is particularly useful in generic
+contexts, such as forwarding values or iterating over collections via
+range-based <code>for</code> loops without assuming whether the elements
+are returned by value or by reference.</p>
+<h3 id="exact-type-preservation-with-decltypeauto">Exact Type
+Preservation with <code>decltype(auto)</code></h3>
+<p>Introduced in C++14, <code>decltype(auto)</code> provides an
+alternative deduction mechanism. Instead of applying template deduction
+rules, it applies <code>decltype</code> rules to the initializer
+expression. This preserves exact types, including both references and
+<code>const</code> qualifiers, without requiring manual modifiers.</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> original <span class="op">=</span> <span class="dv">42</span><span class="op">;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span><span class="op">&amp;</span> ref <span class="op">=</span> original<span class="op">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">decltype</span><span class="op">(</span><span class="kw">auto</span><span class="op">)</span> exactRef <span class="op">=</span> ref<span class="op">;</span> <span class="co">// Type is &#39;int&amp;&#39;</span></span></code></pre></div>
+<p>If the initializer expression evaluates to a reference,
+<code>decltype(auto)</code> strictly retains it as a reference, making
+it ideal for generic wrapper functions and perfect return type
+deduction.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/auto-type-deduction-and-references-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

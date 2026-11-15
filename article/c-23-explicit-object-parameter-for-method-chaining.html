@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++23 Explicit Object Parameter for Method Chaining - cpp</title>
+    <meta name="description" content="The introduction of the explicit object parameter in C++23, colloquially known as &quot;deducing this,&quot; fundamentally simplifies member function chaining by eliminating the boilerplate traditionally required for fluent interfaces. This feature allows member fu">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-23-explicit-object-parameter-for-method-chaining">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++23 Explicit Object Parameter for Method Chaining - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-23-explicit-object-parameter-for-method-chaining" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The introduction of the explicit object parameter in C++23, colloquially known as &quot;deducing this,&quot; fundamentally simplifies member function chaining by eliminating the boilerplate traditionally required for fluent interfaces. This feature allows member fu" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c23-explicit-object-parameter-for-method-chaining">C++23
+Explicit Object Parameter for Method Chaining</h1>
+<p>The introduction of the explicit object parameter in C++23,
+colloquially known as "deducing this," fundamentally simplifies member
+function chaining by eliminating the boilerplate traditionally required
+for fluent interfaces. This feature allows member functions to
+explicitly declare the object instance as their first parameter,
+enabling the compiler to deduce the object's exact type, constness, and
+value category. As a result, developers can write single member
+functions that seamlessly maintain method chains across inheritance
+hierarchies and diverse value categories without resorting to the
+Curiously Recurring Template Pattern (CRTP) or duplicating
+overloads.</p>
+<h3 id="the-problem-with-traditional-method-chaining">The Problem with
+Traditional Method Chaining</h3>
+<p>In standard member function chaining, a method returns a reference to
+<code>*this</code> (<code>return *this;</code>). While straightforward
+in simple classes, this approach breaks down in two primary
+scenarios:</p>
+<ol type="1">
+<li><strong>Inheritance Hierarchies:</strong> If a base class method
+returns <code>Base&amp;</code>, calling it on a derived class instance
+casts the chain back to <code>Base&amp;</code>. Any subsequent calls to
+methods exclusive to the derived class will fail to compile. To fix this
+prior to C++23, developers had to use CRTP or manually override and cast
+methods in every derived class.</li>
+<li><strong>Value Category Handling:</strong> If a builder pattern needs
+to support both lvalues and rvalues (to allow move semantics when
+building temporary objects), developers had to duplicate functions with
+ref-qualifiers: one for <code>&amp;</code> and one for
+<code>&amp;&amp;</code>.</li>
+</ol>
+<h3 id="how-explicit-object-parameters-solve-the-issue">How Explicit
+Object Parameters Solve the Issue</h3>
+<p>C++23 allows member functions to declare the implicit
+<code>this</code> pointer as an explicit parameter preceded by the
+<code>this</code> keyword. By making this parameter a forwarding
+reference, the function deduces both the precise derived type and the
+value category (<code>lvalue</code> or <code>rvalue</code>).</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> BuilderBase <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Self<span class="op">&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span><span class="op">&amp;&amp;</span> set_id<span class="op">(</span><span class="kw">this</span> Self<span class="op">&amp;&amp;</span> self<span class="op">,</span> <span class="dt">int</span> id<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">// assign id...</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">std::</span>forward<span class="op">&lt;</span>Self<span class="op">&gt;(</span>self<span class="op">);</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ConcreteBuilder <span class="op">:</span> <span class="kw">public</span> BuilderBase <span class="op">{</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">template</span> <span class="op">&lt;</span><span class="kw">typename</span> Self<span class="op">&gt;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span><span class="op">&amp;&amp;</span> set_name<span class="op">(</span><span class="kw">this</span> Self<span class="op">&amp;&amp;</span> self<span class="op">,</span> <span class="bu">std::</span>string name<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="co">// assign name...</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">std::</span>forward<span class="op">&lt;</span>Self<span class="op">&gt;(</span>self<span class="op">);</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h3 id="solving-derived-class-slicing">Solving Derived Class
+Slicing</h3>
+<p>When an explicit object parameter is templated
+(<code>this Self&amp;&amp; self</code>), <code>Self</code> resolves to
+the type through which the function was actually called.</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>ConcreteBuilder builder<span class="op">;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>builder<span class="op">.</span>set_id<span class="op">(</span><span class="dv">42</span><span class="op">)</span>       <span class="co">// Resolves Self as ConcreteBuilder&amp;, returns ConcreteBuilder&amp;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>       <span class="op">.</span>set_name<span class="op">(</span><span class="st">&quot;Item&quot;</span><span class="op">);</span> <span class="co">// Valid: set_name is accessible because the chain was not sliced to BuilderBase&amp;</span></span></code></pre></div>
+<p>Because <code>set_id</code> deduces <code>self</code> as
+<code>ConcreteBuilder&amp;</code>, it returns a reference to
+<code>ConcreteBuilder</code>, keeping the derived context intact
+throughout the chain. This replaces CRTP entirely for this use case,
+yielding cleaner definitions and faster compile times.</p>
+<h3 id="unifying-lvalue-and-rvalue-chaining">Unifying Lvalue and Rvalue
+Chaining</h3>
+<p>The same mechanism handles temporary objects automatically. If the
+chain is invoked on an rvalue:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> item <span class="op">=</span> ConcreteBuilder<span class="op">{}</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span>set_id<span class="op">(</span><span class="dv">1</span><span class="op">)</span>       <span class="co">// Self deduced as ConcreteBuilder&amp;&amp;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>                <span class="op">.</span>set_name<span class="op">(</span><span class="st">&quot;Temp&quot;</span><span class="op">);</span> <span class="co">// Self deduced as ConcreteBuilder&amp;&amp;</span></span></code></pre></div>
+<p><code>std::forward&lt;Self&gt;(self)</code> preserves the rvalue
+category throughout each step of the pipeline. In pre-C++23 code,
+handling both lvalue and rvalue method chaining required two distinct
+overloads per chained method. With explicit object parameters, a single
+implementation handles lvalues, <code>const</code> lvalues, and rvalues
+correctly.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-23-explicit-object-parameter-for-method-chaining';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

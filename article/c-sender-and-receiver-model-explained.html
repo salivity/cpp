@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Sender and Receiver Model Explained - cpp</title>
+    <meta name="description" content="The sender and receiver model is a standardized framework introduced to modernize and unify asynchronous programming in C++. Standardized under the std::execution proposal (P2300), this paradigm addresses the performance and composability shortcomings of">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-sender-and-receiver-model-explained">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Sender and Receiver Model Explained - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-sender-and-receiver-model-explained" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="The sender and receiver model is a standardized framework introduced to modernize and unify asynchronous programming in C++. Standardized under the std::execution proposal (P2300), this paradigm addresses the performance and composability shortcomings of" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-sender-and-receiver-model-explained">C++ Sender and Receiver
+Model Explained</h1>
+<p>The sender and receiver model is a standardized framework introduced
+to modernize and unify asynchronous programming in C++. Standardized
+under the <code>std::execution</code> proposal (P2300), this paradigm
+addresses the performance and composability shortcomings of legacy
+primitives like <code>std::future</code>, <code>std::promise</code>, and
+raw callbacks. By decomposing asynchronous tasks into lazy, highly
+composable units of work, senders and receivers provide a generic,
+zero-overhead foundation for building complex asynchronous pipelines
+across diverse execution targets, including thread pools, GPUs, and
+event loops.</p>
+<h2 id="the-problem-with-legacy-c-concurrency">The Problem with Legacy
+C++ Concurrency</h2>
+<p>Prior to the sender-receiver model, C++ lacked a unified abstraction
+for asynchronous operations:</p>
+<ul>
+<li><strong><code>std::future</code> and
+<code>std::async</code></strong> suffer from mandatory dynamic
+allocations, shared state synchronization overhead, and an inability to
+be chained without blocking threads (via <code>.get()</code> or
+<code>.wait()</code>).</li>
+<li><strong>Callbacks</strong> lead to inversion of control, nested
+structures ("callback hell"), and complex error-handling or lifetime
+management challenges.</li>
+<li><strong>Coroutines (<code>co_await</code>)</strong> provide
+structured syntax but require an underlying execution framework to
+define how tasks are scheduled, cancelled, and transferred between
+contexts.</li>
+</ul>
+<p>The sender-receiver model provides the foundational execution
+framework that resolves these limitations.</p>
+<h2 id="core-concepts-of-the-model">Core Concepts of the Model</h2>
+<p>The framework relies on three fundamental abstractions: Senders,
+Receivers, and Schedulers.</p>
+<h3 id="1-schedulers">1. Schedulers</h3>
+<p>A scheduler is a lightweight handle to an execution context (such as
+a CPU thread pool, an I/O completion port, or a GPU stream). Its primary
+responsibility is to produce a sender via a call like
+<code>schedule(scheduler)</code>. When executed, this sender transitions
+the execution of downstream tasks onto the associated execution
+resource.</p>
+<h3 id="2-senders">2. Senders</h3>
+<p>A sender represents a deferred unit of asynchronous work. Unlike
+<code>std::async</code> or traditional futures, senders are
+<strong>lazy</strong>: they describe the computation rather than
+executing it immediately upon creation.</p>
+<p>A sender advertises the types of completions it can produce:</p>
+<ul>
+<li><strong>Values (<code>set_value</code>)</strong>: Successful
+execution yielding zero or more results.</li>
+<li><strong>Errors (<code>set_error</code>)</strong>: Failure paths
+yielding an error object.</li>
+<li><strong>Stopped (<code>set_stopped</code>)</strong>: Cancellation
+signals indicating the work was prematurely terminated.</li>
+</ul>
+<p>Because senders are templates evaluated at compile time, they
+eliminate the need for virtual function calls and dynamic heap
+allocations during composition.</p>
+<h3 id="3-receivers">3. Receivers</h3>
+<p>A receiver represents the consumer of the asynchronous result. It is
+a callback-like abstraction that implements the execution interface
+matching the three completion channels of a sender:</p>
+<ul>
+<li><code>set_value(receiver, args...)</code></li>
+<li><code>set_error(receiver, error)</code></li>
+<li><code>set_stopped(receiver)</code></li>
+</ul>
+<p>Receivers typically represent the next stage in an asynchronous
+pipeline, receiving the outputs of the preceding sender.</p>
+<h3 id="4-operation-states">4. Operation States</h3>
+<p>The connection between a sender and a receiver forms an
+<strong>operation state</strong>. When a sender and a receiver are
+connected using the <code>connect</code> customization point:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> op_state <span class="op">=</span> <span class="bu">std::</span>execution::connect<span class="op">(</span>sender<span class="op">,</span> receiver<span class="op">);</span></span></code></pre></div>
+<p>This allocates all state required for the operation (often entirely
+on the stack). Execution begins only when explicitly triggered via
+<code>std::execution::start(op_state)</code>.</p>
+<h2 id="composing-asynchronous-pipelines">Composing Asynchronous
+Pipelines</h2>
+<p>Senders and receivers achieve high performance and flexibility
+through pipeline composition. Higher-order algorithms transform and
+combine senders using the pipe operator (<code>|</code>).</p>
+<p>Common standard algorithms include:</p>
+<ul>
+<li><strong><code>then</code></strong>: Transforms the value produced by
+a sender using a synchronous invocable (similar to
+<code>map</code>).</li>
+<li><strong><code>let_value</code></strong>: Chains another asynchronous
+sender based on the result of the previous sender (similar to
+<code>flatMap</code> or monadic bind).</li>
+<li><strong><code>transfer</code></strong>: Switches execution to a
+different scheduler mid-pipeline.</li>
+<li><strong><code>when_all</code></strong>: Joins multiple independent
+senders concurrently, continuing when all have completed.</li>
+</ul>
+<h3 id="example-pipeline-concept">Example Pipeline Concept</h3>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">auto</span> pipeline <span class="op">=</span> execution<span class="op">::</span>schedule<span class="op">(</span>thread_pool_scheduler<span class="op">)</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>              <span class="op">|</span> execution<span class="op">::</span>then<span class="op">([]</span> <span class="op">{</span> <span class="cf">return</span> fetch_data<span class="op">();</span> <span class="op">})</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>              <span class="op">|</span> execution<span class="op">::</span>transfer<span class="op">(</span>gpu_scheduler<span class="op">)</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>              <span class="op">|</span> execution<span class="op">::</span>then<span class="op">([](</span><span class="kw">auto</span> data<span class="op">)</span> <span class="op">{</span> <span class="cf">return</span> process_on_gpu<span class="op">(</span>data<span class="op">);</span> <span class="op">});</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">// Connects pipeline to a receiver and starts execution</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>this_thread<span class="op">::</span>sync_wait<span class="op">(</span>pipeline<span class="op">);</span></span></code></pre></div>
+<p>In this pipeline, computation begins on a background thread pool,
+retrieves data, shifts context to a GPU scheduler to perform
+computations, and synchronizes the final output without intermediate
+dynamic memory allocations.</p>
+<h2 id="structured-concurrency-and-cancellation">Structured Concurrency
+and Cancellation</h2>
+<p>The sender-receiver model natively integrates cancellation. Senders
+monitor <code>stop_token</code> mechanisms tied to parent scopes. If an
+operation is cancelled, the sender transitions directly to invoking
+<code>set_stopped</code> on its receiver, bypassing remaining operations
+in the pipeline. This enables structured concurrency, ensuring that
+asynchronous child tasks are always completed or cancelled before their
+enclosing scopes exit, preventing resource leaks and dangling
+references.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-sender-and-receiver-model-explained';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

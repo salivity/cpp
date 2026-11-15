@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Simula Shaped C++ Class Design - cpp</title>
+    <meta name="description" content="When Bjarne Stroustrup created C++ in the early 1980s, his primary objective was to combine the computational speed and hardware control of C with the sophisticated organization of Simula. Simula 67, widely recognized as the first object-oriented programm">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-simula-shaped-c-class-design">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Simula Shaped C++ Class Design - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-simula-shaped-c-class-design" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="When Bjarne Stroustrup created C++ in the early 1980s, his primary objective was to combine the computational speed and hardware control of C with the sophisticated organization of Simula. Simula 67, widely recognized as the first object-oriented programm" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-simula-shaped-c-class-design">How Simula Shaped C++ Class
+Design</h1>
+<p>When Bjarne Stroustrup created C++ in the early 1980s, his primary
+objective was to combine the computational speed and hardware control of
+C with the sophisticated organization of Simula. Simula 67, widely
+recognized as the first object-oriented programming language, provided
+the foundational blueprint for C++'s class mechanics, including the
+concept of classes as user-defined types, hierarchical inheritance, and
+runtime polymorphism. This article explores how Simula’s core concepts
+directly influenced the syntax, architecture, and behavior of class
+design in C++.</p>
+<h2 id="the-origin-stroustrups-cambridge-experience">The Origin:
+Stroustrup’s Cambridge Experience</h2>
+<p>During his doctoral research at Cambridge University, Bjarne
+Stroustrup used Simula to model distributed systems. While he admired
+the way Simula used classes to map software models directly to
+real-world problems, he found the language's runtime performance
+inadequate for systems-level development. Conversely, low-level
+languages like BCPL and C offered optimal speed but lacked
+modularity.</p>
+<p>When Stroustrup began work at Bell Labs on distributed network
+systems, he aimed to build a tool that bridged this gap. The result was
+"C with Classes" (later renamed C++), a language that preserved C’s
+low-overhead execution while adopting Simula's structural
+abstractions.</p>
+<h2 id="the-introduction-of-the-class-concept">The Introduction of the
+Class Concept</h2>
+<p>Simula 67 introduced the idea that a <code>class</code> is an
+encapsulation mechanism combining state (variables) and behavior
+(functions/procedures) into a distinct user-defined type.</p>
+<p>Prior to C++, the C language relied on <code>struct</code> merely as
+a passive grouping of memory. C++ adopted Simula's <code>class</code>
+keyword and semantics, allowing developers to define types that:</p>
+<ul>
+<li>Bind data and the operations that mutate that data together.</li>
+<li>Instantiate distinct objects with their own independent state.</li>
+<li>Enforce interface boundaries through access controls.</li>
+</ul>
+<p>Stroustrup unified this with C’s type system, ensuring that a class
+had the exact same runtime efficiency as a standard C
+<code>struct</code>.</p>
+<h2 id="inheritance-and-subtyping">Inheritance and Subtyping</h2>
+<p>Simula handled hierarchies through a process called "class
+prefixing." A class could be prefixed by the name of another class,
+thereby inheriting all attributes and behaviors of the base class.</p>
+<p>C++ transformed Simula's class prefixing into modern class
+inheritance. This gave developers the ability to:</p>
+<ul>
+<li>Establish "is-a" relationships between derived and base
+classes.</li>
+<li>Reuse code without copying boilerplate logic.</li>
+<li>Organize types into structured taxonomies.</li>
+</ul>
+<p>While C++ later expanded on this with access specifiers
+(<code>public</code>, <code>protected</code>, <code>private</code>) and
+multiple inheritance, the underlying conceptual model was derived from
+Simula’s approach to hierarchical specialization.</p>
+<h2 id="virtual-functions-and-dynamic-polymorphism">Virtual Functions
+and Dynamic Polymorphism</h2>
+<p>Simula introduced <code>virtual</code> procedures, enabling late
+binding where an operation's execution is determined at runtime based on
+the actual type of the object, not the type of the reference holding
+it.</p>
+<p>Stroustrup adopted the <code>virtual</code> keyword directly from
+Simula. To implement it without introducing significant runtime
+overhead, C++ utilized the virtual method table (vtable). This mechanism
+allowed C++ to retain Simula's flexible polymorphism while meeting the
+strict microsecond-level performance demands of systems software.</p>
+<h2 id="adapting-simula-for-systems-programming">Adapting Simula for
+Systems Programming</h2>
+<p>While Simula heavily inspired the structure of C++ classes,
+Stroustrup intentionally modified several aspects to ensure
+systems-level viability:</p>
+<ul>
+<li><strong>Memory Management:</strong> Simula relied on an automatic
+garbage collector, which introduced latency and unpredictable
+performance. C++ discarded automatic garbage collection in favor of
+explicit object lifecycles, leading to the creation of constructors and
+destructors (which form the foundation of RAII—Resource Acquisition Is
+Initialization).</li>
+<li><strong>Stack Allocation:</strong> In Simula, objects were
+dynamically allocated on the heap as reference types. C++ allowed
+classes to be instantiated directly on the stack or embedded within
+other structures, eliminating heap allocation overhead.</li>
+</ul>
+<p>Simula provided the architectural theory of classes, while C provided
+the pragmatic execution model. By adapting Simula's classes,
+inheritance, and virtual procedures into the syntax and memory
+architecture of C, Stroustrup established the object-oriented foundation
+that defined C++ and influenced modern software engineering.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-simula-shaped-c-class-design';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

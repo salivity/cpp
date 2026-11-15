@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reader-Writer Locks in C++ with std::shared_mutex - cpp</title>
+    <meta name="description" content="Introduced in C++17, std::sharedmutex provides a native mechanism to implement the classic reader-writer synchronization pattern. It solves concurrency bottlenecks in read-heavy applications by allowing multiple threads to read shared data concurrently wh">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/reader-writer-locks-in-c-with-std-shared-mutex">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Reader-Writer Locks in C++ with std::shared_mutex - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/reader-writer-locks-in-c-with-std-shared-mutex" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++17, std::sharedmutex provides a native mechanism to implement the classic reader-writer synchronization pattern. It solves concurrency bottlenecks in read-heavy applications by allowing multiple threads to read shared data concurrently wh" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="reader-writer-locks-in-c-with-stdshared_mutex">Reader-Writer
+Locks in C++ with std::shared_mutex</h1>
+<p>Introduced in C++17, <code>std::shared_mutex</code> provides a native
+mechanism to implement the classic reader-writer synchronization
+pattern. It solves concurrency bottlenecks in read-heavy applications by
+allowing multiple threads to read shared data concurrently while
+restricting write operations to a single thread. This article explains
+how <code>std::shared_mutex</code> separates read and write operations,
+the RAII wrappers used to manage it, and when this locking model is most
+effective.</p>
+<h2 id="the-reader-writer-problem">The Reader-Writer Problem</h2>
+<p>A standard <code>std::mutex</code> provides mutual exclusion: only
+one thread can access a critical section at any given time, regardless
+of whether it is reading or modifying data. In systems where reads
+vastly outnumber writes, this behavior creates unnecessary contention
+because concurrent reads do not modify state and are inherently safe to
+run simultaneously.</p>
+<p>The reader-writer pattern addresses this inefficiency by defining two
+distinct access levels:</p>
+<ol type="1">
+<li><strong>Shared (Read) Access:</strong> Multiple threads can acquire
+the lock concurrently, provided no thread is modifying the
+resource.</li>
+<li><strong>Exclusive (Write) Access:</strong> Only one thread can
+acquire the lock, blocking all other readers and writers until the
+operation finishes.</li>
+</ol>
+<h2 id="how-stdshared_mutex-implements-dual-locking">How
+std::shared_mutex Implements Dual Locking</h2>
+<p>The <code>std::shared_mutex</code> primitive, located in the
+<code>&lt;shared_mutex&gt;</code> header, provides distinct member
+functions to handle both access types:</p>
+<ul>
+<li><strong>Exclusive Locking:</strong> Methods such as
+<code>lock()</code>, <code>try_lock()</code>, and <code>unlock()</code>
+function identically to standard mutex operations. They are reserved for
+write operations that alter shared state.</li>
+<li><strong>Shared Locking:</strong> Methods such as
+<code>lock_shared()</code>, <code>try_lock_shared()</code>, and
+<code>unlock_shared()</code> allow multiple threads to acquire shared
+ownership. As long as at least one thread holds shared ownership, no
+thread can acquire exclusive ownership.</li>
+</ul>
+<p>If a thread attempts to acquire an exclusive lock while shared locks
+are active, it blocks until all readers release their locks. Conversely,
+if a thread holds an exclusive lock, any new reader or writer is blocked
+until the exclusive lock is released.</p>
+<h2 id="using-raii-lock-wrappers">Using RAII Lock Wrappers</h2>
+<p>Directly calling <code>lock()</code> or <code>lock_shared()</code> is
+error-prone because exceptions or early returns can cause deadlocks.
+Modern C++ relies on RAII (Resource Acquisition Is Initialization)
+wrappers to manage lock lifetimes automatically.</p>
+<h3 id="1-stdshared_lock-for-readers">1. <code>std::shared_lock</code>
+for Readers</h3>
+<p><code>std::shared_lock</code> is designed specifically for shared
+ownership. When instantiated, it calls <code>lock_shared()</code> on the
+underlying mutex and automatically calls <code>unlock_shared()</code>
+when it goes out of scope.</p>
+<h3 id="2-stdunique_lock-or-stdlock_guard-for-writers">2.
+<code>std::unique_lock</code> or <code>std::lock_guard</code> for
+Writers</h3>
+<p>Writers require exclusive ownership. <code>std::unique_lock</code> or
+<code>std::lock_guard</code> calls <code>lock()</code> and
+<code>unlock()</code>, guaranteeing that no other reader or writer
+executes concurrently.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;shared_mutex&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;unordered_map&gt;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ThreadSafeCache <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">public</span><span class="op">:</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string get<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> key<span class="op">)</span> <span class="at">const</span> <span class="op">{</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Shared lock: multiple readers can execute this simultaneously</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>shared_lock<span class="op">&lt;</span><span class="bu">std::</span>shared_mutex<span class="op">&gt;</span> lock<span class="op">(</span><span class="va">mutex_</span><span class="op">);</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">auto</span> it <span class="op">=</span> <span class="va">data_</span><span class="op">.</span>find<span class="op">(</span>key<span class="op">);</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="op">(</span>it <span class="op">!=</span> <span class="va">data_</span><span class="op">.</span>end<span class="op">())</span> <span class="op">?</span> it<span class="op">-&gt;</span>second <span class="op">:</span> <span class="st">&quot;&quot;</span><span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>    <span class="dt">void</span> set<span class="op">(</span><span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> key<span class="op">,</span> <span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> value<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">// Exclusive lock: blocks all other readers and writers</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>unique_lock<span class="op">&lt;</span><span class="bu">std::</span>shared_mutex<span class="op">&gt;</span> lock<span class="op">(</span><span class="va">mutex_</span><span class="op">);</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        <span class="va">data_</span><span class="op">[</span>key<span class="op">]</span> <span class="op">=</span> value<span class="op">;</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="kw">private</span><span class="op">:</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">mutable</span> <span class="bu">std::</span>shared_mutex <span class="va">mutex_</span><span class="op">;</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>unordered_map<span class="op">&lt;</span><span class="bu">std::</span>string<span class="op">,</span> <span class="bu">std::</span>string<span class="op">&gt;</span> <span class="va">data_</span><span class="op">;</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<h2 id="performance-trade-offs">Performance Trade-Offs</h2>
+<p>While <code>std::shared_mutex</code> improves read throughput in
+specific scenarios, it introduces higher runtime overhead than a basic
+<code>std::mutex</code> due to internal reference counting and state
+tracking.</p>
+<p><code>std::shared_mutex</code> is optimal when:</p>
+<ul>
+<li>The read-to-write ratio is high (e.g., 90% or more reads).</li>
+<li>The read operations take significant time to execute, amortizing the
+synchronization overhead.</li>
+</ul>
+<p>If read operations are extremely short (such as reading a single
+integer) or if write frequency is high, a standard
+<code>std::mutex</code> or an atomic type (<code>std::atomic</code>)
+will typically outperform <code>std::shared_mutex</code>. Additionally,
+lock scheduling policies—such as whether readers or writers are
+prioritized under heavy contention—depend on the underlying platform's
+operating system implementation.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/reader-writer-locks-in-c-with-std-shared-mutex';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

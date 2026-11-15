@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using AddressSanitizer to Find C++ Memory Bugs - cpp</title>
+    <meta name="description" content="AddressSanitizer (ASan) is a compiler-based instrumentation tool designed to detect memory safety violations in C and C++ programs at runtime. By combining compile-time instrumentation with a specialized runtime library, ASan intercepts memory operations">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/using-address-sanitizer-to-find-c-memory-bugs">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using AddressSanitizer to Find C++ Memory Bugs - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/using-address-sanitizer-to-find-c-memory-bugs" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="AddressSanitizer (ASan) is a compiler-based instrumentation tool designed to detect memory safety violations in C and C++ programs at runtime. By combining compile-time instrumentation with a specialized runtime library, ASan intercepts memory operations" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-addresssanitizer-to-find-c-memory-bugs">Using
+AddressSanitizer to Find C++ Memory Bugs</h1>
+<p>AddressSanitizer (ASan) is a compiler-based instrumentation tool
+designed to detect memory safety violations in C and C++ programs at
+runtime. By combining compile-time instrumentation with a specialized
+runtime library, ASan intercepts memory operations to catch common bugs
+such as buffer overflows, use-after-free errors, and memory leaks with
+significantly less performance overhead than traditional emulation-based
+tools. This article details the role AddressSanitizer plays in
+identifying memory corruption, how its underlying detection mechanism
+works, the specific bugs it targets, and how it is applied in modern C++
+development.</p>
+<h3 id="the-problem-with-c-memory-safety">The Problem with C++ Memory
+Safety</h3>
+<p>C++ provides direct memory management, giving developers low-level
+control over allocations, raw pointers, and object lifetimes. However,
+the language does not enforce runtime bounds checking or automatic
+lifetime verification by default. Mistakes like reading past an array's
+boundary or referencing deallocated memory result in undefined behavior.
+These bugs often remain dormant during basic testing, only to cause
+silent data corruption, sudden crashes, or exploitable security
+vulnerabilities in production.</p>
+<h3 id="how-addresssanitizer-works">How AddressSanitizer Works</h3>
+<p>AddressSanitizer operates through two core components: direct code
+instrumentation and a dedicated run-time memory mapping system.</p>
+<ol type="1">
+<li><strong>Shadow Memory</strong>: ASan maps the program's virtual
+address space directly to a separate region called "shadow memory."
+Every 8 bytes of regular application memory correspond to 1 byte in
+shadow memory, which records whether those 8 bytes are valid, partially
+valid, or poisoned (unaddressable).</li>
+<li><strong>Redzones</strong>: When memory is allocated on the heap,
+stack, or as a global variable, ASan inserts poisoned "redzones"—blocks
+of intentionally unaddressable memory—around each buffer.</li>
+<li><strong>Compile-Time Instrumentation</strong>: The compiler inserts
+validation checks before every read and write instruction. Before any
+memory address is accessed, the code queries the corresponding shadow
+byte. If the target address points to a poisoned redzone or freed
+memory, ASan immediately aborts execution and prints an error
+report.</li>
+</ol>
+<h3 id="common-memory-bugs-detected-by-asan">Common Memory Bugs Detected
+by ASan</h3>
+<p>AddressSanitizer targets the most severe memory corruption issues
+encountered in C++:</p>
+<ul>
+<li><strong>Heap Buffer Overflow</strong>: Accessing data beyond the
+allocated boundaries of a heap-allocated buffer (e.g.,
+<code>malloc</code> or <code>new</code>).</li>
+<li><strong>Stack Buffer Overflow</strong>: Writing or reading past the
+end of stack-allocated arrays or local variables.</li>
+<li><strong>Global Buffer Overflow</strong>: Accessing out-of-bounds
+data in static or global storage.</li>
+<li><strong>Use-After-Free (Dangling Pointers)</strong>: Reading or
+writing to an object after its memory has been released via
+<code>free</code> or <code>delete</code>. ASan places freed memory into
+a quarantine pool with poisoned shadow bytes to catch delayed
+accesses.</li>
+<li><strong>Use-After-Scope</strong>: Accessing a stack variable outside
+the block scope in which it was declared.</li>
+<li><strong>Use-After-Return</strong>: Referencing local variables of a
+function after that function has returned.</li>
+<li><strong>Double Free and Invalid Free</strong>: Attempting to release
+the same allocation twice or deallocating a pointer that was not
+returned by an allocator.</li>
+<li><strong>Memory Leaks</strong>: Integrated with LeakSanitizer (LSan)
+on supported platforms, ASan checks for unreachable heap memory
+allocations upon program exit.</li>
+</ul>
+<h3 id="advantages-over-traditional-profilers">Advantages Over
+Traditional Profilers</h3>
+<p>Before ASan, developers primarily relied on dynamic binary
+translation tools such as Valgrind Memcheck. While effective, binary
+translation typically slows program execution by a factor of 20x to 50x
+and substantially increases memory overhead.</p>
+<p>AddressSanitizer, built directly into compilers such as Clang, GCC,
+and MSVC, incurs an average CPU slowdown of only roughly 2x and memory
+usage increases between 1.5x and 3x. This efficiency makes it feasible
+to run ASan continuously in automated test suites, integration tests,
+and alongside automated fuzzing frameworks (such as LLVM's
+libFuzzer).</p>
+<h3 id="actionable-diagnostics">Actionable Diagnostics</h3>
+<p>When AddressSanitizer catches an illegal memory access, it halts
+execution immediately, avoiding cascade failures that obscure the root
+cause. The output provides:</p>
+<ul>
+<li>The exact memory violation type (e.g.,
+<code>heap-use-after-free</code>).</li>
+<li>The thread ID and stack trace where the illegal access
+occurred.</li>
+<li>The stack trace where the memory block was originally
+allocated.</li>
+<li>If applicable, the stack trace where the memory block was
+deallocated.</li>
+<li>A visual map of the local shadow memory state showing the exact
+offset of the crash.</li>
+</ul>
+<p>By transforming elusive, nondeterministic undefined behavior into
+reproducible, traceable errors, AddressSanitizer serves as a primary
+defense against memory corruption in C++ codebases.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/using-address-sanitizer-to-find-c-memory-bugs';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

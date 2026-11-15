@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How Vptr Offset Affects C++ Struct Alignment and Packing - cpp</title>
+    <meta name="description" content="This article explores how the inclusion and placement of a virtual table pointer (vptr) impacts the memory layout, struct alignment, and internal padding of C++ objects. When a class introduces virtual functions, the compiler automatically injects a vptr">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-vptr-offset-affects-c-struct-alignment-and-packing">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How Vptr Offset Affects C++ Struct Alignment and Packing - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-vptr-offset-affects-c-struct-alignment-and-packing" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="This article explores how the inclusion and placement of a virtual table pointer (vptr) impacts the memory layout, struct alignment, and internal padding of C++ objects. When a class introduces virtual functions, the compiler automatically injects a vptr" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-vptr-offset-affects-c-struct-alignment-and-packing">How Vptr
+Offset Affects C++ Struct Alignment and Packing</h1>
+<p>This article explores how the inclusion and placement of a virtual
+table pointer (<code>vptr</code>) impacts the memory layout, struct
+alignment, and internal padding of C++ objects. When a class introduces
+virtual functions, the compiler automatically injects a
+<code>vptr</code> to enable dynamic dispatch, altering the struct's base
+alignment requirement, shifting member offsets, and creating potential
+memory holes. Understanding this mechanism is essential for writing
+memory-efficient, cache-friendly code and diagnosing alignment-related
+performance penalties.</p>
+<h3 id="the-virtual-table-pointer-and-base-alignment">The Virtual Table
+Pointer and Base Alignment</h3>
+<p>When a class or struct contains at least one virtual function, the
+compiler inserts a hidden pointer—commonly known as the
+<code>vptr</code>—that points to the class's virtual method table
+(<code>vtable</code>).</p>
+<p>Because the <code>vptr</code> is a pointer type (<code>void*</code>),
+it inherits the architecture's native pointer alignment
+requirements:</p>
+<ul>
+<li>On 32-bit architectures, pointers are 4 bytes with a 4-byte
+alignment.</li>
+<li>On 64-bit architectures, pointers are 8 bytes with an 8-byte
+alignment.</li>
+</ul>
+<p>By adding a <code>vptr</code>, the minimum alignment requirement
+(<code>alignof</code>) of the entire struct automatically rises to at
+least the alignment of a pointer. Even if a struct consists solely of
+1-byte <code>char</code> members, adding a single virtual function
+forces the entire struct to align to an 8-byte boundary on 64-bit
+systems.</p>
+<h3 id="offset-placement-in-single-inheritance">Offset Placement in
+Single Inheritance</h3>
+<p>In modern ABIs, such as the Itanium C++ ABI (used by GCC and Clang)
+and the Microsoft Visual C++ (MSVC) ABI, the compiler typically
+positions the primary <code>vptr</code> at offset <code>0</code> of the
+object layout.</p>
+<p>Placing the <code>vptr</code> at offset <code>0</code> provides
+optimal dynamic dispatch performance, as the program does not need to
+compute an offset arithmetic operation to locate the vtable. However,
+this immediate 8-byte occupancy directly influences the placement of
+subsequent non-static data members:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> NonVirtual <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int32_t</span> a<span class="op">;</span> <span class="co">// Offset 0, Size 4</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int32_t</span> b<span class="op">;</span> <span class="co">// Offset 4, Size 4</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span> <span class="co">// Total Size: 8 bytes, Alignment: 4</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Virtual <span class="op">{</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> func<span class="op">();</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int32_t</span> a<span class="op">;</span> <span class="co">// Offset 8, Size 4</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int32_t</span> b<span class="op">;</span> <span class="co">// Offset 12, Size 4</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="op">};</span> <span class="co">// Total Size: 16 bytes, Alignment: 8</span></span></code></pre></div>
+<p>In the <code>Virtual</code> example above, the <code>vptr</code>
+occupies offsets <code>0</code> through <code>7</code>. The member
+<code>a</code> begins at offset <code>8</code>. Because <code>b</code>
+requires 4-byte alignment, it fits naturally at offset <code>12</code>,
+resulting in a total object size of 16 bytes with zero internal
+padding.</p>
+<h3 id="impact-of-member-ordering-and-padding-holes">Impact of Member
+Ordering and Padding Holes</h3>
+<p>When smaller data types follow the <code>vptr</code> ahead of types
+with stricter alignment requirements, the <code>vptr</code> offset can
+introduce significant padding.</p>
+<p>Consider this structural ordering:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Suboptimal <span class="op">{</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> func<span class="op">();</span> <span class="co">// Offset 0,  Size 8</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> c<span class="op">;</span>              <span class="co">// Offset 8,  Size 1</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 7 bytes of padding introduced here</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> d<span class="op">;</span>            <span class="co">// Offset 16, Size 8</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span> <span class="co">// Total Size: 24 bytes, Alignment: 8</span></span></code></pre></div>
+<p>Because <code>vptr</code> occupies 8 bytes, <code>char c</code> sits
+at offset <code>8</code>. The member <code>double d</code> requires
+8-byte alignment, meaning it cannot begin at offset <code>9</code>. The
+compiler is forced to insert 7 bytes of tail padding after
+<code>c</code>.</p>
+<p>If the members are reordered or if members are placed to pack into
+the 8-byte boundary created after the <code>vptr</code>, space can be
+reclaimed:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Optimized <span class="op">{</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> func<span class="op">();</span> <span class="co">// Offset 0,  Size 8</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">double</span> d<span class="op">;</span>            <span class="co">// Offset 8,  Size 8</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">char</span> c<span class="op">;</span>              <span class="co">// Offset 16, Size 1</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">// 7 bytes of tail padding to satisfy struct alignment</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="op">};</span> <span class="co">// Total Size: 24 bytes, Alignment: 8</span></span></code></pre></div>
+<p>While the total size remains 24 bytes due to struct-level tail
+padding, up to 7 additional <code>char</code> variables could be
+inserted after <code>c</code> without increasing the struct's overall
+footprint.</p>
+<h3 id="multiple-inheritance-and-non-zero-vptr-offsets">Multiple
+Inheritance and Non-Zero Vptr Offsets</h3>
+<p>The behavior of <code>vptr</code> offsets changes significantly under
+multiple inheritance. When a class inherits from multiple base classes
+that each declare virtual functions, a single <code>vptr</code> is no
+longer sufficient.</p>
+<ol type="1">
+<li><strong>Primary Base Class:</strong> The derived class shares the
+<code>vptr</code> of its primary (first-inherited) base class at offset
+<code>0</code>.</li>
+<li><strong>Secondary Base Classes:</strong> Secondary base classes are
+positioned at subsequent offsets within the struct layout, each
+maintaining its own secondary <code>vptr</code>.</li>
+</ol>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Base1 <span class="op">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> f1<span class="op">();</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int64_t</span> x<span class="op">;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span> <span class="co">// Size 16: vptr (8) + x (8)</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Base2 <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="kw">virtual</span> <span class="dt">void</span> f2<span class="op">();</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int64_t</span> y<span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span> <span class="co">// Size 16: vptr (8) + y (8)</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Derived <span class="op">:</span> <span class="kw">public</span> Base1<span class="op">,</span> <span class="kw">public</span> Base2 <span class="op">{</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int64_t</span> z<span class="op">;</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>The memory layout of <code>Derived</code> is organized as
+follows:</p>
+<ul>
+<li><strong>Offset 0:</strong> <code>Base1</code> vptr (8 bytes)</li>
+<li><strong>Offset 8:</strong> <code>Base1::x</code> (8 bytes)</li>
+<li><strong>Offset 16:</strong> <code>Base2</code> vptr (8 bytes)</li>
+<li><strong>Offset 24:</strong> <code>Base2::y</code> (8 bytes)</li>
+<li><strong>Offset 32:</strong> <code>Derived::z</code> (8 bytes)</li>
+</ul>
+<p>The presence of the secondary <code>vptr</code> at offset
+<code>16</code> directly splits member variables, constraining how data
+members are aligned and packed across base boundaries. When upcasting a
+<code>Derived*</code> to a <code>Base2*</code>, the compiler performs
+pointer adjustment by adding <code>16</code> bytes to reference the
+subobject where <code>Base2</code>'s <code>vptr</code> resides.</p>
+<h3 id="interaction-with-pragma-pack">Interaction with
+<code>#pragma pack</code></h3>
+<p>Compilers typically respect packing pragmas
+(<code>#pragma pack(n)</code>) when laying out user-defined members, but
+the handling of the <code>vptr</code> requires caution.</p>
+<p>If <code>#pragma pack(1)</code> or <code>#pragma pack(4)</code> is
+applied to a polymorphic class on a 64-bit architecture:</p>
+<ul>
+<li>The compiler may remove the padding between the <code>vptr</code>
+and subsequent members.</li>
+<li>Depending on the ABI, the <code>vptr</code> itself might be aligned
+suboptimally, or subsequent large types may be aligned on unaligned
+boundaries relative to the <code>vptr</code>.</li>
+</ul>
+<p>Unaligned memory access can degrade runtime performance due to
+split-cache line reads or cause CPU hardware exceptions on
+strict-alignment architectures such as certain ARM configurations.
+Polymorphic classes should generally avoid <code>#pragma pack</code>
+directives to preserve native pointer alignment.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-vptr-offset-affects-c-struct-alignment-and-packing';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

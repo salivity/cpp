@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What Does std::move Do in C++ Value Semantics? - cpp</title>
+    <meta name="description" content="In C++, std::move serves as an unconditional cast that converts an expression into an rvalue reference, signaling to the compiler that the associated resource can be safely transferred rather than duplicated. This mechanism underpins move semantics by ena">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/what-does-std-move-do-in-c-value-semantics">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="What Does std::move Do in C++ Value Semantics? - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/what-does-std-move-do-in-c-value-semantics" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, std::move serves as an unconditional cast that converts an expression into an rvalue reference, signaling to the compiler that the associated resource can be safely transferred rather than duplicated. This mechanism underpins move semantics by ena" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="what-does-stdmove-do-in-c-value-semantics">What Does std::move
+Do in C++ Value Semantics?</h1>
+<p>In C++, <code>std::move</code> serves as an unconditional cast that
+converts an expression into an rvalue reference, signaling to the
+compiler that the associated resource can be safely transferred rather
+than duplicated. This mechanism underpins move semantics by enabling
+move constructors and move assignment operators to reassign ownership of
+internal heap allocations, file handles, or system buffers. Crucially,
+<code>std::move</code> performs no runtime operation, copies no bytes,
+and leaves the moved-from object in a valid but unspecified state,
+drastically reducing heap churn and improving performance across modern
+C++ applications.</p>
+<h2 id="value-semantics-and-rvalue-references">Value Semantics and
+Rvalue References</h2>
+<p>C++ relies heavily on value semantics, meaning variables behave as
+independent entities whose copies are completely distinct from their
+originals. Historically, assigning or passing a heavy object—such as a
+<code>std::vector</code> or <code>std::string</code>—by value mandated
+deep copies. This design guaranteed safety and isolation at the expense
+of performance when temporary objects were repeatedly allocated and
+destroyed.</p>
+<p>C++11 introduced rvalue references (<code>T&amp;&amp;</code>) to
+distinguish temporary, expiring expressions (prvalues and xvalues) from
+persistent, named variables (lvalues):</p>
+<ul>
+<li><strong>lvalues</strong>: Expressions pointing to a persistent
+memory location that you can address and reuse across statements.</li>
+<li><strong>rvalues</strong>: Expressions representing temporary values
+or resources that are about to expire or go out of scope.</li>
+</ul>
+<p>Because named variables are always evaluated as lvalues—even if their
+declared type is an rvalue reference—the compiler will select copy
+operations by default to prevent accidental data loss. To invoke a move
+operation on an existing named object, the programmer must explicitly
+convert it into an rvalue.</p>
+<h2 id="the-true-role-of-stdmove">The True Role of std::move</h2>
+<p>Despite its name, <code>std::move</code> does not move data, free
+memory, or execute CPU instructions at runtime. It is purely a
+compile-time cast. Under the hood, <code>std::move</code> removes
+reference qualifiers and applies a static cast to an rvalue reference
+type:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> </span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> <span class="bu">std::</span>remove_reference_t<span class="op">&amp;&amp;</span> move<span class="op">(</span>T<span class="op">&amp;&amp;</span> arg<span class="op">)</span> <span class="kw">noexcept</span> <span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="kw">static_cast</span><span class="op">&amp;&amp;&gt;(</span>arg<span class="op">);</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>By casting an lvalue to an rvalue (specifically an xvalue, or
+"expiring value"), <code>std::move</code> enables overload resolution to
+select move-aware functions:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector source <span class="op">=</span> <span class="op">{</span><span class="dv">1</span><span class="op">,</span> <span class="dv">2</span><span class="op">,</span> <span class="dv">3</span><span class="op">,</span> <span class="dv">4</span><span class="op">,</span> <span class="dv">5</span><span class="op">};</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Invokes the move constructor instead of the copy constructor</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>vector destination <span class="op">=</span> <span class="bu">std::</span>move<span class="op">(</span>source<span class="op">);</span></span></code></pre></div>
+<p>In this transaction, <code>destination</code> simply steals the
+pointer to the underlying dynamic array allocated by
+<code>source</code>, leaving <code>source</code> with a null pointer or
+empty capacity. The operation completes in constant time (<span
+class="math inline">\(O(1)\)</span>) rather than linear time (<span
+class="math inline">\(O(N)\)</span>), bypassing memory allocations.</p>
+<h2 id="state-of-the-moved-from-object">State of the Moved-From
+Object</h2>
+<p>Using <code>std::move</code> leaves the source object in a "valid but
+unspecified" state according to the ISO C++ standard:</p>
+<ol type="1">
+<li><strong>Destructible</strong>: The object's destructor must be able
+to run without causing undefined behavior (such as double frees).</li>
+<li><strong>Assignable</strong>: The object can be assigned a new value
+to reuse its storage.</li>
+<li><strong>Unspecified values</strong>: Unless explicitly guaranteed by
+the class contract (such as <code>std::unique_ptr</code> being reset to
+<code>nullptr</code>), code must not assume the internal values of the
+moved-from object persist.</li>
+</ol>
+<p>Reading from a moved-from object without reinitializing it is an
+anti-pattern that often leads to subtle bugs or logic errors.</p>
+<h2 id="common-pitfalls-and-best-practices">Common Pitfalls and Best
+Practices</h2>
+<p>To employ <code>std::move</code> effectively within value-semantic
+architectures, keep these core guidelines in mind:</p>
+<ul>
+<li><strong>Do not use <code>std::move</code> on local return
+values</strong>: Modern compilers implement Named Return Value
+Optimization (NRVO). Returning a local object via
+<code>return std::move(x);</code> inhibits copy elision and pessimizes
+code by forcing a move where zero copies or moves would otherwise
+occur.</li>
+<li><strong>Avoid <code>std::move</code> on <code>const</code>
+objects</strong>: A <code>const</code> object cast to an rvalue yields
+<code>const T&amp;&amp;</code>. Overload resolution will fail to match
+move constructors—which require non-const <code>T&amp;&amp;</code>—and
+will quietly fall back to the copy constructor.</li>
+<li><strong>Use <code>std::forward</code> for templates</strong>: In
+generic programming where types are deduced, forwarding references
+require <code>std::forward</code> to preserve the value category of the
+incoming argument rather than unconditionally moving it.</li>
+</ul></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/what-does-std-move-do-in-c-value-semantics';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

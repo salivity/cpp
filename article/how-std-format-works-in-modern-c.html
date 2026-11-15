@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>How std::format Works in Modern C++ - cpp</title>
+    <meta name="description" content="Introduced in C++20, std::format provides a fast, type-safe, and extensible alternative to legacy formatting mechanisms like printf and std::stringstream. By adopting a syntax inspired by Python&#39;s str.format, it allows developers to build formatted string">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/how-std-format-works-in-modern-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="How std::format Works in Modern C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/how-std-format-works-in-modern-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Introduced in C++20, std::format provides a fast, type-safe, and extensible alternative to legacy formatting mechanisms like printf and std::stringstream. By adopting a syntax inspired by Python&#39;s str.format, it allows developers to build formatted string" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="how-stdformat-works-in-modern-c">How std::format Works in Modern
+C++</h1>
+<p>Introduced in C++20, <code>std::format</code> provides a fast,
+type-safe, and extensible alternative to legacy formatting mechanisms
+like <code>printf</code> and <code>std::stringstream</code>. By adopting
+a syntax inspired by Python's <code>str.format</code>, it allows
+developers to build formatted strings using replacement fields enclosed
+in curly braces. This article explains the underlying mechanics of
+format strings, including positional indexing, standard format
+specifications for alignment and numbers, compile-time validation, and
+custom type formatting.</p>
+<h2 id="basic-syntax-and-replacement-fields">Basic Syntax and
+Replacement Fields</h2>
+<p>At its simplest, a format string contains ordinary text mixed with
+replacement fields denoted by <code>{}</code>. During execution,
+<code>std::format</code> replaces each field with the string
+representation of the corresponding argument passed to the function.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;format&gt;</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>string message <span class="op">=</span> <span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;Hello, </span><span class="sc">{}</span><span class="st">! You have </span><span class="sc">{}</span><span class="st"> new notifications.&quot;</span><span class="op">,</span> <span class="st">&quot;Alice&quot;</span><span class="op">,</span> <span class="dv">5</span><span class="op">);</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> message<span class="op">;</span> <span class="co">// Output: Hello, Alice! You have 5 new notifications.</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<p>Arguments are matched automatically from left to right. However,
+explicit positional indices can also be used to change the order of
+arguments or reuse them multiple times:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Positional indexing</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string repeated <span class="op">=</span> <span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;</span><span class="sc">{0}</span><span class="st"> can be </span><span class="sc">{1}</span><span class="st">, but </span><span class="sc">{0}</span><span class="st"> is always </span><span class="sc">{0}</span><span class="st">.&quot;</span><span class="op">,</span> <span class="st">&quot;Code&quot;</span><span class="op">,</span> <span class="st">&quot;complex&quot;</span><span class="op">);</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Output: Code can be complex, but Code is always Code.</span></span></code></pre></div>
+<p><em>Note: You cannot mix automatic and manual indexing within the
+same format string.</em></p>
+<h2 id="format-specifiers">Format Specifiers</h2>
+<p>A replacement field can include an optional colon (<code>:</code>)
+followed by a format specification: <code>{index:specifier}</code>. The
+standard specification grammar supports alignment, width, precision, and
+type presentation.</p>
+<p>The general syntax follows this pattern:
+<code>[[fill]align][sign]['#']['0'][width]['.' precision]['L'][type]</code></p>
+<h3 id="alignment-and-width">Alignment and Width</h3>
+<p>You can control field width and text alignment using
+<code>&lt;</code>, <code>&gt;</code>, or <code>^</code>:</p>
+<ul>
+<li><code>&lt;</code>: Left-aligns the result (default for
+non-numbers).</li>
+<li><code>&gt;</code>: Right-aligns the result (default for
+numbers).</li>
+<li><code>^</code>: Centers the result.</li>
+</ul>
+<p>An optional fill character can precede the alignment operator:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;</span><span class="sc">{:&lt;10}</span><span class="st">&quot;</span><span class="op">,</span> <span class="st">&quot;left&quot;</span><span class="op">);</span>      <span class="co">// &quot;left      &quot;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;</span><span class="sc">{:&gt;10}</span><span class="st">&quot;</span><span class="op">,</span> <span class="st">&quot;right&quot;</span><span class="op">);</span>     <span class="co">// &quot;     right&quot;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;</span><span class="sc">{:^10}</span><span class="st">&quot;</span><span class="op">,</span> <span class="st">&quot;center&quot;</span><span class="op">);</span>    <span class="co">// &quot;  center  &quot;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;</span><span class="sc">{:*^10}</span><span class="st">&quot;</span><span class="op">,</span> <span class="st">&quot;fill&quot;</span><span class="op">);</span>     <span class="co">// &quot;***fill***&quot;</span></span></code></pre></div>
+<h3 id="numeric-formatting-and-signs">Numeric Formatting and Signs</h3>
+<p>Numbers can be formatted in different radices and notation
+styles:</p>
+<ul>
+<li><strong>Integers</strong>: <code>d</code> (decimal),
+<code>x</code>/<code>X</code> (hexadecimal), <code>o</code> (octal),
+<code>b</code>/<code>B</code> (binary).</li>
+<li><strong>Alternative Form (<code>#</code>)</strong>: Adds prefixes
+like <code>0x</code>, <code>0b</code>, or forces decimal points.</li>
+<li><strong>Signs</strong>: <code>+</code> (always display sign),
+<code>-</code> (display only for negative, default), <code></code>
+(space for positive).</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;</span><span class="sc">{:#x}</span><span class="st">&quot;</span><span class="op">,</span> <span class="dv">255</span><span class="op">);</span>          <span class="co">// &quot;0xff&quot;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;</span><span class="sc">{:#010b}</span><span class="st">&quot;</span><span class="op">,</span> <span class="dv">5</span><span class="op">);</span>         <span class="co">// &quot;0b00000101&quot; (padded with zeros)</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;</span><span class="sc">{:+d}</span><span class="st">&quot;</span><span class="op">,</span> <span class="dv">42</span><span class="op">);</span>           <span class="co">// &quot;+42&quot;</span></span></code></pre></div>
+<h3 id="floating-point-precision">Floating-Point Precision</h3>
+<p>Floating-point presentation types include
+<code>f</code>/<code>F</code> (fixed-point),
+<code>e</code>/<code>E</code> (scientific),
+<code>g</code>/<code>G</code> (general), and
+<code>a</code>/<code>A</code> (hex-float). Precision is specified with a
+period (<code>.</code>) followed by an integer:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">double</span> pi <span class="op">=</span> <span class="fl">3.1415926535</span><span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;</span><span class="sc">{:.2f}</span><span class="st">&quot;</span><span class="op">,</span> pi<span class="op">);</span>          <span class="co">// &quot;3.14&quot;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;</span><span class="sc">{:10.4f}</span><span class="st">&quot;</span><span class="op">,</span> pi<span class="op">);</span>        <span class="co">// &quot;    3.1416&quot;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;</span><span class="sc">{:.2e}</span><span class="st">&quot;</span><span class="op">,</span> pi<span class="op">);</span>          <span class="co">// &quot;3.14e+00&quot;</span></span></code></pre></div>
+<h2 id="compile-time-format-string-checking">Compile-Time Format String
+Checking</h2>
+<p>Unlike C's <code>printf</code>, which performs type checking via
+compiler warnings that can be bypassed or missed,
+<code>std::format</code> verifies format strings at compile time using
+<code>consteval</code> constructors.</p>
+<p>If a format specifier does not match the provided argument type (for
+example, attempting to format a string with <code>{:d}</code>), the code
+fails to compile:</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">// This causes a compilation error:</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co">// std::string bad = std::format(&quot;{:d}&quot;, &quot;not a number&quot;);</span></span></code></pre></div>
+<p>For dynamic format strings constructed at runtime,
+<code>std::vformat</code> or <code>std::runtime_format</code>
+(introduced in C++26) must be used explicitly.</p>
+<h2 id="formatting-user-defined-types">Formatting User-Defined
+Types</h2>
+<p>The format string engine is extensible. To support custom classes or
+structs, you specialize the <code>std::formatter</code> template for
+your type:</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Point <span class="op">{</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> x<span class="op">;</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">int</span> y<span class="op">;</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span> <span class="op">&lt;&gt;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> <span class="bu">std::</span>formatter<span class="op">&lt;</span>Point<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="kw">constexpr</span> <span class="kw">auto</span> parse<span class="op">(</span><span class="bu">std::</span>format_parse_context<span class="op">&amp;</span> ctx<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> ctx<span class="op">.</span>begin<span class="op">();</span> <span class="co">// Simple parser: accepts default &quot;{}&quot;</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">auto</span> format<span class="op">(</span><span class="at">const</span> Point<span class="op">&amp;</span> p<span class="op">,</span> <span class="bu">std::</span>format_context<span class="op">&amp;</span> ctx<span class="op">)</span> <span class="at">const</span> <span class="op">{</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">std::</span>format_to<span class="op">(</span>ctx<span class="op">.</span>out<span class="op">(),</span> <span class="st">&quot;(</span><span class="sc">{}</span><span class="st">, </span><span class="sc">{}</span><span class="st">)&quot;</span><span class="op">,</span> p<span class="op">.</span>x<span class="op">,</span> p<span class="op">.</span>y<span class="op">);</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a><span class="co">// Usage:</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>Point pt<span class="op">{</span><span class="dv">10</span><span class="op">,</span> <span class="dv">20</span><span class="op">};</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>string result <span class="op">=</span> <span class="bu">std::</span>format<span class="op">(</span><span class="st">&quot;Point coordinates: </span><span class="sc">{}</span><span class="st">&quot;</span><span class="op">,</span> pt<span class="op">);</span> <span class="co">// &quot;Point coordinates: (10, 20)&quot;</span></span></code></pre></div>
+<p>By customizing <code>parse()</code> and <code>format()</code>, custom
+types can process their own specifiers, integrating seamlessly into
+standard format strings.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/how-std-format-works-in-modern-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

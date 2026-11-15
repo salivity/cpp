@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++ Header Units: Bridging Headers and Modules - cpp</title>
+    <meta name="description" content="Header units in modern C++ provide a standardized migration path from legacy preprocessor #include directives to modular compilation architectures. Introduced in C++20, they allow developers to import traditional C++ header files as if they were modules,">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-header-units-bridging-headers-and-modules">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++ Header Units: Bridging Headers and Modules - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-header-units-bridging-headers-and-modules" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Header units in modern C++ provide a standardized migration path from legacy preprocessor #include directives to modular compilation architectures. Introduced in C++20, they allow developers to import traditional C++ header files as if they were modules," />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c-header-units-bridging-headers-and-modules">C++ Header Units:
+Bridging Headers and Modules</h1>
+<p>Header units in modern C++ provide a standardized migration path from
+legacy preprocessor <code>#include</code> directives to modular
+compilation architectures. Introduced in C++20, they allow developers to
+import traditional C++ header files as if they were modules, delivering
+benefits such as macro isolation, faster build times via precompilation,
+and reduced translation-unit pollution. This article explains how header
+units function, their syntactic differences from standard modules, how
+they handle macros, and their role in transitioning existing codebases
+to modern C++ module workflows.</p>
+<h2 id="the-architectural-divide-include-vs-import">The Architectural
+Divide: <code>#include</code> vs. <code>import</code></h2>
+<p>Traditional C++ compilation relies on <code>#include</code>, a purely
+textual preprocessor mechanism. When a file includes a header, the
+preprocessor copies the entire contents of that header into the
+translation unit. This approach suffers from two major drawbacks:</p>
+<ol type="1">
+<li><strong>Compilation Overhead:</strong> The same header files are
+parsed repeatedly across dozens or hundreds of translation units.</li>
+<li><strong>Leaky Encapsulation:</strong> Macros and declarations in a
+header pollute downstream code, and pre-existing macros can
+inadvertently alter the behavior of subsequent headers.</li>
+</ol>
+<p>C++20 modules resolve these issues by compiling code into distinct
+Binary Module Interfaces (BMIs) and consuming them via
+<code>import module_name;</code>. However, rewriting large legacy
+codebases and third-party libraries entirely into native C++20 modules
+is impractical for most organizations.</p>
+<h2 id="what-are-header-units">What Are Header Units?</h2>
+<p>Header units serve as a bridge between textual inclusion and
+module-based imports. A header unit is a separate, compiled translation
+unit synthesized on-demand from an existing header file. Instead of
+textually including a header, you import it using module syntax:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Traditional include</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;vector&gt;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&quot;my_header.h&quot;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Header unit import</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="op">&lt;</span>vector<span class="op">&gt;;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="st">&quot;my_header.h&quot;</span><span class="op">;</span></span></code></pre></div>
+<p>When the compiler encounters <code>import &lt;vector&gt;;</code>, it
+does not perform textual expansion. Instead, it reads an
+already-compiled binary representation of <code>&lt;vector&gt;</code>,
+significantly accelerating compile times.</p>
+<h2 id="how-header-units-bridge-the-gap">How Header Units Bridge the
+Gap</h2>
+<h3 id="1-macro-hygiene-and-isolation">1. Macro Hygiene and
+Isolation</h3>
+<p>Header units strike a careful balance between the isolation of
+modules and the realities of legacy header designs:</p>
+<ul>
+<li><strong>Inward Isolation:</strong> Macros defined in the importing
+translation unit prior to the <code>import</code> statement do not
+affect the internal code of the header unit. The header unit compiles
+independently.</li>
+<li><strong>Outward Export:</strong> Unlike standard named modules
+(which hide all internal macros), header units export object-like and
+function-like macros defined within them. This ensures that legacy
+libraries relying on API-level configuration macros (such as feature
+flags or version macros) continue to work without code
+modification.</li>
+</ul>
+<h3 id="2-binary-module-interface-generation">2. Binary Module Interface
+Generation</h3>
+<p>When a header unit is declared, modern build tools compile the header
+file into a Binary Module Interface (BMI), similar to a standard module.
+Subsequent translation units importing the same header unit reuse the
+generated BMI. This preserves the performance gains of modules while
+retaining the file structure of legacy headers.</p>
+<h3 id="3-preprocessor-translation-include-translation">3. Preprocessor
+Translation (<code>Include Translation</code>)</h3>
+<p>Compilers that implement C++20 module features can be configured to
+automatically translate <code>#include</code> directives into header
+unit imports when a matching header unit is detected:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">// If &lt;iostream&gt; is built as a header unit, the compiler can treat:</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">// Internally as:</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">import</span> <span class="op">&lt;</span>iostream<span class="op">&gt;;</span></span></code></pre></div>
+<p>This feature allows teams to gain the performance advantages of
+header units without modifying a single line of legacy source code.</p>
+<h2 id="implementation-requirements-and-constraints">Implementation
+Requirements and Constraints</h2>
+<p>Not every header file can become a header unit without
+verification:</p>
+<ul>
+<li><strong>Self-Containment:</strong> A header unit must be capable of
+compiling on its own. Headers that depend on other headers being
+included beforehand without explicitly importing or including them will
+fail.</li>
+<li><strong>Macro Configuration Dependencies:</strong> If a header
+relies on specific preprocessor directives set by the consumer prior to
+inclusion (such as defining <code>#define USE_FEATURE_X</code> before
+<code>#include "library.h"</code>), it cannot be used as a header unit
+in that configuration, as the imported unit compiles in isolation.</li>
+<li><strong>Toolchain Alignment:</strong> Build systems such as CMake,
+MSVC, Clang, and GCC require explicit dependency tracking to construct
+the directed acyclic graph (DAG) of header unit dependencies before
+building downstream consumers.</li>
+</ul>
+<h2 id="summary">Summary</h2>
+<p>Header units provide an incremental adoption model for modern C++. By
+treating traditional headers as importable binary artifacts rather than
+raw text, they enable teams to capture the compile-time advantages and
+hygiene of modules while preserving compatibility with vast ecosystems
+of pre-existing C++ code.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-header-units-bridging-headers-and-modules';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

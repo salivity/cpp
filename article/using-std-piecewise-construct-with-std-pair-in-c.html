@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Using std::piecewise_construct with std::pair in C++ - cpp</title>
+    <meta name="description" content="In C++, constructing complex objects directly inside a std::pair without incurring the overhead of temporary copies or moves can be difficult when elements require multiple constructor arguments. This article explains how the tag type std::piecewiseconstr">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/using-std-piecewise-construct-with-std-pair-in-c">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Using std::piecewise_construct with std::pair in C++ - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/using-std-piecewise-construct-with-std-pair-in-c" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="In C++, constructing complex objects directly inside a std::pair without incurring the overhead of temporary copies or moves can be difficult when elements require multiple constructor arguments. This article explains how the tag type std::piecewiseconstr" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="using-stdpiecewise_construct-with-stdpair-in-c">Using
+std::piecewise_construct with std::pair in C++</h1>
+<p>In C++, constructing complex objects directly inside a
+<code>std::pair</code> without incurring the overhead of temporary
+copies or moves can be difficult when elements require multiple
+constructor arguments. This article explains how the tag type
+<code>std::piecewise_construct</code> enables in-place member
+construction by instructing <code>std::pair</code> to unpack
+<code>std::tuple</code> arguments and forward them directly to the
+underlying constructors.</p>
+<h3 id="the-problem-with-standard-pair-construction">The Problem with
+Standard Pair Construction</h3>
+<p>When initializing a <code>std::pair&lt;T1, T2&gt;</code>, typical
+constructors expect values or references for <code>T1</code> and
+<code>T2</code>. If <code>T1</code> or <code>T2</code> represents a
+class that takes multiple arguments in its constructor—or is completely
+non-copyable and non-movable—passing pre-constructed objects causes
+unnecessary moves, copies, or compile-time failures.</p>
+<p>For example, consider a type that accepts two arguments:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> Employee <span class="op">{</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    Employee<span class="op">(</span><span class="dt">int</span> id<span class="op">,</span> <span class="bu">std::</span>string name<span class="op">);</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    Employee<span class="op">(</span><span class="at">const</span> Employee<span class="op">&amp;)</span> <span class="op">=</span> <span class="kw">delete</span><span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    Employee<span class="op">(</span>Employee<span class="op">&amp;&amp;)</span> <span class="op">=</span> <span class="kw">delete</span><span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div>
+<p>A normal constructor call such as
+<code>std::pair&lt;Employee, int&gt;(Employee(1, "Alice"), 100)</code>
+fails because <code>Employee</code> cannot be moved or copied into the
+pair. Passing a tuple directly, such as
+<code>std::pair&lt;Employee, int&gt;(std::make_tuple(1, "Alice"), 100)</code>,
+would also fail because the pair attempts to match the entire tuple to a
+single-argument constructor of <code>Employee</code>.</p>
+<h3 id="how-stdpiecewise_construct-resolves-the-ambiguity">How
+std::piecewise_construct Resolves the Ambiguity</h3>
+<p>To resolve this ambiguity, C++11 introduced
+<code>std::piecewise_construct_t</code> and its tag instance
+<code>std::piecewise_construct</code>. This tag acts as an overload
+selector that triggers a specialized constructor of
+<code>std::pair</code>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">template</span><span class="op">&lt;</span><span class="kw">class</span><span class="op">...</span> Args1<span class="op">,</span> <span class="kw">class</span><span class="op">...</span> Args2<span class="op">&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="kw">constexpr</span> pair<span class="op">(</span><span class="bu">std::</span>piecewise_construct_t<span class="op">,</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>               <span class="bu">std::</span>tuple<span class="op">&lt;</span>Args1<span class="op">...&gt;</span> first_args<span class="op">,</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>               <span class="bu">std::</span>tuple<span class="op">&lt;</span>Args2<span class="op">...&gt;</span> second_args<span class="op">);</span></span></code></pre></div>
+<p>When <code>std::piecewise_construct</code> is passed as the first
+argument, <code>std::pair</code> recognizes that the subsequent two
+arguments must be tuples containing the initialization arguments for
+<code>first</code> and <code>second</code>, rather than the values of
+<code>first</code> and <code>second</code> themselves.</p>
+<h3 id="the-internal-unpacking-mechanism">The Internal Unpacking
+Mechanism</h3>
+<p>Internally, <code>std::pair</code> uses compile-time integer
+sequences (<code>std::index_sequence</code>) to expand the elements
+contained within each tuple. Rather than passing the tuple itself, the
+constructor executes an expansion equivalent to:</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>first<span class="op">(</span><span class="bu">std::</span>get<span class="op">&lt;</span>I<span class="op">&gt;(</span><span class="bu">std::</span>move<span class="op">(</span>first_args<span class="op">))...)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>second<span class="op">(</span><span class="bu">std::</span>get<span class="op">&lt;</span>J<span class="op">&gt;(</span><span class="bu">std::</span>move<span class="op">(</span>second_args<span class="op">))...)</span></span></code></pre></div>
+<p>By expanding the tuples directly within the member initializer list
+of the pair, <code>T1</code> and <code>T2</code> are constructed
+directly in the allocated memory of the pair. This achieves true
+in-place construction with arbitrary constructor parameter lists.</p>
+<h3 id="implementation-example">Implementation Example</h3>
+<p>The most efficient way to supply arguments is via
+<code>std::forward_as_tuple</code>, which creates a tuple of references
+without copying or moving the input variables:</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;iostream&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;utility&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;tuple&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="pp">#include </span><span class="im">&lt;string&gt;</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> User <span class="op">{</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    User<span class="op">(</span><span class="dt">int</span> id<span class="op">,</span> <span class="at">const</span> <span class="bu">std::</span>string<span class="op">&amp;</span> name<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>cout <span class="op">&lt;&lt;</span> <span class="st">&quot;User constructed: &quot;</span> <span class="op">&lt;&lt;</span> id <span class="op">&lt;&lt;</span> <span class="st">&quot;, &quot;</span> <span class="op">&lt;&lt;</span> name <span class="op">&lt;&lt;</span> <span class="ch">&#39;</span><span class="sc">\n</span><span class="ch">&#39;</span><span class="op">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    User<span class="op">(</span><span class="at">const</span> User<span class="op">&amp;)</span> <span class="op">=</span> <span class="kw">delete</span><span class="op">;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    User<span class="op">(</span>User<span class="op">&amp;&amp;)</span> <span class="op">=</span> <span class="kw">delete</span><span class="op">;</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> main<span class="op">()</span> <span class="op">{</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>pair<span class="op">&lt;</span>User<span class="op">,</span> <span class="bu">std::</span>string<span class="op">&gt;</span> entry<span class="op">(</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>piecewise_construct<span class="op">,</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>forward_as_tuple<span class="op">(</span><span class="dv">42</span><span class="op">,</span> <span class="st">&quot;Bob&quot;</span><span class="op">),</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">std::</span>forward_as_tuple<span class="op">(</span><span class="st">&quot;Active&quot;</span><span class="op">)</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="op">);</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div>
+<h3 id="application-in-associative-containers">Application in
+Associative Containers</h3>
+<p><code>std::piecewise_construct</code> is widely used with associative
+containers like <code>std::map</code> and
+<code>std::unordered_map</code>. Because these containers store data as
+<code>std::pair&lt;const Key, Value&gt;</code>, calling
+<code>map.emplace()</code> requires
+<code>std::piecewise_construct</code> to forward multi-argument
+parameter packs to the stored value without creating temporary
+instances:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="bu">std::</span>map<span class="op">&lt;</span><span class="dt">int</span><span class="op">,</span> User<span class="op">&gt;</span> users<span class="op">;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>users<span class="op">.</span>emplace<span class="op">(</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>piecewise_construct<span class="op">,</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>forward_as_tuple<span class="op">(</span><span class="dv">101</span><span class="op">),</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">std::</span>forward_as_tuple<span class="op">(</span><span class="dv">101</span><span class="op">,</span> <span class="st">&quot;Charlie&quot;</span><span class="op">)</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="op">);</span></span></code></pre></div>
+<p>By relying on <code>std::piecewise_construct</code>, C++ code avoids
+unnecessary temporaries, supports immovable types within pairs, and
+guarantees optimal placement construction.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/using-std-piecewise-construct-with-std-pair-in-c';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

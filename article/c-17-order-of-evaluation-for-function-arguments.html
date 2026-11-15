@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C++17 Order of Evaluation for Function Arguments - cpp</title>
+    <meta name="description" content="Prior to C++17, the C++ standard left the order of evaluation for function arguments largely unspecified and permitted compilers to interleave sub-expressions, often creating subtle bugs and memory leaks. The adoption of proposal P0145R3 in C++17 substant">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/c-17-order-of-evaluation-for-function-arguments">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="C++17 Order of Evaluation for Function Arguments - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/c-17-order-of-evaluation-for-function-arguments" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Prior to C++17, the C++ standard left the order of evaluation for function arguments largely unspecified and permitted compilers to interleave sub-expressions, often creating subtle bugs and memory leaks. The adoption of proposal P0145R3 in C++17 substant" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="c17-order-of-evaluation-for-function-arguments">C++17 Order of
+Evaluation for Function Arguments</h1>
+<p>Prior to C++17, the C++ standard left the order of evaluation for
+function arguments largely unspecified and permitted compilers to
+interleave sub-expressions, often creating subtle bugs and memory leaks.
+The adoption of proposal P0145R3 in C++17 substantially tightened these
+rules. While the standard still permits compilers to choose which
+argument to evaluate first, it explicitly forbids interleaving the
+evaluation of different arguments and strictly sequences the function
+itself before its arguments.</p>
+<h3 id="the-problem-in-pre-c17">The Problem in Pre-C++17</h3>
+<p>Before C++17, the evaluation order of function arguments was
+unspecified, and the operations between arguments were unsequenced. This
+meant compilers had the freedom to interleave the execution of
+operations from different argument expressions.</p>
+<p>A classic example involved potential memory leaks during dynamic
+allocation:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> process<span class="op">(</span><span class="bu">std::</span>unique_ptr<span class="op">&lt;</span>Widget<span class="op">&gt;</span> w<span class="op">,</span> <span class="dt">int</span> priority<span class="op">);</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">// Pre-C++17 risk</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>process<span class="op">(</span><span class="bu">std::</span>unique_ptr<span class="op">&lt;</span>Widget<span class="op">&gt;(</span><span class="kw">new</span> Widget<span class="op">()),</span> get_priority<span class="op">());</span></span></code></pre></div>
+<p>In pre-C++17 compilers, the code generation could proceed in the
+following order:</p>
+<ol type="1">
+<li>Allocate memory and call the constructor for
+<code>new Widget()</code>.</li>
+<li>Call <code>get_priority()</code>.</li>
+<li>Construct the <code>std::unique_ptr&lt;Widget&gt;</code>.</li>
+</ol>
+<p>If <code>get_priority()</code> threw an exception at step 2, the
+<code>Widget</code> allocated in step 1 was never encapsulated inside
+the <code>unique_ptr</code>, resulting in an unrecoverable memory
+leak.</p>
+<h3 id="how-c17-clarified-function-calls">How C++17 Clarified Function
+Calls</h3>
+<p>C++17 resolved this ambiguity by establishing two critical guarantees
+for function calls of the form <code>f(a, b, c)</code>:</p>
+<ol type="1">
+<li><strong>The function designates first</strong>: The expression
+designating the function to be called (the postfix expression
+<code>f</code>) is sequenced before every argument expression and
+default argument.</li>
+<li><strong>No interleaving between arguments</strong>: The evaluations
+of individual argument expressions are <strong>indeterminately
+sequenced</strong> with respect to one another.</li>
+</ol>
+<p>"Indeterminately sequenced" means that while the compiler may still
+decide to evaluate <code>b</code> before <code>a</code>, or
+<code>a</code> before <code>b</code>, it must completely finish
+evaluating one entire argument (including all side effects and
+sub-expressions) before it begins evaluating another.</p>
+<p>In the previous <code>process</code> example, the compiler must fully
+complete the construction of
+<code>std::unique_ptr&lt;Widget&gt;(new Widget())</code> before starting
+<code>get_priority()</code>, or vice versa. The memory leak
+vulnerability due to interleaving was completely eliminated.</p>
+<h3 id="what-c17-did-not-change">What C++17 Did Not Change</h3>
+<p>It is a common misconception that C++17 mandated a left-to-right
+evaluation order for function arguments. The C++ committee deliberately
+rejected strict left-to-right ordering for comma-separated function
+parameters to preserve compiler optimizations related to calling
+conventions and register usage.</p>
+<p>Therefore, code that relies on the side effects of one argument
+affecting another remains unspecified:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode cpp"><code class="sourceCode cpp"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="dt">void</span> print_sum<span class="op">(</span><span class="dt">int</span> a<span class="op">,</span> <span class="dt">int</span> b<span class="op">);</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="dt">int</span> n <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>print_sum<span class="op">(++</span>n<span class="op">,</span> <span class="op">++</span>n<span class="op">);</span> <span class="co">// Unspecified behavior: could be (1, 2) or (2, 1)</span></span></code></pre></div>
+<p>Although the two <code>++n</code> operations will not interleave,
+which one executes first remains up to the compiler.</p>
+<h3 id="operator-overloads-vs-function-syntax">Operator Overloads vs.
+Function Syntax</h3>
+<p>C++17 did enforce strict left-to-right evaluation for certain
+operators, such as member access (<code>.</code>), pointer-to-member
+(<code>-&gt;*</code>), shift operators (<code>&lt;&lt;</code>,
+<code>&gt;&gt;</code>), and assignment operators (evaluated
+right-to-left).</p>
+<p>However, the standard differentiates between operator syntax and
+explicit function call syntax. If an overloaded operator is invoked
+using operator syntax (e.g., <code>a &lt;&lt; b</code>), the
+left-to-right guarantees of that operator apply. If invoked as a regular
+function call (e.g., <code>operator&lt;&lt;(a, b)</code>), the rules for
+function arguments apply instead, meaning <code>a</code> and
+<code>b</code> are indeterminately sequenced.</p></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/c-17-order-of-evaluation-for-function-arguments';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>

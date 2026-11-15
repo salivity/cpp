@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digraph Syntax in C++ and Restricted Character Sets - cpp</title>
+    <meta name="description" content="Digraph syntax in C++ was introduced to ensure source code portability across environments with restricted character sets, specifically systems using non-ASCII or national variants of ISO/IEC 646. Early terminal hardware and international keyboards freque">
+    <link rel="canonical" href="https://salivity.github.io/cpp/article/digraph-syntax-in-c-and-restricted-character-sets">
+    <link rel="search" type="application/opensearchdescription+xml" title="cpp" href="/cpp/opensearch.xml">
+    <link rel="icon" href="/cpp/favicon.ico">
+    <link rel="stylesheet" href="/cpp/css/style.css">
+    <link media="print" rel="stylesheet" href="/cpp/css/print.css">
+    <script src="/cpp/js/fuse.min.js"></script>
+    <script src="/cpp/js/script.js"></script>
+    <script id="MathJax-script" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/4.1.3/tex-chtml.min.js" defer></script>
+    <script src="/monetize/monetize.js"></script>
+    <script src="/social/social.js"></script>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Digraph Syntax in C++ and Restricted Character Sets - cpp" />
+    <meta property="og:url" content="https://salivity.github.io/cpp/article/digraph-syntax-in-c-and-restricted-character-sets" />
+    <meta property="og:image" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:secure_url" content="https://salivity.github.io/cpp/images/open-graph/default.webp" />
+    <meta property="og:image:width" content="1120" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:description" content="Digraph syntax in C++ was introduced to ensure source code portability across environments with restricted character sets, specifically systems using non-ASCII or national variants of ISO/IEC 646. Early terminal hardware and international keyboards freque" />
+    <link rel="manifest" href="/cpp/pwa/manifest.json" />
+</head>
+<body>
+    <header>
+        <a href="/cpp/" aria-label="Go To Home Page" title="Go To Home Page" id="logo">
+            <span>salivity.github.io/</span><span>cpp</span>
+        </a>
+        <nav>
+            <ul class="header-links">
+                <li><a href="/cpp/search" title="Search" aria-label="Go To Search Page"><svg class="svg-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14"></path></svg></a></li>
+                <li><a id="theme-toggle" title="Theme" href="javascript:void(0);" aria-label="Toggle Website Theme"></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main>
+        
+    <div class="article-layout">
+        <aside id="profile-sidebar" class="profile-column" aria-label="Author Profile"></aside>
+        <div class="article-main-column">
+            <article><h1 id="digraph-syntax-in-c-and-restricted-character-sets">Digraph
+Syntax in C++ and Restricted Character Sets</h1>
+<p>Digraph syntax in C++ was introduced to ensure source code
+portability across environments with restricted character sets,
+specifically systems using non-ASCII or national variants of ISO/IEC
+646. Early terminal hardware and international keyboards frequently
+omitted fundamental punctuation characters such as curly braces, square
+brackets, and the hash symbol. Digraphs provided a standardized
+two-character lexical alternative, allowing developers to write fully
+compliant C++ code without relying on complex platform-specific
+workarounds.</p>
+<h2 id="historical-background-and-the-iso-646-problem">Historical
+Background and the ISO 646 Problem</h2>
+<p>In the early decades of computing, the 7-bit ASCII standard was
+adopted internationally as ISO/IEC 646. However, ISO 646 designated
+twelve code points as "national variants" to accommodate local letters,
+currency symbols, and accents. In countries such as Germany, France, and
+Sweden, characters vital to C and C++ syntax—such as <code>[</code>,
+<code>]</code>, <code>{</code>, <code>}</code>, and <code>#</code>—were
+frequently replaced on local keyboards and displays by characters like
+<code>ä</code>, <code>é</code>, or <code>£</code>.</p>
+<p>Because C and C++ rely heavily on these specific symbols for block
+scoping, array indexing, and preprocessor directives, developers on
+international terminals could not comfortably enter standard source
+code. Although C originally addressed this with trigraphs
+(three-character sequences beginning with <code>??</code>), trigraphs
+were processed prior to lexical analysis, creating unintuitive behavior
+and bugs in string literals and comments.</p>
+<h2 id="digraph-implementation-in-c">Digraph Implementation in C++</h2>
+<p>To resolve the shortcomings of trigraphs, digraphs were incorporated
+into the C++ standard via the ISO/IEC 9899:1990/Amendment 1:1995
+standard for C and included in the first C++ standard (ISO/IEC
+14882:1998). Unlike trigraphs, digraphs are recognized during the
+lexical analysis phase as independent tokens, meaning they represent
+actual syntax elements rather than literal character replacements.</p>
+<p>C++ recognizes six standard digraph tokens:</p>
+<ul>
+<li><code>&lt;:</code> represents the opening bracket
+<code>[</code></li>
+<li><code>:&gt;</code> represents the closing bracket
+<code>]</code></li>
+<li><code>&lt;%</code> represents the opening brace <code>{</code></li>
+<li><code>%&gt;</code> represents the closing brace <code>}</code></li>
+<li><code>%:</code> represents the preprocessor directive symbol
+<code>#</code></li>
+<li><code>%:%:</code> represents the preprocessor concatenation operator
+<code>##</code></li>
+</ul>
+<p>When the lexer encounters <code>&lt;%</code>, it treats it precisely
+as <code>{</code>. Because this occurs at the token level, digraphs do
+not alter the contents of string literals or comments, avoiding the
+silent code corruption often caused by trigraphs.</p>
+<p>In addition to punctuation digraphs, C++ natively integrated
+alternative operator representations (such as <code>and</code>,
+<code>or</code>, <code>not</code>, <code>bitand</code>, and
+<code>xor</code>) as primary keywords, whereas in C they required
+inclusion of the <code>&lt;iso646.h&gt;</code> header.</p>
+<h2 id="modern-relevance-and-deprecation-differences">Modern Relevance
+and Deprecation Differences</h2>
+<p>With the universal adoption of standard keyboards, Unicode, and UTF-8
+encoding, the practical need for digraphs has largely disappeared.
+However, their role in language evolution remains significant:</p>
+<ol type="1">
+<li><strong>Trigraph Removal vs. Digraph Retention</strong>: While
+trigraphs were officially removed from C++ in C++17 due to their
+disruptive preprocessor behavior, digraphs remain a fully valid part of
+the C++ standard.</li>
+<li><strong>Backward Compatibility</strong>: Digraphs pose minimal risk
+to modern code because they only trigger when explicit sequences match
+token rules. Preserving them ensures that legacy codebases authored on
+older systems compile without modification on modern compilers.</li>
+<li><strong>Lexical Edge Cases</strong>: Digraphs still occasionally
+influence modern parser design, specifically in template parsing. For
+instance, the sequence <code>&lt;::</code> can be interpreted either as
+<code>&lt;</code> followed by global scope <code>::</code>, or as the
+digraph <code>&lt;:</code> followed by <code>:</code>. Modern C++
+standards include disambiguation rules specifying that
+<code>&lt;::</code> is not treated as a digraph unless followed by
+specific characters.</li>
+</ol></article>
+        <div id='disqus_thread'></div>
+        <script>
+
+            var disqus_config = function () {
+                this.page.url =         'https://salivity.github.io/cpp/article/digraph-syntax-in-c-and-restricted-character-sets';  
+                //this.page.identifier =  PAGE_IDENTIFIER; 
+            };
+            
+            (function() {
+                var d = document, s = d.createElement('script');
+                s.src = 'https://salivity-github-io.disqus.com/embed.js';
+                s.setAttribute('data-timestamp', +new Date());
+                (d.head || d.body).appendChild(s);
+            })();
+        </script>
+    
+        </div>
+    </div>
+    
+    </main>
+    <footer>
+        <nav>
+            <ul class="social-links">
+            </ul>
+        </nav>
+        <nav>
+            <ul class="footer-links">
+                <li><a href="https://smvc.dev/contact">Contact</a></li>
+                <li><a href="/cpp/privacy-policy">Privacy Policy</a></li>
+                <li><a href="/cpp/terms-and-conditions">Terms and Conditions</a></li>
+            </ul>
+        </nav>
+        <div class="copyright">
+            Copyright &copy; <span id="current-year"></span>
+        </div>
+    </footer>
+</body>
+</html>
